@@ -873,7 +873,7 @@ const InteractivePiano: React.FC = () => {
                     {keys.filter(k => k.type === 'white').map((key) => (
                       <div key={key.note} className="flex justify-between">
                         <span className="text-white/70">{key.note}</span>
-                        <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">
+                        <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">
                           {key.keyboardKey?.toUpperCase()}
                         </kbd>
                       </div>
