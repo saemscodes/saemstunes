@@ -886,7 +886,7 @@ const InteractivePiano: React.FC = () => {
                     {keys.filter(k => k.type === 'black').map((key) => (
                       <div key={key.note} className="flex justify-between">
                         <span className="text-white/70">{key.note}</span>
-                        <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">
+                        <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">
                           {key.keyboardKey?.toUpperCase()}
                         </kbd>
                       </div>
@@ -900,19 +900,19 @@ const InteractivePiano: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between">
                     <span className="text-white/70">Play Demo</span>
-                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">SPACE</kbd>
+                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">SPACE</kbd>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/70">Sustain Pedal</span>
-                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">SHIFT</kbd>
+                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">SHIFT</kbd>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/70">Octave Up</span>
-                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">↑</kbd>
+                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">↑</kbd>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/70">Octave Down</span>
-                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs">↓</kbd>
+                    <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-white/90">↓</kbd>
                   </div>
                 </div>
               </div>
