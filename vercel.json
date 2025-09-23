@@ -1,39 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 3,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build"
-    }
-  ],
-  "functions": {
-    "api/filter.js": {
-      "runtime": "edge"
-    }
-  },
-  "routes": [
-    {
-      "src": "/manifest.json",
-      "dest": "/manifest.json"
-    },
-    {
-      "src": "/_next/static/(.*)",
-      "dest": "/_next/static/$1"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/_vercel/(.*)",
-      "dest": "/_vercel/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/filter.js"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -113,6 +79,28 @@
         { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
+      "source": "/_next/static/:path*",
+      "destination": "/_next/static/:path*"
+    },
+    {
+      "source": "/static/:path*",
+      "destination": "/static/:path*"
+    },
+    {
+      "source": "/_vercel/:path*",
+      "destination": "/_vercel/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
     }
   ],
   "cleanUrls": true,
