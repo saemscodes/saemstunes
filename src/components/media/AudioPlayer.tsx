@@ -16,7 +16,12 @@ import {
   Share,
   Download,
   Plus,
-  Music
+  Music,
+  Clock,
+  Users,
+  Sparkles,
+  TrendingUp,
+  Star
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -34,6 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePermissionRequest } from '@/lib/permissionsHelper';
 import { useAudioPlayer } from '@/context/AudioPlayerContext';
 import { usePlaylist } from '@/context/PlaylistContext';
+import { useSmartPlaylists } from '@/hooks/useSmartPlaylists';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMediaState } from '@/components/idle-state/mediaStateContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +54,7 @@ import AddToPlaylistModal from '@/components/playlists/AddToPlaylistModal';
 import { ArtistMetadataManager } from '@/components/artists/ArtistMetadataManager';
 import { AudioTrack, PlayableItem } from '@/types/music';
 import { Playlist } from '@/types/playlist';
+import { Badge } from '@/components/ui/badge';
 
 interface AudioPlayerProps {
   src?: string;
@@ -99,7 +106,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const { toast } = useToast();
   const { requestPermissionWithFeedback } = usePermissionRequest();
   
-  // New contexts
+  // Context hooks
   const { 
     queue, 
     playNext, 
@@ -110,7 +117,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     playPlaylist,
     addItemToQueue,
     setCurrentIndex,
-    currentPlaylist
+    currentPlaylist,
+    playlists: userPlaylistsFromContext,
+    smartPlaylists: contextSmartPlaylists,
+    refreshSmartPlaylists
   } = usePlaylist();
 
   const {
@@ -126,6 +136,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     pause: audioPause,
     loadAudio
   } = useAudioPlayer();
+
+  // Smart playlists hook
+  const { 
+    smartPlaylists, 
+    loading: smartPlaylistsLoading, 
+    refreshSmartPlaylist: refreshSpecificSmartPlaylist 
+  } = useSmartPlaylists();
 
   // State variables
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +162,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [playlistTracks, setPlaylistTracks] = useState<AudioTrack[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [isPlayingRequested, setIsPlayingRequested] = useState(false);
+  const [playlistView, setPlaylistView] = useState<'user' | 'smart'>('user');
+  const [refreshingPlaylist, setRefreshingPlaylist] = useState<string | null>(null);
 
   // Determine if this is full page mode
   const fullPageMode = isFullPage || !!slug || !!location.state?.track;
@@ -153,6 +172,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const currentItem = queue.items[queue.currentIndex];
   const isCurrentTrack = currentItem?.id === trackId?.toString();
   const displayTrack = fullPageMode ? trackData : currentItem;
+
+  // Combine playlists from context and smart playlists hook
+  const allSmartPlaylists = [...(contextSmartPlaylists || []), ...(smartPlaylists || [])];
+  const uniqueSmartPlaylists = allSmartPlaylists.filter((playlist, index, self) =>
+    index === self.findIndex(p => p.id === playlist.id)
+  );
 
   // Track play analytics
   const trackPlayAnalytics = useCallback(async (trackId: string) => {
@@ -314,6 +339,24 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       });
     }
   }, [toast]);
+
+  // Refresh smart playlist
+  const handleRefreshPlaylist = useCallback(async (playlist: Playlist) => {
+    if (!playlist.name) return;
+    
+    setRefreshingPlaylist(playlist.id);
+    try {
+      await refreshSpecificSmartPlaylist(playlist.name);
+      // Also refresh via context if available
+      if (refreshSmartPlaylists) {
+        await refreshSmartPlaylists();
+      }
+    } catch (error) {
+      console.error('Error refreshing playlist:', error);
+    } finally {
+      setRefreshingPlaylist(null);
+    }
+  }, [refreshSpecificSmartPlaylist, refreshSmartPlaylists]);
 
   // Initialize for full page mode
   useEffect(() => {
@@ -537,6 +580,29 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       });
     }
   }, [trackData, toast]);
+
+  // Get playlist icon based on name
+  const getPlaylistIcon = (playlistName: string) => {
+    switch (playlistName) {
+      case 'Recently Played':
+        return <Clock className="h-4 w-4" />;
+      case 'Weekly Top Tracks':
+        return <TrendingUp className="h-4 w-4" />;
+      case 'Discover Weekly':
+        return <Sparkles className="h-4 w-4" />;
+      case 'Favorites':
+        return <Star className="h-4 w-4" />;
+      case 'All Time Top Tracks':
+        return <TrendingUp className="h-4 w-4" />;
+      default:
+        return <Music className="h-4 w-4" />;
+    }
+  };
+
+  // Check if playlist is smart playlist
+  const isSmartPlaylist = (playlist: Playlist) => {
+    return playlist.is_auto_generated || uniqueSmartPlaylists.some(sp => sp.id === playlist.id);
+  };
 
   // Return full page layout for full page mode
   if (fullPageMode) {
@@ -869,6 +935,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                                   </Button>
                                   <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                                     {selectedPlaylist.name}
+                                    {isSmartPlaylist(selectedPlaylist) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Auto
+                                      </Badge>
+                                    )}
                                     <span className="text-sm text-muted-foreground">
                                       ({playlistTracks.length} tracks)
                                     </span>
@@ -878,34 +949,117 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                                     onTrackSelect={handleTrackSelect}
                                   />
                                 </div>
-                              ) : userPlaylists.length === 0 ? (
-                                <p className="text-center text-muted-foreground py-8">
-                                  You don't have any playlists yet
-                                </p>
                               ) : (
-                                <div className="grid grid-cols-1 gap-3">
-                                  {userPlaylists.map(playlist => (
-                                    <div 
-                                      key={playlist.id} 
-                                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
-                                      onClick={() => handlePlaylistSelect(playlist)}
+                                <div className="space-y-4">
+                                  {/* Playlist Type Toggle */}
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant={playlistView === 'user' ? 'default' : 'outline'}
+                                      size="sm"
+                                      onClick={() => setPlaylistView('user')}
+                                      className="flex-1"
                                     >
-                                      <div className="bg-muted border rounded-md w-16 h-16 flex items-center justify-center flex-shrink-0">
-                                        <Music className="h-6 w-6 text-muted-foreground" />
+                                      <Users className="h-4 w-4 mr-2" />
+                                      My Playlists
+                                    </Button>
+                                    <Button
+                                      variant={playlistView === 'smart' ? 'default' : 'outline'}
+                                      size="sm"
+                                      onClick={() => setPlaylistView('smart')}
+                                      className="flex-1"
+                                    >
+                                      <Sparkles className="h-4 w-4 mr-2" />
+                                      Smart Playlists
+                                    </Button>
+                                  </div>
+
+                                  {/* Playlists List */}
+                                  {playlistView === 'user' ? (
+                                    userPlaylists.length === 0 ? (
+                                      <p className="text-center text-muted-foreground py-8">
+                                        You don't have any playlists yet
+                                      </p>
+                                    ) : (
+                                      <div className="grid grid-cols-1 gap-3">
+                                        {userPlaylists.map(playlist => (
+                                          <div 
+                                            key={playlist.id} 
+                                            className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                                            onClick={() => handlePlaylistSelect(playlist)}
+                                          >
+                                            <div className="bg-muted border rounded-md w-16 h-16 flex items-center justify-center flex-shrink-0">
+                                              <Music className="h-6 w-6 text-muted-foreground" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <h4 className="font-semibold truncate">{playlist.name}</h4>
+                                              <p className="text-sm text-muted-foreground truncate">
+                                                {playlist.description || 'No description'}
+                                              </p>
+                                              <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                                                <span>
+                                                  {playlist.item_count || 0} tracks
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-semibold truncate">{playlist.name}</h4>
-                                        <p className="text-sm text-muted-foreground truncate">
-                                          {playlist.description || 'No description'}
-                                        </p>
-                                        <div className="flex items-center mt-1 text-xs text-muted-foreground">
-                                          <span>
-                                            {playlist.item_count || 0} tracks
-                                          </span>
+                                    )
+                                  ) : uniqueSmartPlaylists.length === 0 ? (
+                                    <p className="text-center text-muted-foreground py-8">
+                                      No smart playlists available yet
+                                    </p>
+                                  ) : (
+                                    <div className="grid grid-cols-1 gap-3">
+                                      {uniqueSmartPlaylists.map(playlist => (
+                                        <div 
+                                          key={playlist.id} 
+                                          className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors group"
+                                          onClick={() => handlePlaylistSelect(playlist)}
+                                        >
+                                          <div className="bg-gradient-to-br from-primary/20 to-primary/10 border rounded-md w-16 h-16 flex items-center justify-center flex-shrink-0">
+                                            {getPlaylistIcon(playlist.name)}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <h4 className="font-semibold truncate">{playlist.name}</h4>
+                                              <Badge variant="secondary" className="text-xs">
+                                                Auto
+                                              </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground truncate">
+                                              {playlist.description || 'Automatically generated playlist'}
+                                            </p>
+                                            <div className="flex items-center justify-between mt-1">
+                                              <span className="text-xs text-muted-foreground">
+                                                {playlist.track_count || 0} tracks
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                Updated {new Date(playlist.last_updated).toLocaleDateString()}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRefreshPlaylist(playlist);
+                                            }}
+                                            disabled={refreshingPlaylist === playlist.id}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                            title="Refresh playlist"
+                                          >
+                                            {refreshingPlaylist === playlist.id ? (
+                                              <div className="h-4 w-4 rounded-full border-2 border-t-transparent border-current animate-spin" />
+                                            ) : (
+                                              <RefreshCw className="h-4 w-4" />
+                                            )}
+                                          </Button>
                                         </div>
-                                      </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1182,5 +1336,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     </div>
   );
 };
+
+// Add missing RefreshCw icon component
+const RefreshCw = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M23 4v6h-6" />
+    <path d="M1 20v-6h6" />
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+  </svg>
+);
 
 export default AudioPlayer;
