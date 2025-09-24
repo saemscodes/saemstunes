@@ -9,6 +9,7 @@ import {
   Volume2, 
   VolumeX,
   Repeat,
+  Repeat1,
   Shuffle,
   MoreHorizontal,
   ArrowLeft,
@@ -99,7 +100,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const { toast } = useToast();
   const { requestPermissionWithFeedback } = usePermissionRequest();
   
-  // New contexts integration
   const { 
     queue, 
     playNext, 
@@ -127,7 +127,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     loadAudio
   } = useAudioPlayer();
 
-  // State variables
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
@@ -146,14 +145,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [activeTab, setActiveTab] = useState('all');
   const [isPlayingRequested, setIsPlayingRequested] = useState(false);
 
-  // Determine if this is full page mode
   const fullPageMode = isFullPage || !!slug || !!location.state?.track;
 
-  // Get current item from playlist context
   const currentItem = queue.items[queue.currentIndex];
   const displayTrack = fullPageMode ? trackData : currentItem;
 
-  // Track play analytics
+  const canPlayNext = () => {
+    if (queue.items.length === 0) return false;
+    if (queue.repeat === 'all') return true;
+    if (queue.repeat === 'one') return true;
+    return queue.currentIndex < queue.items.length - 1;
+  };
+
+  const canPlayPrevious = () => {
+    return queue.playHistory.length > 0;
+  };
+
+  const handleRepeatToggle = () => {
+    toggleRepeat();
+  };
+
   const trackPlayAnalytics = useCallback(async (trackId: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!trackId || !session) return;
@@ -168,7 +179,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [user]);
 
-  // Fetch track metadata if trackId is provided
   useEffect(() => {
     const fetchTrackData = async () => {
       if (!trackId && !slug) return;
@@ -246,7 +256,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     fetchTrackData();
   }, [trackId, slug, src, artwork, trackPlayAnalytics]);
 
-  // Load audio when current item changes from playlist context
   useEffect(() => {
     if (currentItem?.src) {
       loadAudio(currentItem.src);
@@ -256,13 +265,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [currentItem?.src, loadAudio, audioPlay, queue.isPlaying]);
 
-  // Sync playing state between contexts
   useEffect(() => {
     setPlaylistPlaying(audioPlayerPlaying);
     setMediaPlaying(audioPlayerPlaying);
   }, [audioPlayerPlaying, setPlaylistPlaying, setMediaPlaying]);
 
-  // Fetch all tracks for full page mode
   const fetchAllTracks = useCallback(async () => {
     if (!fullPageMode) return;
     
@@ -285,7 +292,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [fullPageMode]);
 
-  // Fetch user playlists
   const fetchUserPlaylistsData = useCallback(async () => {
     if (!user) return;
     try {
@@ -300,7 +306,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [user, toast]);
 
-  // Fetch playlist tracks
   const fetchPlaylistTracksData = useCallback(async (playlistId: string) => {
     try {
       const tracks = await fetchPlaylistItems(playlistId);
@@ -314,7 +319,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [toast]);
 
-  // Initialize for full page mode
   useEffect(() => {
     if (!fullPageMode) return;
     
@@ -326,7 +330,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         setTrackData(location.state.track);
         setLoading(false);
       } else if (slug) {
-        // Track data will be fetched by the other useEffect
       } else {
         setTrackData({
           id: 1,
@@ -343,20 +346,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     init();
   }, [slug, location.state, fetchAllTracks, fetchUserPlaylistsData, fullPageMode]);
 
-  // Handle artwork changes
   useEffect(() => {
     setCoverUrl(artwork);
     setImageLoaded(false);
   }, [artwork]);
 
-  // Handle image loading errors
   const handleImageError = () => {
     if (coverUrl !== '/placeholder.svg') {
       setCoverUrl('/placeholder.svg');
     }
   };
 
-  // Create track object
   const track = {
     id: trackId || trackData?.id || src || '',
     src: fullPageMode ? audioUrl : (currentItem?.src || ''),
@@ -366,7 +366,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     slug: displayTrack?.slug,
   };
 
-  // Handle play with concurrency protection
   const handlePlay = async () => {
     if (isPlayingRequested || !track.src) return;
     
@@ -383,7 +382,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
       
       if (fullPageMode && trackData) {
-        // For full page mode, add to queue and play
         const playableItem: PlayableItem = {
           id: trackData.id.toString(),
           type: 'track',
@@ -397,7 +395,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         
         addItemToQueue(playableItem, true);
       } else {
-        // For widget mode, just play the track
         loadAudio(track.src);
         await audioPlay();
       }
@@ -417,7 +414,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
-  // Toggle play with concurrency protection
   const togglePlay = async () => {
     if (isPlayingRequested) return;
     
@@ -449,7 +445,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setVolume(newVolume);
   };
 
-  // Full page mode handlers
   const handleTrackSelect = useCallback((track: AudioTrack) => {
     if (track.id) {
       trackPlayAnalytics(String(track.id));
@@ -539,7 +534,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [trackData, toast]);
 
-  // Return full page layout for full page mode
   if (fullPageMode) {
     if (loading) {
       return (
@@ -686,7 +680,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         </div>
                       </div>
 
-                      {/* Audio Player Controls */}
                       <div className="space-y-6">
                         {error ? (
                           <div className="text-center py-12">
@@ -719,6 +712,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                                 onClick={playPrevious}
                                 className="h-12 w-12"
                                 title="Previous"
+                                disabled={!canPlayPrevious()}
                               >
                                 <SkipBack className="h-6 w-6" />
                               </Button>
@@ -740,6 +734,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                                 onClick={playNext}
                                 className="h-12 w-12"
                                 title="Next"
+                                disabled={!canPlayNext()}
                               >
                                 <SkipForward className="h-6 w-6" />
                               </Button>
@@ -760,11 +755,23 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className={cn("h-10 w-10", queue.repeat !== 'none' && "text-primary")}
-                                  onClick={toggleRepeat}
-                                  title="Repeat"
+                                  className={cn(
+                                    "h-10 w-10", 
+                                    queue.repeat !== 'none' && "text-primary",
+                                    queue.repeat === 'one' && "text-gold"
+                                  )}
+                                  onClick={handleRepeatToggle}
+                                  title={
+                                    queue.repeat === 'none' ? 'Repeat Off' : 
+                                    queue.repeat === 'all' ? 'Repeat Playlist' : 
+                                    'Repeat One'
+                                  }
                                 >
-                                  <Repeat className="h-5 w-5" />
+                                  {queue.repeat === 'one' ? (
+                                    <Repeat1 className="h-5 w-5" />
+                                  ) : (
+                                    <Repeat className="h-5 w-5" />
+                                  )}
                                 </Button>
                               </div>
                               
@@ -924,7 +931,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     );
   }
 
-  // Original compact/widget mode
   if (error) {
     return (
       <div className={cn("bg-muted rounded-md p-4 text-center", className)}>
@@ -979,7 +985,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   
   return (
     <div className={cn("bg-background border rounded-lg overflow-hidden w-full", className)}>
-      {/* Track info - Always visible */}
       {(track.name || track.artist) && (
         <div className="p-3 sm:p-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -1008,7 +1013,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </div>
       )}
       
-      {/* Progress section */}
       <div className="px-3 sm:px-4 pb-3 sm:pb-4">
         <div className="space-y-2">
           <div className="relative">
@@ -1027,7 +1031,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
 
-        {/* Essential controls */}
         <div className="flex items-center justify-center gap-2 mt-4">
           <Button 
             variant="ghost" 
@@ -1035,6 +1038,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             className="h-8 w-8 hidden xs:flex"
             title="Previous"
             onClick={playPrevious}
+            disabled={!canPlayPrevious()}
           >
             <SkipBack className="h-4 w-4" />
           </Button>
@@ -1056,12 +1060,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             className="h-8 w-8 hidden xs:flex"
             title="Next"
             onClick={playNext}
+            disabled={!canPlayNext()}
           >
             <SkipForward className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Advanced controls */}
         {showControls && (
           <>
             <div className="sm:hidden">
@@ -1100,11 +1104,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className={cn("h-8 w-8", queue.repeat !== 'none' && "text-primary")}
-                          onClick={toggleRepeat}
-                          title="Repeat"
+                          className={cn("h-8 w-8", queue.repeat !== 'none' && "text-primary", queue.repeat === 'one' && "text-gold")}
+                          onClick={handleRepeatToggle}
+                          title={
+                            queue.repeat === 'none' ? 'Repeat Off' : 
+                            queue.repeat === 'all' ? 'Repeat Playlist' : 
+                            'Repeat One'
+                          }
                         >
-                          <Repeat className="h-4 w-4" />
+                          {queue.repeat === 'one' ? (
+                            <Repeat1 className="h-4 w-4" />
+                          ) : (
+                            <Repeat className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                       
@@ -1148,11 +1160,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className={cn("h-8 w-8", queue.repeat !== 'none' && "text-primary")}
-                  onClick={toggleRepeat}
-                  title="Repeat"
+                  className={cn("h-8 w-8", queue.repeat !== 'none' && "text-primary", queue.repeat === 'one' && "text-gold")}
+                  onClick={handleRepeatToggle}
+                  title={
+                    queue.repeat === 'none' ? 'Repeat Off' : 
+                    queue.repeat === 'all' ? 'Repeat Playlist' : 
+                    'Repeat One'
+                  }
                 >
-                  <Repeat className="h-4 w-4" />
+                  {queue.repeat === 'one' ? (
+                    <Repeat1 className="h-4 w-4" />
+                  ) : (
+                    <Repeat className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               
