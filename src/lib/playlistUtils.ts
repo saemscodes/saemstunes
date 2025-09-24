@@ -1,7 +1,9 @@
 // src/lib/playlistUtils.ts
 import { supabase } from '@/integrations/supabase/client';
+import { AudioTrack } from '@/types/music';
 import { Playlist, PlaylistItem, PlayableItem } from '@/types/playlist';
 
+// Fetch playlists for the current user
 export const fetchUserPlaylists = async (userId: string): Promise<Playlist[]> => {
   const { data, error } = await supabase
     .from('playlists')
@@ -20,6 +22,7 @@ export const fetchUserPlaylists = async (userId: string): Promise<Playlist[]> =>
   }));
 };
 
+// Create a new playlist
 export const createPlaylist = async (
   userId: string, 
   name: string, 
@@ -42,10 +45,11 @@ export const createPlaylist = async (
   return data;
 };
 
+// Add item to playlist with support for multiple types
 export const addItemToPlaylist = async (
   playlistId: string, 
   itemId: string, 
-  itemType: 'track' | 'lesson' | 'video' | 'audio'
+  itemType: 'track' | 'lesson' | 'video' | 'audio' = 'track'
 ): Promise<void> => {
   const { data: maxPosData } = await supabase
     .from('playlist_items')
@@ -68,6 +72,7 @@ export const addItemToPlaylist = async (
   if (error) throw error;
 };
 
+// Fetch items for a playlist with support for multiple types
 export const fetchPlaylistItems = async (playlistId: string): Promise<PlayableItem[]> => {
   const { data, error } = await supabase
     .from('playlist_items')
@@ -121,18 +126,39 @@ export const fetchPlaylistItems = async (playlistId: string): Promise<PlayableIt
   }).filter(Boolean) as PlayableItem[];
 };
 
+// Get audio URL for track
 export const getAudioUrl = (item: any): string => {
   if (!item) return '';
   if (item.audio_path?.startsWith('http')) return item.audio_path;
   return item.audio_path ? supabase.storage.from('tracks').getPublicUrl(item.audio_path).data.publicUrl : item.alternate_audio_path || '';
 };
 
+// Get storage URL for file
 export const getStorageUrl = (path: string | null): string => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
   return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
 };
 
+// Convert track to AudioTrack (for compatibility)
+export const convertTrackToAudioTrack = (track: any): AudioTrack => ({
+  id: track.id,
+  name: track.title,
+  artist: track.artist || 'Unknown Artist',
+  src: getAudioUrl(track),
+  artwork: getStorageUrl(track.cover_path) || '/placeholder.svg',
+  duration: track.duration || 0,
+  slug: track.slug || '',
+  album: track.album,
+  metadata: {
+    description: track.description,
+    youtube_url: track.youtube_url,
+    preview_url: track.preview_url,
+    video_url: track.video_url
+  }
+});
+
+// Smart playlist creation functions
 export const createRecentlyPlayedPlaylist = async (userId: string): Promise<string> => {
   let { data: existingPlaylist } = await supabase
     .from('playlists')
@@ -181,7 +207,7 @@ export const createRecentlyPlayedPlaylist = async (userId: string): Promise<stri
   if (recentPlays?.length) {
     const uniqueTrackIds = Array.from(new Set(recentPlays.map(play => play.track_id)));
     
-    const playlistTracks = uniqueTrackIds.slice(0, 50).map((trackId, index) => ({
+    const playlistItems = uniqueTrackIds.slice(0, 50).map((trackId, index) => ({
       playlist_id: playlistId,
       item_id: trackId,
       item_type: 'track',
@@ -190,7 +216,7 @@ export const createRecentlyPlayedPlaylist = async (userId: string): Promise<stri
 
     await supabase
       .from('playlist_items')
-      .insert(playlistTracks);
+      .insert(playlistItems);
   }
 
   return playlistId;
@@ -250,7 +276,7 @@ export const createWeeklyTopPlaylist = async (userId: string): Promise<string> =
       .sort(([,a], [,b]) => b - a)
       .slice(0, 25);
 
-    const playlistTracks = topTracks.map(([trackId], index) => ({
+    const playlistItems = topTracks.map(([trackId], index) => ({
       playlist_id: playlistId,
       item_id: trackId,
       item_type: 'track',
@@ -259,7 +285,7 @@ export const createWeeklyTopPlaylist = async (userId: string): Promise<string> =
 
     await supabase
       .from('playlist_items')
-      .insert(playlistTracks);
+      .insert(playlistItems);
   }
 
   return playlistId;
