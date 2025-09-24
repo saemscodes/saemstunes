@@ -25,7 +25,7 @@ export const PlaylistActions: React.FC<PlaylistActionsProps> = ({ itemId, itemTy
   };
 
   const handlePlayNext = () => {
-    const playableItem: any = {
+    const playableItem = {
       id: itemId,
       type: itemType,
       title: itemData.title || itemData.name,
@@ -33,14 +33,15 @@ export const PlaylistActions: React.FC<PlaylistActionsProps> = ({ itemId, itemTy
       src: itemData.audio_path || itemData.src,
       artwork: itemData.cover_path || itemData.artwork,
       duration: itemData.duration || 0,
-      slug: itemData.slug
+      slug: itemData.slug,
+      metadata: itemData.metadata || {}
     };
     
     addItemToQueue(playableItem, true);
   };
 
   const handleAddToQueue = () => {
-    const playableItem: any = {
+    const playableItem = {
       id: itemId,
       type: itemType,
       title: itemData.title || itemData.name,
@@ -48,7 +49,8 @@ export const PlaylistActions: React.FC<PlaylistActionsProps> = ({ itemId, itemTy
       src: itemData.audio_path || itemData.src,
       artwork: itemData.cover_path || itemData.artwork,
       duration: itemData.duration || 0,
-      slug: itemData.slug
+      slug: itemData.slug,
+      metadata: itemData.metadata || {}
     };
     
     addItemToQueue(playableItem, false);
@@ -71,7 +73,8 @@ export const PlaylistActions: React.FC<PlaylistActionsProps> = ({ itemId, itemTy
               placeholder="Playlist name"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleAddToNew(e.currentTarget.value);
+                  const target = e.target as HTMLInputElement;
+                  handleAddToNew(target.value);
                 }
               }}
               className="border rounded p-1 w-full mb-2"
