@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +24,7 @@ import AuthCallback from "@/components/auth/AuthCallback";
 // Page imports
 import Admin from "@/pages/Admin";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import Auth from "./pages/Auth"; 
 import VerificationWaiting from "./pages/VerificationWaiting";
 import Videos from "./pages/Videos";
 import VideoDetail from "./pages/VideoDetail";
@@ -63,23 +64,16 @@ import Signup from "./pages/Signup";
 import MusicShowcase from "./pages/MusicShowcase";
 import Profile from "./pages/Profile";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const App = () => {
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
     }, 2000);
-
+    
     return () => clearTimeout(timer);
   }, []);
 
@@ -90,9 +84,8 @@ const App = () => {
           <SubscriptionProvider>
             <WalletProvider>
               <MediaStateProvider>
-                {/* PlaylistProvider must wrap AudioPlayerProvider since AudioPlayer uses PlaylistContext */}
-                <PlaylistProvider>
-                  <AudioPlayerProvider>
+                <AudioPlayerProvider>
+                  <PlaylistProvider>
                     <TooltipProvider>
                       <Toaster />
                       <Sonner />
@@ -131,11 +124,13 @@ const App = () => {
                             <Route path="/contact-us" element={<ContactUs />} />
                             <Route path="/support-us" element={<SupportUs />} />
                             <Route path="/settings" element={<Settings />} />
+                            
                             <Route path="/profile" element={
                               <ProtectedRoute>
                                 <Profile />
                               </ProtectedRoute>
                             } />
+                            
                             <Route path="/services" element={<Services />} />
                             <Route path="/payment" element={<Payment />} />
                             <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -143,6 +138,7 @@ const App = () => {
                             <Route path="/music-tools" element={<MusicTools />} />
                             <Route path="/artists" element={<Artists />} />
                             <Route path="/learning-hub/:moduleId" element={<LearningModulePage />} />
+                            
                             <Route path="/bookings" element={
                               <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
                                 <Bookings />
@@ -168,6 +164,7 @@ const App = () => {
                                 <UserDetails />
                               </ProtectedRoute>
                             } />
+                            
                             <Route path="/coming-soon" element={<ComingSoon />} />
                             <Route path="/tracks/:slug" element={<AudioPlayer />} />
                             <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
@@ -179,13 +176,13 @@ const App = () => {
                         </BrowserRouter>
                       </FeaturedItemsProvider>
                     </TooltipProvider>
-                  </AudioPlayerProvider>
-                </PlaylistProvider>
+                  </PlaylistProvider>
+                </AudioPlayerProvider>
               </MediaStateProvider>
             </WalletProvider>
           </SubscriptionProvider>
         </AuthProvider>
-      </ThemeProvider>
+      </ThemeProvider>   
     </QueryClientProvider>
   );
 };

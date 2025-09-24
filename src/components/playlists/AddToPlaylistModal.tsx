@@ -1,24 +1,27 @@
-// src/components/playlists/AddToPlaylistModal.tsx
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { createPlaylist, addItemToPlaylist, fetchUserPlaylists } from '@/lib/playlistUtils';
+import { createPlaylist, addTrackToPlaylist, fetchUserPlaylists } from '@/lib/playlistUtils';
 
 interface AddToPlaylistModalProps {
-  itemId: string;
-  itemType: 'track' | 'lesson' | 'video' | 'audio';
+  trackId: string;
   userId: string;
   children: React.ReactNode;
   onPlaylistCreated?: () => void;
 }
 
-const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
-  itemId,
-  itemType,
-  userId,
+const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ 
+  trackId, 
+  userId, 
   children,
   onPlaylistCreated
 }) => {
@@ -31,8 +34,8 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   const loadPlaylists = async () => {
     setLoading(true);
     try {
-      const userPlaylists = await fetchUserPlaylists(userId);
-      setPlaylists(userPlaylists);
+      const playlists = await fetchUserPlaylists(userId);
+      setPlaylists(playlists);
     } catch (error) {
       toast({
         title: "Error",
@@ -77,16 +80,16 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   const handleAddToPlaylist = async (playlistId: string) => {
     setLoading(true);
     try {
-      await addItemToPlaylist(playlistId, itemId, itemType);
+      await addTrackToPlaylist(playlistId, trackId);
       toast({
         title: "Success",
-        description: "Item added to playlist",
+        description: "Track added to playlist",
       });
       setOpen(false);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to add item to playlist",
+        description: "Failed to add track to playlist",
         variant: "destructive",
       });
     } finally {
@@ -107,34 +110,40 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
           <div>
             <Label>Create New Playlist</Label>
             <div className="flex gap-2 mt-1">
-              <Input
+              <Input 
                 value={newPlaylistName}
                 onChange={(e) => setNewPlaylistName(e.target.value)}
                 placeholder="Playlist name"
                 disabled={loading}
               />
-              <Button
-                onClick={handleCreatePlaylist}
+              <Button 
+                onClick={handleCreatePlaylist} 
                 disabled={loading || !newPlaylistName.trim()}
               >
                 Create
               </Button>
             </div>
           </div>
+          
           <div>
             <Label>Your Playlists</Label>
             <div className="mt-1 max-h-60 overflow-y-auto border rounded-md p-2">
               {loading && !playlists.length ? (
                 <p className="text-center py-4">Loading playlists...</p>
               ) : playlists.length === 0 ? (
-                <p className="text-center py-4 text-muted-foreground">You don't have any playlists yet</p>
+                <p className="text-center py-4 text-muted-foreground">
+                  You don't have any playlists yet
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {playlists.map(playlist => (
-                    <li key={playlist.id} className="flex items-center justify-between p-2 hover:bg-muted rounded transition-colors">
+                    <li 
+                      key={playlist.id} 
+                      className="flex items-center justify-between p-2 hover:bg-muted rounded transition-colors"
+                    >
                       <span className="truncate pr-2">{playlist.name}</span>
-                      <Button
-                        size="sm"
+                      <Button 
+                        size="sm" 
                         onClick={() => handleAddToPlaylist(playlist.id)}
                         disabled={loading}
                       >

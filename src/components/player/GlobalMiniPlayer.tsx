@@ -3,7 +3,6 @@ import { Play, Pause, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useAudioPlayer } from '@/context/AudioPlayerContext';
-import { usePlaylist } from '@/context/PlaylistContext';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -17,47 +16,30 @@ const formatTime = (seconds: number): string => {
 };
 
 const GlobalMiniPlayer: React.FC = () => {
-  const audioPlayer = useAudioPlayer();
-  const { queue, clearQueue } = usePlaylist();
+  const { state, pauseTrack, resumeTrack, seek, clearPlayer } = useAudioPlayer();
   const navigate = useNavigate();
 
-  // Get current track from the queue
-  const currentTrack = queue.currentIndex >= 0 && queue.items[queue.currentIndex] 
-    ? queue.items[queue.currentIndex] 
-    : null;
-
-  if (!currentTrack) return null;
+  if (!state.currentTrack) return null;
 
   const handlePlayPause = () => {
-    if (audioPlayer.isPlaying) {
-      audioPlayer.pause();
+    if (state.isPlaying) {
+      pauseTrack();
     } else {
-      audioPlayer.play();
+      resumeTrack();
     }
   };
 
   const handleProgressChange = (values: number[]) => {
-    audioPlayer.seek(values[0]);
+    seek(values[0]);
   };
 
   const handleClose = () => {
-    audioPlayer.pause();
-    clearQueue();
+    clearPlayer();
   };
 
   const handleTrackClick = () => {
-    if (currentTrack) {
-      const trackUrl = generateTrackUrl({
-        id: currentTrack.id,
-        name: currentTrack.title,
-        artist: currentTrack.artist || 'Unknown Artist',
-        slug: currentTrack.slug || '',
-        src: currentTrack.src,
-        artwork: currentTrack.artwork || '/placeholder.svg',
-        duration: currentTrack.duration,
-        album: undefined,
-        metadata: currentTrack.metadata
-      });
+    if (state.currentTrack) {
+      const trackUrl = generateTrackUrl(state.currentTrack);
       navigate(trackUrl);
     }
   };
@@ -102,14 +84,14 @@ const GlobalMiniPlayer: React.FC = () => {
               >
                 <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0">
                   <img 
-                    src={currentTrack.artwork || '/placeholder.svg'} 
-                    alt={currentTrack.title} 
+                    src={state.currentTrack.artwork || '/placeholder.svg'} 
+                    alt={state.currentTrack.name} 
                     className="h-full w-full object-cover" 
                   />
                 </div>
                 <div className="ml-3 flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{currentTrack.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+                  <p className="text-sm font-medium truncate">{state.currentTrack.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{state.currentTrack.artist}</p>
                 </div>
               </div>
               
@@ -128,7 +110,7 @@ const GlobalMiniPlayer: React.FC = () => {
                     className="h-8 w-8" 
                     onClick={handlePlayPause}
                   >
-                    {audioPlayer.isPlaying ? 
+                    {state.isPlaying ? 
                       <Pause className="h-4 w-4" /> : 
                       <Play className="h-4 w-4" />
                     }
@@ -154,15 +136,15 @@ const GlobalMiniPlayer: React.FC = () => {
             {/* Progress Bar */}
             <div className="mt-2 space-y-1">
               <Slider 
-                value={[audioPlayer.currentTime]}
-                max={audioPlayer.duration || 100} 
+                value={[state.currentTime]}
+                max={state.duration || 100} 
                 step={0.1}
                 onValueChange={handleProgressChange}
                 className="h-1"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{formatTime(audioPlayer.currentTime)}</span>
-                <span>{formatTime(audioPlayer.duration)}</span>
+                <span>{formatTime(state.currentTime)}</span>
+                <span>{formatTime(state.duration)}</span>
               </div>
             </div>
           </div>
