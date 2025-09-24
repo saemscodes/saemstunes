@@ -240,8 +240,18 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setQueue(prev => {
       if (prev.items.length === 0) return prev;
 
+      // Handle repeat one mode - restart current track
+      if (prev.repeat === 'one') {
+        return {
+          ...prev,
+          playHistory: [...prev.playHistory, prev.currentIndex],
+          isPlaying: true
+        };
+      }
+
       let nextIndex = prev.currentIndex + 1;
       
+      // Handle shuffle mode
       if (prev.shuffle) {
         const availableIndices = prev.items
           .map((_, index) => index)
@@ -252,11 +262,10 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
+      // Handle end of playlist with repeat modes
       if (nextIndex >= prev.items.length) {
         if (prev.repeat === 'all') {
           nextIndex = 0;
-        } else if (prev.repeat === 'one') {
-          nextIndex = prev.currentIndex;
         } else {
           return { ...prev, isPlaying: false };
         }
