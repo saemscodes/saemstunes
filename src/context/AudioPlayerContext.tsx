@@ -37,12 +37,17 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const handleEnded = () => {
       setIsPlaying(false);
       setPlaylistPlaying(false);
+      
+      // Handle repeat modes
       if (queue.repeat === 'one') {
+        // Repeat one: restart current track
         audio.currentTime = 0;
-        audio.play();
-        setIsPlaying(true);
-        setPlaylistPlaying(true);
+        audio.play().then(() => {
+          setIsPlaying(true);
+          setPlaylistPlaying(true);
+        }).catch(console.error);
       } else {
+        // For none and all modes, let PlaylistContext handle the next track
         playNext();
       }
     };
