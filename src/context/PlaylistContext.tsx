@@ -11,11 +11,15 @@ interface PlaylistContextType {
   playlists: Playlist[];
   smartPlaylists: Playlist[];
   
+  // Playlist management
   createPlaylist: (name: string, description?: string) => Promise<string>;
-  addToPlaylist: (playlistId: string, itemId: string, itemType: 'track' | 'lesson' | 'video' | 'audio') => Promise<void>;
+  addToPlaylist: (playlistId: string, itemId: string, itemType?: 'track' | 'lesson' | 'video' | 'audio') => Promise<void>;
   removeFromPlaylist: (playlistId: string, itemId: string) => Promise<void>;
   playPlaylist: (playlist: Playlist, startIndex?: number) => Promise<void>;
+  
+  // Queue management
   addToQueue: (item: PlayableItem) => void;
+  addItemToQueue: (item: PlayableItem, playNow?: boolean) => void;
   playNext: () => void;
   playPrevious: () => void;
   toggleShuffle: () => void;
@@ -24,8 +28,10 @@ interface PlaylistContextType {
   setIsPlaying: (playing: boolean) => void;
   clearQueue: () => void;
   removeFromQueue: (index: number) => void;
+  
+  // Smart playlists
   refreshSmartPlaylists: () => Promise<void>;
-  addItemToQueue: (item: PlayableItem, playNow?: boolean) => void;
+  refreshSmartPlaylist: (playlistName: string) => Promise<void>;
 }
 
 const PlaylistContext = createContext<PlaylistContextType | null>(null);
@@ -78,11 +84,12 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           playlist_items(count)
         `)
         .eq('user_id', user.id)
-        .in('name', ['Recently Played', 'Weekly Top Tracks', 'Discover Weekly', 'Favorites']);
+        .eq('is_auto_generated', true)
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
-      const smartPlaylistData = data?.map(playlist => ({
+      const smartPlaylistData = (data || []).map(playlist => ({
         id: playlist.id,
         name: playlist.name,
         description: playlist.description || '',
@@ -90,7 +97,7 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         is_auto_generated: true,
         updated_at: playlist.updated_at,
         item_count: Array.isArray(playlist.playlist_items) ? playlist.playlist_items.length : 0
-      })) || [];
+      }));
 
       setSmartPlaylists(smartPlaylistData);
     } catch (error) {
@@ -109,6 +116,28 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await fetchSmartPlaylists();
     } catch (error) {
       console.error('Error refreshing smart playlists:', error);
+      throw error;
+    }
+  };
+
+  const refreshSmartPlaylist = async (playlistName: string) => {
+    if (!user) return;
+
+    try {
+      switch (playlistName) {
+        case 'Recently Played':
+          await createRecentlyPlayedPlaylist(user.id);
+          break;
+        case 'Weekly Top Tracks':
+          await createWeeklyTopPlaylist(user.id);
+          break;
+        default:
+          throw new Error(`Unknown smart playlist: ${playlistName}`);
+      }
+      await fetchSmartPlaylists();
+    } catch (error) {
+      console.error(`Error refreshing ${playlistName}:`, error);
+      throw error;
     }
   };
 
@@ -136,7 +165,7 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addToPlaylist = async (
     playlistId: string, 
     itemId: string, 
-    itemType: 'track' | 'lesson' | 'video' | 'audio'
+    itemType: 'track' | 'lesson' | 'video' | 'audio' = 'track'
   ): Promise<void> => {
     const { data: maxPosData } = await supabase
       .from('playlist_items')
@@ -226,6 +255,8 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (nextIndex >= prev.items.length) {
         if (prev.repeat === 'all') {
           nextIndex = 0;
+        } else if (prev.repeat === 'one') {
+          nextIndex = prev.currentIndex;
         } else {
           return { ...prev, isPlaying: false };
         }
@@ -323,6 +354,7 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     removeFromPlaylist,
     playPlaylist,
     addToQueue,
+    addItemToQueue,
     playNext,
     playPrevious,
     toggleShuffle,
@@ -332,7 +364,7 @@ export const PlaylistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     clearQueue,
     removeFromQueue,
     refreshSmartPlaylists,
-    addItemToQueue
+    refreshSmartPlaylist
   };
 
   return (
