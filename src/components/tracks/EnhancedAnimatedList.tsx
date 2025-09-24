@@ -157,7 +157,7 @@ const EnhancedAnimatedList: React.FC<EnhancedAnimatedListProps> = ({ tracks, cla
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-base font-semibold text-foreground transition-all duration-300 group-hover:font-bold group-hover:text-foreground">
+              <p className="truncate text-base font-medium text-foreground transition-all duration-300 group-hover:text-foreground group-hover:font-medium">
                 {track.name}
               </p>
               <p className="text-sm text-muted-foreground truncate transition-all duration-300 group-hover:text-foreground group-hover:font-medium">
