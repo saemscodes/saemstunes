@@ -4,17 +4,57 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Plus, ListMusic, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlaylist } from '@/context/PlaylistContext';
+import AddToPlaylistModal from './AddToPlaylistModal';
+import { useAuth } from '@/context/AuthContext';
 
-export const PlaylistActions = ({ trackId }: { trackId: string }) => {
-  const { createPlaylist, addToPlaylist } = usePlaylist();
-  const [newPlaylistName, setNewPlaylistName] = useState('');
+interface PlaylistActionsProps {
+  itemId: string;
+  itemType: 'track' | 'lesson' | 'video' | 'audio';
+  itemData: any;
+}
+
+export const PlaylistActions: React.FC<PlaylistActionsProps> = ({ itemId, itemType, itemData }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const { addItemToQueue, playlists, createPlaylist, addToPlaylist } = usePlaylist();
+  const { user } = useAuth();
 
-  const handleAddToNew = async () => {
-    const playlistId = await createPlaylist(newPlaylistName);
-    await addToPlaylist(playlistId, trackId);
+  const handleAddToNew = async (name: string) => {
+    const playlistId = await createPlaylist(name);
+    await addToPlaylist(playlistId, itemId, itemType);
     setShowCreateForm(false);
   };
+
+  const handlePlayNext = () => {
+    const playableItem: any = {
+      id: itemId,
+      type: itemType,
+      title: itemData.title || itemData.name,
+      artist: itemData.artist || 'Unknown',
+      src: itemData.audio_path || itemData.src,
+      artwork: itemData.cover_path || itemData.artwork,
+      duration: itemData.duration || 0,
+      slug: itemData.slug
+    };
+    
+    addItemToQueue(playableItem, true);
+  };
+
+  const handleAddToQueue = () => {
+    const playableItem: any = {
+      id: itemId,
+      type: itemType,
+      title: itemData.title || itemData.name,
+      artist: itemData.artist || 'Unknown',
+      src: itemData.audio_path || itemData.src,
+      artwork: itemData.cover_path || itemData.artwork,
+      duration: itemData.duration || 0,
+      slug: itemData.slug
+    };
+    
+    addItemToQueue(playableItem, false);
+  };
+
+  if (!user) return null;
 
   return (
     <DropdownMenu>
@@ -23,18 +63,25 @@ export const PlaylistActions = ({ trackId }: { trackId: string }) => {
           <Plus className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      
       <DropdownMenuContent>
         {showCreateForm ? (
           <div className="px-2 py-1">
             <input
               type="text"
               placeholder="Playlist name"
-              value={newPlaylistName}
-              onChange={(e) => setNewPlaylistName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddToNew(e.currentTarget.value);
+                }
+              }}
               className="border rounded p-1 w-full mb-2"
             />
-            <Button onClick={handleAddToNew} size="sm">
+            <Button onClick={() => {
+              const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+              if (input?.value) {
+                handleAddToNew(input.value);
+              }
+            }} size="sm">
               Create
             </Button>
           </div>
@@ -44,13 +91,19 @@ export const PlaylistActions = ({ trackId }: { trackId: string }) => {
               <Plus className="mr-2 h-4 w-4" />
               New Playlist
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <ListMusic className="mr-2 h-4 w-4" />
-              Add to Existing
-            </DropdownMenuItem>
-            <DropdownMenuItem>
+            <AddToPlaylistModal itemId={itemId} itemType={itemType} userId={user.id}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <ListMusic className="mr-2 h-4 w-4" />
+                Add to Existing
+              </DropdownMenuItem>
+            </AddToPlaylistModal>
+            <DropdownMenuItem onClick={handlePlayNext}>
               <Play className="mr-2 h-4 w-4" />
               Play Next
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleAddToQueue}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add to Queue
             </DropdownMenuItem>
           </>
         )}
