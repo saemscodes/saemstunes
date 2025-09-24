@@ -262,7 +262,7 @@ const SplashScreen = ({
                     <img 
                       src="/lovable-uploads/logo-icon-md.webp" 
                       alt="Saem's Tunes Logo" 
-                      className="w-24 h-24"
+                      className="w-28 h-24"
                       onError={(e) => {
                         // Fallback to music icon if logo fails to load
                         e.currentTarget.style.display = 'none';
