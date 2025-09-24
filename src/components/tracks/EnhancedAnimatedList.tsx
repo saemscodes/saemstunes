@@ -173,16 +173,15 @@ const EnhancedAnimatedList: React.FC<EnhancedAnimatedListProps> = ({ tracks, cla
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-foreground transition-all duration-300 hover:scale-110 hover:font-semibold"
+              className="h-8 w-8 text-muted-foreground transition-all duration-300 hover:text-foreground"
               onClick={(e) => toggleFavorite(String(track.id), e)}
               >
               {favorites.includes(String(track.id)) ? (
-                <Heart className="h-4 w-4 fill-foreground text-foreground transition-transform duration-300" />
+                <Heart className="h-4 w-4 fill-foreground text-foreground transition-transform duration-300 hover:scale-110" />
               ) : (
-                <Heart className="h-4 w-4 text-muted-foreground transition-transform duration-300" />
+                <Heart className="h-4 w-4 transition-transform duration-300 hover:scale-110" />
               )}
-            </Button>
-
+            </Button>            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
