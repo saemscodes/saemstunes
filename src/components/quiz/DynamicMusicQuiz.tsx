@@ -2,18 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw, Shuffle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  fetchQuestionsByTier, 
-  fetchRandomQuestionsByTier,
-  saveQuizAttempt, 
-  QuizQuestion,
-  toggleQuestionRotation,
-  isRotationEnabled
-} from "@/services/quizService";
+import { fetchQuestionsByTier, saveQuizAttempt, QuizQuestion } from "@/services/quizService";
 
 interface DynamicMusicQuizProps {
   onComplete?: (score: number, totalQuestions: number) => void;
@@ -30,13 +23,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
-  const [rotationEnabled, setRotationEnabled] = useState(true);
   
-  useEffect(() => {
-    // Initialize rotation state on component mount
-    setRotationEnabled(isRotationEnabled());
-  }, []);
-
   useEffect(() => {
     const loadQuestions = async () => {
       setLoading(true);
@@ -50,9 +37,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
 
       try {
         const userTier = user?.subscriptionTier || 'free';
-        const questionsData = rotationEnabled 
-          ? await fetchQuestionsByTier(userTier, true)
-          : await fetchRandomQuestionsByTier(userTier);
+        const questionsData = await fetchQuestionsByTier(userTier);
         setQuestions(questionsData);
       } catch (error) {
         console.error('Error loading questions:', error);
@@ -62,13 +47,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
     };
 
     loadQuestions();
-  }, [user, rotationEnabled]);
-
-  const handleToggleRotation = () => {
-    const newRotationState = !rotationEnabled;
-    setRotationEnabled(newRotationState);
-    toggleQuestionRotation(newRotationState);
-  };
+  }, [user]);
   
   if (loading) {
     return (
@@ -156,9 +135,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
       setLoading(true);
       try {
         const userTier = user?.subscriptionTier || 'free';
-        const questionsData = rotationEnabled 
-          ? await fetchQuestionsByTier(userTier, true)
-          : await fetchRandomQuestionsByTier(userTier);
+        const questionsData = await fetchQuestionsByTier(userTier);
         setQuestions(questionsData);
       } catch (error) {
         console.error('Error reloading questions:', error);
@@ -214,12 +191,11 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
               <p><span className="font-medium">Your Tier:</span> {user?.subscriptionTier || 'free'}</p>
               <p><span className="font-medium">Questions:</span> {questions.length}</p>
               <p><span className="font-medium">Your Score:</span> {score}/{questions.length} ({Math.round((score / questions.length) * 100)}%)</p>
-              <p><span className="font-medium">Question Rotation:</span> {rotationEnabled ? 'Enabled' : 'Disabled'}</p>
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex gap-2">
-          <Button onClick={restartQuiz} className="flex-1 bg-gold hover:bg-gold/90 text-white">
+        <CardFooter>
+          <Button onClick={restartQuiz} className="w-full bg-gold hover:bg-gold/90 text-white">
             <RotateCcw className="mr-2 h-4 w-4" />
             Try Another Quiz
           </Button>
@@ -231,36 +207,20 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-center">
           <div>
             <CardTitle>Music Knowledge Quiz</CardTitle>
             <CardDescription>
               Test your music knowledge with questions tailored to your subscription tier
             </CardDescription>
           </div>
-          <div className="text-right space-y-2">
+          <div className="text-right">
             <p className="text-sm font-medium">
               Question {currentQuestionIndex + 1}/{questions.length}
             </p>
             <p className="text-xs text-muted-foreground">
               Tier: {user?.subscriptionTier || 'free'}
             </p>
-            <div className="flex items-center gap-1 text-xs">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleRotation}
-                className="h-6 px-2 text-xs"
-                title={`Question rotation is ${rotationEnabled ? 'enabled' : 'disabled'}`}
-              >
-                {rotationEnabled ? (
-                  <ToggleRight className="h-3 w-3 text-green-600" />
-                ) : (
-                  <ToggleLeft className="h-3 w-3 text-gray-400" />
-                )}
-                <span className="ml-1">Rotation</span>
-              </Button>
-            </div>
           </div>
         </div>
       </CardHeader>
@@ -317,16 +277,6 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
             <AlertTitle>Explanation</AlertTitle>
             <AlertDescription>
               {currentQuestion.explanation}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {rotationEnabled && (
-          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <Shuffle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <AlertTitle>Smart Question Rotation</AlertTitle>
-            <AlertDescription>
-              Questions are intelligently rotated to ensure you see different content each time. Toggle this feature using the rotation switch above.
             </AlertDescription>
           </Alert>
         )}
