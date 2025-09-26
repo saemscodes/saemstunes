@@ -9,8 +9,8 @@ export interface QuizQuestion {
   explanation?: string;
   quizDifficulty?: number;
   quizAccessLevel?: string;
-  originalCorrectAnswer?: string; // Store the original correct answer text
-  shuffledOptions?: string[]; // Store the shuffled order
+  originalCorrectAnswer?: string;
+  shuffledOptions?: string[];
 }
 
 export interface Quiz {
@@ -35,6 +35,16 @@ export interface QuizAttempt {
   updated_at: string;
 }
 
+export interface AccessTier {
+  id: number;
+  name: string;
+  priority: number;
+  max_quality: string;
+  download_limit: number | null;
+  features: any;
+  price_monthly: number | null;
+}
+
 export const getDifficultyLabel = (difficulty: number): string => {
   if (difficulty <= 2) return 'Beginner';
   if (difficulty <= 4) return 'Intermediate';
@@ -47,7 +57,6 @@ export const getDifficultyColor = (difficulty: number): string => {
   return 'bg-red-100 text-red-800';
 };
 
-// Fisher-Yates shuffle algorithm for proper randomization
 export const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -57,12 +66,10 @@ export const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-// Function to shuffle options and track correct answer position
 export const shuffleQuestionOptions = (question: any): QuizQuestion => {
   const originalOptions = [...question.options];
   const shuffledOptions = shuffleArray(originalOptions);
   
-  // Find the new position of the correct answer
   const correctAnswerIndex = shuffledOptions.findIndex(
     option => option === question.correct_answer
   );
@@ -78,14 +85,12 @@ export const shuffleQuestionOptions = (question: any): QuizQuestion => {
   };
 };
 
-// Generate a session key for 24-hour randomization cycle
 const getSessionKey = (): string => {
   const now = new Date();
-  const hoursSinceEpoch = Math.floor(now.getTime() / (1000 * 60 * 60 * 24)); // 24-hour cycles
+  const hoursSinceEpoch = Math.floor(now.getTime() / (1000 * 60 * 60 * 24));
   return `quiz-session-${hoursSinceEpoch}`;
 };
 
-// Store session data to maintain consistent randomization for 24 hours
 const getSessionQuestions = (questions: QuizQuestion[]): QuizQuestion[] => {
   const sessionKey = getSessionKey();
   const storedSession = sessionStorage.getItem(sessionKey);
@@ -98,11 +103,28 @@ const getSessionQuestions = (questions: QuizQuestion[]): QuizQuestion[] => {
     }
   }
 
-  // Store new session for 24 hours
   const sessionData = JSON.stringify(questions);
   sessionStorage.setItem(sessionKey, sessionData);
   
   return questions;
+};
+
+export const fetchAccessTiers = async (): Promise<AccessTier[]> => {
+  const { data, error } = await supabase
+    .from('access_tiers')
+    .select('*')
+    .order('priority', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching access tiers:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const canUserRestartQuiz = (userTier: string): boolean => {
+  return userTier !== 'free';
 };
 
 export const fetchQuestionsByTier = async (userTier: string): Promise<QuizQuestion[]> => {
@@ -114,15 +136,15 @@ export const fetchQuestionsByTier = async (userTier: string): Promise<QuizQuesti
       difficultyRange = [1];
       questionCount = 10;
       break;
-    case 'basic':
+    case 'Basic':
       difficultyRange = [1, 2];
       questionCount = 20;
       break;
-    case 'premium':
+    case 'Premium':
       difficultyRange = [1, 2, 3, 4];
       questionCount = 30;
       break;
-    case 'professional':
+    case 'Professional':
       difficultyRange = [1, 2, 3, 4, 5];
       questionCount = 50;
       break;
@@ -166,7 +188,6 @@ export const fetchQuestionsByTier = async (userTier: string): Promise<QuizQuesti
   return getSessionQuestions(selectedQuestions);
 };
 
-// Mock quiz data with access levels
 export const mockQuizzes: Quiz[] = [
   {
     id: 'quiz-1',
