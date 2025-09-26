@@ -51,6 +51,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
     loadQuestions();
   }, [user]);
   
+  // Function to reshuffle options for current question
   const reshuffleCurrentQuestion = () => {
     if (isAnswered) return;
     
@@ -58,6 +59,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
       const newQuestions = [...prevQuestions];
       const currentQuestion = { ...newQuestions[currentQuestionIndex] };
       
+      // Reshuffle options
       const shuffledOptions = shuffleArray([...currentQuestion.options]);
       const correctAnswerIndex = shuffledOptions.findIndex(
         option => option === currentQuestion.originalCorrectAnswer
