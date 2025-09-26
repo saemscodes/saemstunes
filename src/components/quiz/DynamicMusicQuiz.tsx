@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw, Shuffle } from 'lucide-react';
+import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchQuestionsByTier, saveQuizAttempt, QuizQuestion, shuffleArray } from "@/services/quizService";
+import { fetchQuestionsByTier, saveQuizAttempt, QuizQuestion, canUserRestartQuiz } from "@/services/quizService";
+import { useToast } from "@/components/ui/use-toast";
 
 interface DynamicMusicQuizProps {
   onComplete?: (score: number, totalQuestions: number) => void;
@@ -14,6 +15,7 @@ interface DynamicMusicQuizProps {
 
 const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -23,8 +25,10 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
-  const [shuffleCount, setShuffleCount] = useState(0);
   
+  const userTier = user?.subscriptionTier || 'free';
+  const canRestart = canUserRestartQuiz(userTier);
+
   useEffect(() => {
     const loadQuestions = async () => {
       setLoading(true);
@@ -37,10 +41,8 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
       setShowExplanation(false);
 
       try {
-        const userTier = user?.subscriptionTier || 'free';
         const questionsData = await fetchQuestionsByTier(userTier);
         setQuestions(questionsData);
-        setShuffleCount(prev => prev + 1);
       } catch (error) {
         console.error('Error loading questions:', error);
       } finally {
@@ -49,34 +51,43 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
     };
 
     loadQuestions();
-  }, [user]);
-  
-  // Function to reshuffle options for current question
-  const reshuffleCurrentQuestion = () => {
-    if (isAnswered) return;
-    
-    setQuestions(prevQuestions => {
-      const newQuestions = [...prevQuestions];
-      const currentQuestion = { ...newQuestions[currentQuestionIndex] };
-      
-      // Reshuffle options
-      const shuffledOptions = shuffleArray([...currentQuestion.options]);
-      const correctAnswerIndex = shuffledOptions.findIndex(
-        option => option === currentQuestion.originalCorrectAnswer
-      );
-      
-      newQuestions[currentQuestionIndex] = {
-        ...currentQuestion,
-        options: shuffledOptions,
-        correctAnswer: correctAnswerIndex,
-        shuffledOptions: shuffledOptions
-      };
-      
-      return newQuestions;
-    });
-    
+  }, [user, userTier]);
+
+  const handleRestartClick = () => {
+    if (!canRestart) {
+      toast({
+        title: "Upgrade Required",
+        description: "Sign up for a Basic, Premium, or Professional plan to restart quizzes and access exclusive features.",
+        variant: "default",
+      });
+      return;
+    }
+
+    restartQuiz();
+  };
+
+  const restartQuiz = () => {
+    setCurrentQuestionIndex(0);
     setSelectedOption(null);
-    setShuffleCount(prev => prev + 1);
+    setIsAnswered(false);
+    setScore(0);
+    setQuizCompleted(false);
+    setShowExplanation(false);
+    setUserAnswers({});
+    
+    const reloadQuestions = async () => {
+      setLoading(true);
+      try {
+        const questionsData = await fetchQuestionsByTier(userTier);
+        setQuestions(questionsData);
+      } catch (error) {
+        console.error('Error reloading questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    reloadQuestions();
   };
   
   if (loading) {
@@ -139,7 +150,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
       
       if (user) {
         try {
-          const quizId = `dynamic-${user.subscriptionTier}-${Date.now()}`;
+          const quizId = `dynamic-${userTier}-${Date.now()}`;
           await saveQuizAttempt(user.id, quizId, score, userAnswers, true);
         } catch (error) {
           console.error('Error saving quiz attempt:', error);
@@ -150,32 +161,6 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
         onComplete(score, questions.length);
       }
     }
-  };
-  
-  const restartQuiz = () => {
-    setCurrentQuestionIndex(0);
-    setSelectedOption(null);
-    setIsAnswered(false);
-    setScore(0);
-    setQuizCompleted(false);
-    setShowExplanation(false);
-    setUserAnswers({});
-    
-    const reloadQuestions = async () => {
-      setLoading(true);
-      try {
-        const userTier = user?.subscriptionTier || 'free';
-        const questionsData = await fetchQuestionsByTier(userTier);
-        setQuestions(questionsData);
-        setShuffleCount(prev => prev + 1);
-      } catch (error) {
-        console.error('Error reloading questions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    reloadQuestions();
   };
   
   const getScoreCategory = (score: number, total: number) => {
@@ -219,17 +204,27 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
           <div className="mt-6">
             <h4 className="font-medium mb-2">Quiz Details:</h4>
             <div className="space-y-2 text-sm">
-              <p><span className="font-medium">Your Tier:</span> {user?.subscriptionTier || 'free'}</p>
+              <p><span className="font-medium">Your Tier:</span> {userTier}</p>
               <p><span className="font-medium">Questions:</span> {questions.length}</p>
               <p><span className="font-medium">Your Score:</span> {score}/{questions.length} ({Math.round((score / questions.length) * 100)}%)</p>
-              <p><span className="font-medium">Randomization:</span> Session #{shuffleCount}</p>
             </div>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button onClick={restartQuiz} className="w-full bg-gold hover:bg-gold/90 text-white">
+        <CardFooter className="flex gap-2">
+          <Button 
+            onClick={handleRestartClick}
+            variant={canRestart ? "default" : "outline"}
+            className={cn(
+              "flex-1",
+              canRestart ? "bg-gold hover:bg-gold/90 text-white" : "opacity-70"
+            )}
+            title={canRestart ? "Restart with new questions" : "Upgrade to restart quizzes"}
+          >
             <RotateCcw className="mr-2 h-4 w-4" />
-            Try Another Quiz
+            Restart Quiz
+          </Button>
+          <Button onClick={restartQuiz} variant="outline" className="flex-1">
+            Try Same Quiz Again
           </Button>
         </CardFooter>
       </Card>
@@ -251,7 +246,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
               Question {currentQuestionIndex + 1}/{questions.length}
             </p>
             <p className="text-xs text-muted-foreground">
-              Tier: {user?.subscriptionTier || 'free'} • Shuffle: #{shuffleCount}
+              Tier: {userTier}
             </p>
           </div>
         </div>
@@ -267,12 +262,15 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={reshuffleCurrentQuestion}
-            disabled={isAnswered}
-            className="flex items-center gap-1"
+            onClick={handleRestartClick}
+            className={cn(
+              "flex items-center gap-1",
+              !canRestart && "opacity-70"
+            )}
+            title={canRestart ? "Restart with new questions" : "Upgrade to restart quizzes"}
           >
-            <Shuffle className="h-3 w-3" />
-            Reshuffle
+            <RotateCcw className="h-3 w-3" />
+            Restart
           </Button>
         </div>
         
