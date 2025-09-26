@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw } from 'lucide-react';
+import { Award, BookOpen, ChevronRight, HelpCircle, RotateCcw, Shuffle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchQuestionsByTier, saveQuizAttempt, QuizQuestion } from "@/services/quizService";
+import { fetchQuestionsByTier, saveQuizAttempt, QuizQuestion, shuffleArray } from "@/services/quizService";
 
 interface DynamicMusicQuizProps {
   onComplete?: (score: number, totalQuestions: number) => void;
@@ -23,6 +23,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
+  const [shuffleCount, setShuffleCount] = useState(0);
   
   useEffect(() => {
     const loadQuestions = async () => {
@@ -39,6 +40,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
         const userTier = user?.subscriptionTier || 'free';
         const questionsData = await fetchQuestionsByTier(userTier);
         setQuestions(questionsData);
+        setShuffleCount(prev => prev + 1);
       } catch (error) {
         console.error('Error loading questions:', error);
       } finally {
@@ -48,6 +50,34 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
 
     loadQuestions();
   }, [user]);
+  
+  // Function to reshuffle options for current question
+  const reshuffleCurrentQuestion = () => {
+    if (isAnswered) return;
+    
+    setQuestions(prevQuestions => {
+      const newQuestions = [...prevQuestions];
+      const currentQuestion = { ...newQuestions[currentQuestionIndex] };
+      
+      // Reshuffle options
+      const shuffledOptions = shuffleArray([...currentQuestion.options]);
+      const correctAnswerIndex = shuffledOptions.findIndex(
+        option => option === currentQuestion.originalCorrectAnswer
+      );
+      
+      newQuestions[currentQuestionIndex] = {
+        ...currentQuestion,
+        options: shuffledOptions,
+        correctAnswer: correctAnswerIndex,
+        shuffledOptions: shuffledOptions
+      };
+      
+      return newQuestions;
+    });
+    
+    setSelectedOption(null);
+    setShuffleCount(prev => prev + 1);
+  };
   
   if (loading) {
     return (
@@ -137,6 +167,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
         const userTier = user?.subscriptionTier || 'free';
         const questionsData = await fetchQuestionsByTier(userTier);
         setQuestions(questionsData);
+        setShuffleCount(prev => prev + 1);
       } catch (error) {
         console.error('Error reloading questions:', error);
       } finally {
@@ -191,6 +222,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
               <p><span className="font-medium">Your Tier:</span> {user?.subscriptionTier || 'free'}</p>
               <p><span className="font-medium">Questions:</span> {questions.length}</p>
               <p><span className="font-medium">Your Score:</span> {score}/{questions.length} ({Math.round((score / questions.length) * 100)}%)</p>
+              <p><span className="font-medium">Randomization:</span> Session #{shuffleCount}</p>
             </div>
           </div>
         </CardContent>
@@ -219,7 +251,7 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
               Question {currentQuestionIndex + 1}/{questions.length}
             </p>
             <p className="text-xs text-muted-foreground">
-              Tier: {user?.subscriptionTier || 'free'}
+              Tier: {user?.subscriptionTier || 'free'} • Shuffle: #{shuffleCount}
             </p>
           </div>
         </div>
@@ -227,13 +259,25 @@ const DynamicMusicQuiz: React.FC<DynamicMusicQuizProps> = ({ onComplete }) => {
       <CardContent className="space-y-4">
         <Progress value={((currentQuestionIndex) / questions.length) * 100} className="h-2 w-full" />
         
-        <div className="py-4">
-          <h3 className="text-lg font-medium mb-4 flex items-start">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium flex items-start">
             <HelpCircle className="h-5 w-5 mr-2 mt-0.5 shrink-0 text-gold" />
             {currentQuestion.question}
           </h3>
-          
-          <div className="space-y-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={reshuffleCurrentQuestion}
+            disabled={isAnswered}
+            className="flex items-center gap-1"
+          >
+            <Shuffle className="h-3 w-3" />
+            Reshuffle
+          </Button>
+        </div>
+        
+        <div className="py-4">
+          <div className="space-y-2">
             {currentQuestion.options.map((option, index) => {
               const isCorrect = index === currentQuestion.correctAnswer;
               const isSelected = selectedOption === index;
