@@ -9,7 +9,6 @@ interface UseSearchOptions {
 
 export const useSearch = (options: UseSearchOptions = {}) => {
   const { initialQuery = '', filters = {}, debounceDelay = 300 } = options;
-  
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -23,8 +22,13 @@ export const useSearch = (options: UseSearchOptions = {}) => {
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (deferredQuery.length > 0) {
-        const suggestionResults = await getSearchSuggestions(deferredQuery, 5);
-        setSuggestions(suggestionResults.map(s => s.text));
+        try {
+          const suggestionResults = await getSearchSuggestions(deferredQuery, 5);
+          setSuggestions(suggestionResults.map(s => s.text));
+        } catch (err) {
+          console.error('Failed to fetch suggestions:', err);
+          setSuggestions([]);
+        }
       } else {
         setSuggestions([]);
       }
@@ -99,6 +103,6 @@ export const useSearch = (options: UseSearchOptions = {}) => {
     error,
     hasMore,
     loadMore,
-    clearSearch
+    clearSearch,
   };
 };
