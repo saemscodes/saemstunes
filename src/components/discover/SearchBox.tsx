@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Clock } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { userPreferences } from '@/lib/animation-utils';
-import { getSearchSuggestions } from '@/lib/search';
+import { getSearchSuggestions, saveRecentSearch, getRecentSearches } from '@/lib/search';
 
 const SearchBox = () => {
   const navigate = useNavigate();
@@ -14,15 +13,12 @@ const SearchBox = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
-    const savedSearches = userPreferences.load<string[]>('recent-searches', [
-      "Piano lessons", "Guitar chords", "Music theory", "Vocal techniques"
-    ]);
-    setRecentSearches(savedSearches);
+    setRecentSearches(getRecentSearches());
   }, []);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (searchQuery.length > 1) {
+      if (searchQuery.length > 0) {
         setIsLoading(true);
         const results = await getSearchSuggestions(searchQuery);
         setSuggestions(results);
@@ -30,24 +26,19 @@ const SearchBox = () => {
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
-        setShowSuggestions(false);
+        setShowSuggestions(recentSearches.length > 0);
       }
     };
 
-    const timeoutId = setTimeout(fetchSuggestions, 300);
+    const timeoutId = setTimeout(fetchSuggestions, 200);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, recentSearches.length]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = (query: string) => {
     if (!query.trim()) return;
-
-    const updatedSearches = [
-      query,
-      ...recentSearches.filter(item => item !== query)
-    ].slice(0, 5);
     
-    setRecentSearches(updatedSearches);
-    userPreferences.save('recent-searches', updatedSearches);
+    saveRecentSearch(query);
+    setRecentSearches(getRecentSearches());
     setShowSuggestions(false);
     setSearchQuery('');
     
@@ -55,9 +46,7 @@ const SearchBox = () => {
   };
 
   const handleInputBlur = () => {
-    setTimeout(() => {
-      setShowSuggestions(false);
-    }, 200);
+    setTimeout(() => setShowSuggestions(false), 150);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -71,34 +60,17 @@ const SearchBox = () => {
         id="search"
         name="search"
         placeholder="Search for music, courses, artists..."
-        className="pl-10 w-full relative z-20 text-left truncate"
+        className="pl-10 w-full relative z-20"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
-        onFocus={() => searchQuery.length > 1 && setShowSuggestions(true)}
+        onFocus={() => setShowSuggestions(true)}
         onBlur={handleInputBlur}
-        />
+      />
       
-      {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
+      {showSuggestions && (
         <div className="absolute top-full left-0 right-0 bg-card shadow-lg rounded-md mt-1 p-2 z-50 border max-h-60 overflow-y-auto">
-          {suggestions.length > 0 && (
-            <>
-              <div className="text-xs text-muted-foreground mb-2 px-2">Suggestions</div>
-              {suggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                >
-                  <Search className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-sm">{suggestion}</span>
-                </div>
-              ))}
-            </>
-          )}
-          
-          {recentSearches.length > 0 && suggestions.length === 0 && (
+          {searchQuery.length === 0 && recentSearches.length > 0 && (
             <>
               <div className="text-xs text-muted-foreground mb-2 px-2">Recent searches</div>
               {recentSearches.map((search, index) => (
@@ -115,8 +87,29 @@ const SearchBox = () => {
             </>
           )}
           
-          {isLoading && (
+          {searchQuery.length > 0 && suggestions.length > 0 && (
+            <>
+              <div className="text-xs text-muted-foreground mb-2 px-2">Suggestions</div>
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                >
+                  <Search className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-sm">{suggestion}</span>
+                </div>
+              ))}
+            </>
+          )}
+          
+          {isLoading && searchQuery.length > 0 && (
             <div className="p-2 text-sm text-muted-foreground">Loading suggestions...</div>
+          )}
+          
+          {searchQuery.length > 0 && suggestions.length === 0 && !isLoading && (
+            <div className="p-2 text-sm text-muted-foreground">No suggestions found</div>
           )}
         </div>
       )}
