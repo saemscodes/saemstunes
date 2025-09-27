@@ -44,7 +44,6 @@ const LazyVisionSection: React.FC = () => {
     <div 
       ref={elementRef} 
       className="w-full"
-      loading="lazy"
     >
       {shouldLoad ? (
         <Suspense fallback={suspenseFallback}>
