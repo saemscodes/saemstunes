@@ -1,5 +1,5 @@
 // src/pages/Index.tsx
-import React, { Suspense, useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAudioPlayer } from "@/context/AudioPlayerContext";
