@@ -95,27 +95,24 @@ const Discover = () => {
     <MainLayout>
       <FeaturedItemsProvider>
         <motion.div 
-          className="space-y-6" 
+          className="space-y-6 relative" 
           {...pageTransition}
         >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-30">
             <div>
               <h1 className="text-3xl font-proxima font-bold">Discover</h1>
               <p className="text-muted-foreground mt-1">
                 Explore curated content from across the musical world
               </p>
             </div>
-            <SearchBox />
+            <div className="relative z-40">
+              <SearchBox />
+            </div>
           </div>
           
-          <EnhancedFeaturedBanner />
-
-          {/* Category Navigation
-          <CategoryNavigation
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          /> */}
+          <div className="relative z-20">
+            <EnhancedFeaturedBanner />
+          </div>
                     
           <ContentTabs 
             activeTab={activeTab} 
