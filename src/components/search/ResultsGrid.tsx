@@ -12,22 +12,24 @@ interface ResultsGridProps {
 
 const ResultsGrid = ({ results }: ResultsGridProps) => {
   const renderCard = (result: SearchResult) => {
+    const key = `${result.source_table}-${result.source_id}`;
+    
     switch (result.source_table) {
       case 'artists':
-        return <ArtistCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <ArtistCard key={key} result={result} />;
       case 'video_content':
-        return <VideoCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <VideoCard key={key} result={result} />;
       case 'resources':
-        return <ResourceCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <ResourceCard key={key} result={result} />;
       case 'courses':
-        return <CourseCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <CourseCard key={key} result={result} />;
       case 'tracks':
-        return <TrackCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <TrackCard key={key} result={result} />;
       case 'tutors':
-        return <TutorCard key={`${result.source_table}-${result.source_id}`} result={result} />;
+        return <TutorCard key={key} result={result} />;
       default:
         return (
-          <div key={`${result.source_table}-${result.source_id}`} className="p-4 border rounded-lg">
+          <div key={key} className="p-4 border rounded-lg">
             <h3 className="font-semibold">{result.title}</h3>
             <p dangerouslySetInnerHTML={{ __html: result.snippet }} />
           </div>
