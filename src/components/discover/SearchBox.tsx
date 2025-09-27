@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { userPreferences } from '@/lib/animation-utils';
@@ -66,12 +66,11 @@ const SearchBox = () => {
 
   return (
     <div className="relative max-w-md w-full">
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 z-10" />
       <Input
         id="search"
         name="search"
         placeholder="Search for music, courses, artists..."
-        className="pl-10 w-full relative z-20 text-left truncate"
+        className="w-full relative z-20 text-left truncate px-3"  // use px-3 for normal balanced padding
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
