@@ -52,6 +52,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Library } from "lucide-react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 // Custom TikTok icon as it's not available in lucide-react
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -291,6 +292,11 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[280px] sm:w-[350px] flex flex-col p-0">
+                <VisuallyHidden>
+                  <DialogTitle>Navigation Menu</DialogTitle>
+                  <DialogDescription>Main application navigation menu</DialogDescription>
+                </VisuallyHidden>
+                
                 <div className="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10">
                   <div 
                     ref={logoRef}
