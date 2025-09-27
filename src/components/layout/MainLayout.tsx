@@ -93,7 +93,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
   const logoRef = useRef<HTMLDivElement>(null);
   const desktopLogoRef = useRef<HTMLDivElement>(null);
 
-  // Handle scroll effect for navbar and top detection
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY;
@@ -104,7 +103,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Handle back button press
   useEffect(() => {
     const handleBackButton = (e: PopStateEvent) => {
       if (location.pathname === '/') {
@@ -117,13 +115,10 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
           setBackButtonPressCount(1);
           window.history.pushState(null, document.title, window.location.href);
           
-          // Reset count after 3 seconds
           setTimeout(() => {
             setBackButtonPressCount(0);
           }, 3000);
         } else {
-          // In a real mobile app, this would exit the app
-          // For web, we'll just show a notification
           toast({
             title: "Exiting application",
             description: "This would close the app on a mobile device",
@@ -134,7 +129,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
 
     window.addEventListener('popstate', handleBackButton);
     
-    // Set initial history state
     if (location.pathname === '/') {
       window.history.pushState(null, document.title, window.location.href);
     }
@@ -144,7 +138,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     };
   }, [location.pathname, backButtonPressCount, toast]);
 
-  // Scroll to top when route changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -234,26 +227,21 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     setIsMobileMenuOpen(false);
   };
 
-  // Enhanced logo click handler
   const handleLogoClick = (logoType: 'mobile' | 'desktop') => {
     if (location.pathname !== '/') {
       navigate('/');
     } else {
       if (!isAtTop) {
-        // Scroll to top if not at top
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        // Already at top - trigger animation if not in cooldown
         if (!cooldown) {
           setAnimateLogo(true);
           setCooldown(true);
           
-          // Reset animation after 400ms
           setTimeout(() => {
             setAnimateLogo(false);
           }, 400);
           
-          // Set cooldown for 2 seconds
           setTimeout(() => {
             setCooldown(false);
           }, 2000);
@@ -262,7 +250,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     }
   };
 
-  // Sample track data for the MiniPlayer
   const trackData = {
     isPlaying: false,
     title: "Example Track",
@@ -288,7 +275,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Mobile Header - With backdrop blur and transparency */}
       <header className={cn(
         "sticky top-0 z-40 lg:hidden transition-all duration-200",
         isScrolled 
@@ -305,7 +291,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[280px] sm:w-[350px] flex flex-col p-0">
-                {/* Fixed Header */}
                 <div className="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10">
                   <div 
                     ref={logoRef}
@@ -330,7 +315,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                   </Button>
                 </div>
 
-                {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto">
                   <nav className="flex flex-col gap-6 p-4">
                     {user && (
@@ -398,7 +382,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                       ))}
                     </div>
 
-                    {/* Footer content - now scrollable and with bottom padding to clear mobile nav */}
                     <Separator className="my-4" />
                     <div className="flex items-center justify-between pb-12">
                       <ThemeToggle />
@@ -503,7 +486,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
       </header>
 
       <div className="flex-1 flex">
-        {/* Desktop Sidebar - With transparent header */}
         <aside className="hidden lg:flex flex-col w-64 bg-card border-r border-border">
           <div className={cn(
             "p-6 sticky top-0 z-40 transition-all duration-200 flex items-center gap-3",
@@ -615,18 +597,17 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1">
           <div className="container mx-auto px-4 sm:px-6 py-6 min-h-[calc(100vh-6rem)] pb-24 lg:pb-6">
             {children}
           </div>
           
-          {/* Fixed Position Elements */}
           <FloatingBackButton />
           {showMiniPlayer && <MiniPlayer {...trackData} />}
           {isMobile && <MobileNavigation />}
         </main>
       </div>
+      
       <Dialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <DialogContent>
           <DialogHeader>
