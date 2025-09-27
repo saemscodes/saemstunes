@@ -12,16 +12,17 @@ export interface SearchResult {
   description?: string;
 }
 
-export interface SearchSuggestion {
-  text: string;
-  type: 'recent' | 'suggestion' | 'popular';
-  score?: number;
-}
-
 export interface SearchFilters {
   source_tables?: string[];
   content_types?: string[];
 }
+
+// Remove the SearchSuggestion interface since we're using strings
+// export interface SearchSuggestion {
+//   text: string;
+//   type: 'recent' | 'suggestion' | 'popular';
+//   score?: number;
+// }
 
 const searchCache = new Map<string, { results: SearchResult[]; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000;
@@ -83,43 +84,30 @@ export const searchAll = async (
   }
 };
 
-export const getSearchSuggestions = async (query: string, limit = 8): Promise<SearchSuggestion[]> => {
+// CHANGE: Return string[] instead of SearchSuggestion[]
+export const getSearchSuggestions = async (query: string, limit = 8): Promise<string[]> => {
   if (!query || query.trim().length < 2) {
     return getDefaultSuggestions(limit);
   }
 
   const cleanQuery = query.trim().toLowerCase();
-  const suggestions: SearchSuggestion[] = [];
-
+  
   try {
+    // Use your existing search_all function to get relevant titles
     const results = await searchAll(cleanQuery, Math.floor(limit * 1.5), 0);
     
-    const titleSuggestions = [...new Set(results.map(item => item.title))]
+    const suggestions = [...new Set(results.map(item => item.title))]
       .filter(title => title && title.toLowerCase().includes(cleanQuery))
-      .slice(0, Math.floor(limit / 2))
-      .map(text => ({
-        text,
-        type: 'suggestion' as const,
-        score: 0.9
-      }));
-
-    suggestions.push(...titleSuggestions);
-
-    const matchingPopular = POPULAR_SEARCH_TERMS
-      .filter(term => term.toLowerCase().includes(cleanQuery))
-      .slice(0, Math.floor(limit / 2))
-      .map(term => ({
-        text: term,
-        type: 'popular' as const,
-        score: 0.8
-      }));
-
-    suggestions.push(...matchingPopular);
-
-    return suggestions
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, limit);
 
+    // Fallback to popular terms if no good matches
+    if (suggestions.length === 0) {
+      return POPULAR_SEARCH_TERMS
+        .filter(term => term.toLowerCase().includes(cleanQuery))
+        .slice(0, limit);
+    }
+
+    return suggestions;
   } catch (error) {
     console.error('Suggestion error:', error);
     return getDefaultSuggestions(limit);
@@ -281,12 +269,9 @@ const calculateRelevanceScore = (item: any, query: string): number => {
   return Math.min(score / 5, 1);
 };
 
-const getDefaultSuggestions = (limit: number): SearchSuggestion[] => {
-  return POPULAR_SEARCH_TERMS.slice(0, limit).map(term => ({
-    text: term,
-    type: 'popular' as const,
-    score: 0.7
-  }));
+// CHANGE: Return string[] instead of SearchSuggestion[]
+const getDefaultSuggestions = (limit: number): string[] => {
+  return POPULAR_SEARCH_TERMS.slice(0, limit);
 };
 
 setInterval(clearSearchCache, 30 * 60 * 1000);
