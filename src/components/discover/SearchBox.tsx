@@ -71,13 +71,13 @@ const SearchBox = () => {
         id="search"
         name="search"
         placeholder="Search for music, courses, artists..."
-        className="pl-10 w-full relative z-20"
+        className="pl-10 w-full relative z-20 text-left truncate"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
         onFocus={() => searchQuery.length > 1 && setShowSuggestions(true)}
         onBlur={handleInputBlur}
-      />
+        />
       
       {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
         <div className="absolute top-full left-0 right-0 bg-card shadow-lg rounded-md mt-1 p-2 z-50 border max-h-60 overflow-y-auto">
