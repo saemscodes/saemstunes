@@ -11,6 +11,7 @@ const SearchBox = () => {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     const savedSearches = userPreferences.load<string[]>('recent-searches', [
@@ -26,8 +27,10 @@ const SearchBox = () => {
         const results = await getSearchSuggestions(searchQuery);
         setSuggestions(results);
         setIsLoading(false);
+        setShowSuggestions(true);
       } else {
         setSuggestions([]);
+        setShowSuggestions(false);
       }
     };
 
@@ -45,36 +48,51 @@ const SearchBox = () => {
     
     setRecentSearches(updatedSearches);
     userPreferences.save('recent-searches', updatedSearches);
+    setShowSuggestions(false);
+    setSearchQuery('');
     
     navigate('/search', { state: { initialQuery: query } });
   };
 
+  const handleInputBlur = () => {
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 200);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    handleSearch(suggestion);
+  };
+
   return (
-    <div className="relative max-w-md w-full hidden md:block">
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+    <div className="relative max-w-md w-full">
+      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 z-10" />
       <Input
         id="search"
         name="search"
         placeholder="Search for music, courses, artists..."
-        className="pl-10 w-full"
+        className="pl-10 w-full relative z-20"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
+        onFocus={() => searchQuery.length > 1 && setShowSuggestions(true)}
+        onBlur={handleInputBlur}
       />
       
-      {(searchQuery && (suggestions.length > 0 || recentSearches.length > 0)) && (
-        <div className="absolute top-full left-0 right-0 bg-card shadow-lg rounded-md mt-1 p-2 z-10 border">
+      {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
+        <div className="absolute top-full left-0 right-0 bg-card shadow-lg rounded-md mt-1 p-2 z-50 border max-h-60 overflow-y-auto">
           {suggestions.length > 0 && (
             <>
-              <div className="text-xs text-muted-foreground mb-2">Suggestions</div>
+              <div className="text-xs text-muted-foreground mb-2 px-2">Suggestions</div>
               {suggestions.map((suggestion, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
-                  onClick={() => handleSearch(suggestion)}
+                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSuggestionClick(suggestion)}
                 >
                   <Search className="h-3 w-3 text-muted-foreground" />
-                  <span>{suggestion}</span>
+                  <span className="text-sm">{suggestion}</span>
                 </div>
               ))}
             </>
@@ -82,15 +100,16 @@ const SearchBox = () => {
           
           {recentSearches.length > 0 && suggestions.length === 0 && (
             <>
-              <div className="text-xs text-muted-foreground mb-2">Recent searches</div>
+              <div className="text-xs text-muted-foreground mb-2 px-2">Recent searches</div>
               {recentSearches.map((search, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
-                  onClick={() => handleSearch(search)}
+                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSuggestionClick(search)}
                 >
                   <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span>{search}</span>
+                  <span className="text-sm">{search}</span>
                 </div>
               ))}
             </>
