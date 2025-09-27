@@ -11,7 +11,7 @@ export const useSearch = (options: UseSearchOptions = {}) => {
   const { initialQuery = '', filters = {}, debounceDelay = 300 } = options;
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]); // Changed to string[]
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -24,7 +24,8 @@ export const useSearch = (options: UseSearchOptions = {}) => {
       if (deferredQuery.length > 0) {
         try {
           const suggestionResults = await getSearchSuggestions(deferredQuery, 5);
-          setSuggestions(suggestionResults.map(s => s.text));
+          // suggestionResults is now string[], so we can set it directly
+          setSuggestions(suggestionResults);
         } catch (err) {
           console.error('Failed to fetch suggestions:', err);
           setSuggestions([]);
