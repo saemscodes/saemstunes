@@ -3,11 +3,12 @@ import MainLayout from "@/components/layout/MainLayout";
 import { motion } from "framer-motion";
 import { pageTransition } from "@/lib/animation-utils";
 import SearchBox from "@/components/discover/SearchBox";
-import EnhancedFeaturedBanner from "@/components/discover/EnhancedFeaturedBanner";
+import EnhancedFeaturedBanner from "@/components/EnhancedFeaturedBanner";
 import CategoryNavigation from "@/components/discover/CategoryNavigation";
 import ContentTabs from "@/components/discover/ContentTabs";
 import RecommendationSection from "@/components/discover/RecommendationSection";
 import { supabase } from "@/integrations/supabase/client";
+import { FeaturedItemsProvider } from "@/context/FeaturedItemsContext";
 
 const Discover = () => {
   const [activeTab, setActiveTab] = useState("music");
@@ -68,7 +69,6 @@ const Discover = () => {
     (selectedCategory === 'all' || track.category === selectedCategory)
   );
 
-  // Force dropdown menus to appear on top by adding a container with higher z-index
   useEffect(() => {
     if (!document.getElementById('portal-dropdown-container')) {
       const dropdownContainer = document.createElement('div');
@@ -93,39 +93,38 @@ const Discover = () => {
 
   return (
     <MainLayout>
-      <motion.div 
-        className="space-y-6" 
-        {...pageTransition}
-      >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-proxima font-bold">Discover</h1>
-            <p className="text-muted-foreground mt-1">
-              Explore curated content from across the musical world
-            </p>
+      <FeaturedItemsProvider>
+        <motion.div 
+          className="space-y-6" 
+          {...pageTransition}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-proxima font-bold">Discover</h1>
+              <p className="text-muted-foreground mt-1">
+                Explore curated content from across the musical world
+              </p>
+            </div>
+            <SearchBox />
           </div>
-          <SearchBox />
-        </div>
-        
-        {/* Enhanced featured content banner */}
-        <EnhancedFeaturedBanner />
-        
-        {/* Category Navigation 
-        <CategoryNavigation 
+          
+          <EnhancedFeaturedBanner />
+
+          {/* Category Navigation
+          <CategoryNavigation
           categories={categories}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
-        /> */}
-        
-        {/* Tabs content section */}
-        <ContentTabs 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab}
-        />
+          /> */}
+                    
+          <ContentTabs 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab}
+          />
 
-        {/* Recommendation Section */}
-        <RecommendationSection />
-      </motion.div>
+          <RecommendationSection />
+        </motion.div>
+      </FeaturedItemsProvider>
     </MainLayout>
   );
 };
