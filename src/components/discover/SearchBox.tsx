@@ -9,7 +9,7 @@ const SearchBox = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]); // Now expecting strings
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -25,6 +25,7 @@ const SearchBox = () => {
       if (searchQuery.length > 1) {
         setIsLoading(true);
         const results = await getSearchSuggestions(searchQuery);
+        // results is now string[], so we can set it directly
         setSuggestions(results);
         setIsLoading(false);
         setShowSuggestions(true);
