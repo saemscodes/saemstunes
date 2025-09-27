@@ -1,14 +1,14 @@
 // src/components/LazyVisionSection.tsx
-import React, { Suspense, lazy, useMemo } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useLazyIntersection } from '@/hooks/useLazyIntersection';
 import { LoaderOne } from '@/components/ui/loader';
 
-// Single, optimized lazy load implementation
+// Lazy load VisionSection with error boundary
 const VisionSection = lazy(() => 
   import('@/components/homepage/VisionSection')
-    .then(module => ({ default: module.VisionSection }))
     .catch(error => {
       console.error('Failed to load VisionSection:', error);
+      // Return a fallback component
       return { 
         default: () => (
           <div className="text-center py-12">
@@ -21,35 +21,31 @@ const VisionSection = lazy(() =>
 
 const LazyVisionSection: React.FC = () => {
   const { elementRef, shouldLoad } = useLazyIntersection({
-    threshold: 0.1, // Revert to original threshold
-    rootMargin: '150px', // Revert to original margin
+    threshold: 0.1,
+    rootMargin: '150px',
   });
-
-  // Memoize components to prevent re-renders
-  const placeholder = useMemo(() => (
-    <div className="min-h-[400px] w-full opacity-0" aria-hidden="true" />
-  ), []);
-
-  const suspenseFallback = useMemo(() => (
-    <div className="min-h-[400px] flex flex-col items-center justify-center py-12 space-y-4">
-      <LoaderOne />
-      <p className="text-primary text-sm">Loading our vision...</p>
-    </div>
-  ), []);
 
   return (
     <div ref={elementRef} className="w-full">
       {shouldLoad ? (
-        <Suspense fallback={suspenseFallback}>
+        <Suspense
+          fallback={
+            <div className="min-h-[400px] flex flex-col items-center justify-center py-12 space-y-4">
+              <LoaderOne />
+              <p className="text-primary text-sm">Loading our vision...</p>
+            </div>
+          }
+        >
           <div className="animate-in fade-in-50 duration-500">
             <VisionSection />
           </div>
         </Suspense>
       ) : (
-        placeholder
+        // Invisible placeholder to maintain layout and trigger intersection
+        <div className="min-h-[400px] w-full opacity-0" aria-hidden="true" />
       )}
     </div>
   );
 };
 
-export default React.memo(LazyVisionSection);
+export default LazyVisionSection;
