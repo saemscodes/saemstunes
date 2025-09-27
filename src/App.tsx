@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -113,12 +112,23 @@ const App = () => {
                             <Route path="/library" element={<Library />} />
                             <Route path="/community" element={<Community />} />
                             <Route path="/tracks" element={<Tracks />} />
+                            
+                            {/* CRITICAL: Add these missing routes to prevent 404s */}
+                            <Route path="/track/:slug" element={<AudioPlayer />} />
+                            <Route path="/artist/:slug" element={<ArtistProfile />} />
+                            <Route path="/course/:slug" element={<LearningHub />} />
+                            <Route path="/lesson/:slug" element={<LearningModulePage />} />
+                            <Route path="/module/:slug" element={<LearningModulePage />} />
+                            
                             <Route path="/music-showcase" element={<Navigate to="/tracks" replace />} />
                             <Route path="/player" element={<Player />} />
                             <Route path="/learning-hub" element={<LearningHub />} />
                             <Route path="/learning-hub/:id" element={<LearningModulePage />} />
                             <Route path="/learning-module/:id" element={<LearningModulePage />} />
+                            
+                            {/* This route was already present but keeping it for consistency */}
                             <Route path="/artist/:slug" element={<ArtistProfile />} />
+                            
                             <Route path="/notifications" element={<Notifications />} />
                             <Route path="/follow-us" element={<FollowUs />} />
                             <Route path="/contact-us" element={<ContactUs />} />
