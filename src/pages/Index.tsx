@@ -1,5 +1,5 @@
-// src/pages/Index.tsx
-import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAudioPlayer } from "@/context/AudioPlayerContext";
@@ -221,8 +221,10 @@ const useInstrumentSelectorLogic = (user: any) => {
 
     const checkInstrumentSelectorStatus = async () => {
       try {
+        // First try to get status from database
         const status = await UserPreferencesService.getInstrumentSelectorStatus(user.id);
         
+        // Check orientation conditions
         const shouldShowBasedOnOrientation = () => {
           const width = window.innerWidth;
           const isMobile = width < 768;
@@ -235,15 +237,18 @@ const useInstrumentSelectorLogic = (user: any) => {
         const finalShouldShow = status.shouldShow && shouldShowBasedOnOrientation();
         setShowInstrumentSelector(finalShouldShow);
         
+        // Sync with sessionStorage for performance
         const sessionKey = `instrument_selector_shown_${user.id}`;
         sessionStorage.setItem(sessionKey, status.shouldShow ? 'false' : 'true');
         sessionStorage.setItem(`instrument_selector_count_${user.id}`, status.viewCount.toString());
       } catch (error) {
         console.error('Database check failed, falling back to sessionStorage:', error);
+        // Fallback to sessionStorage
         const sessionKey = `instrument_selector_shown_${user.id}`;
         const hasSeenThisSession = sessionStorage.getItem(sessionKey);
         
         if (!hasSeenThisSession) {
+          // Check orientation conditions
           const width = window.innerWidth;
           const isMobile = width < 768;
           const isLandscape = 
@@ -266,16 +271,20 @@ const useInstrumentSelectorLogic = (user: any) => {
     if (!user) return;
 
     try {
+      // Update database
       await UserPreferencesService.markInstrumentSelectorShown(user.id);
     } catch (error) {
       console.error('Failed to mark as shown in database, using sessionStorage only:', error);
+      // Continue with sessionStorage even if API fails
     }
 
+    // Update sessionStorage regardless of API result
     const sessionKey = `instrument_selector_shown_${user.id}`;
     sessionStorage.setItem(sessionKey, 'true');
     setShowInstrumentSelector(false);
   };
 
+  // Cleanup session data on user change (handles logout)
   useEffect(() => {
     const cleanup = () => {
       const keys = Object.keys(sessionStorage);
@@ -297,6 +306,7 @@ const useInstrumentSelectorLogic = (user: any) => {
 };
 
 // IMPROVED HERO BUTTON TEXT
+// Update your HomeHero component
 const HomeHero = ({ onExploreTracks, onTryTools }: { onExploreTracks: () => void; onTryTools: () => void }) => {
   return (
     <motion.section 
@@ -305,6 +315,7 @@ const HomeHero = ({ onExploreTracks, onTryTools }: { onExploreTracks: () => void
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
+      {/* DotGrid Background with feathering effect */}
       <div className="absolute top-0 left-0 w-screen h-full z-0 pointer-events-none">
         <div className="w-full h-full 
             [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_100%)]
@@ -334,6 +345,7 @@ const HomeHero = ({ onExploreTracks, onTryTools }: { onExploreTracks: () => void
         </div>
       </div>
       
+      {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
           Welcome to{" "}
@@ -425,28 +437,14 @@ const Index = () => {
   const { state } = useAudioPlayer();
   const navigate = useNavigate();
   
+  // Use the new auth-based instrument selector logic with database integration
   const { showInstrumentSelector, isLoading, markInstrumentSelectorAsShown } = useInstrumentSelectorLogic(user);
 
+  // Fix: Use currentTrack from audio player context with null checking
   const currentTrack = state?.currentTrack || null;
   
+  // IMPROVED TRACK FETCHING
   const featuredTracks = useShuffledTracks(4, 30000);
-
-  // Preload VisionSection when user interacts with page
-  useEffect(() => {
-    const preloadOnInteraction = () => {
-      import('@/components/homepage/VisionSection');
-      document.removeEventListener('mousemove', preloadOnInteraction);
-      document.removeEventListener('touchstart', preloadOnInteraction);
-    };
-
-    document.addEventListener('mousemove', preloadOnInteraction, { once: true });
-    document.addEventListener('touchstart', preloadOnInteraction, { once: true });
-
-    return () => {
-      document.removeEventListener('mousemove', preloadOnInteraction);
-      document.removeEventListener('touchstart', preloadOnInteraction);
-    };
-  }, []);
 
   const handleInstrumentSelect = async (instrument: string) => {
     await markInstrumentSelectorAsShown();
@@ -458,9 +456,11 @@ const Index = () => {
   };
 
   const handlePlayTrack = async (track: any) => {
+    // Step 1: Navigate to track page using slug
     const trackUrl = generateTrackUrl(track);
     navigate(trackUrl);
 
+    // Track play analytics
     const identifier = track.slug || (!isUuid(track.id) ? track.id : null);
     if (identifier && user?.id) {
       try {
@@ -471,6 +471,7 @@ const Index = () => {
     }
   };
 
+  // PRESERVED ORIGINAL SHARE FUNCTIONALITY
   const handleShareTrack = async (track: any) => {
     const shareData = {
       title: `${track.title} by ${track.artist}`,
@@ -488,11 +489,6 @@ const Index = () => {
       console.error('Error sharing:', error);
     }
   };
-
-  // Memoize the VisionSection to prevent re-renders
-  const memoizedVisionSection = useMemo(() => (
-    <LazyVisionSection key="vision-section" />
-  ), []);
     
   if (isLoading) {
     return (
@@ -524,6 +520,7 @@ const Index = () => {
         <div className="min-h-screen bg-background">
           <OrientationHint />
 
+          {/* REMOVED FIXED WIDTH CONTAINER - RESPONSIVE MOBILE FIX */}
           <div className="w-full max-w-full overflow-x-hidden space-y-6 sm:space-y-8 px-4 sm:px-6">
             <HomeHero 
               onExploreTracks={() => navigate('/tracks')}
@@ -538,11 +535,15 @@ const Index = () => {
               onShareTrack={handleShareTrack}
             />
 
+            {/*
             <QuickActionsSection />
           
+            {/*
             <Suspense fallback={<div className="h-64 bg-muted/20 animate-pulse rounded-lg" />}>
               <FourPointerSection />
-            </Suspense>
+            </Suspense> 
+            */}
+            
             
             <section className="py-8 bg-background flex items-center justify-center">
                <div className="container mx-auto px-4 max-w-full xl:max-w-7xl"> 
@@ -557,18 +558,19 @@ const Index = () => {
               </div>
             </section>
 
-            {memoizedVisionSection}
             
-            <section>
+            <LazyVisionSection />
+            
+            {/* <section>
               <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">
                 Try Our Music Tools
               </h2>
               <div className="overflow-x-hidden py-2">
                 <MusicToolsCarousel />
               </div>
-            </section>
+            </section> 
             
-            <SocialMediaContainer />
+            {/* <SocialMediaContainer /> */}
             
             {user && (
               <div className="overflow-x-auto">
@@ -728,6 +730,7 @@ const QuickActionsSection = () => {
   const [containerWidths, setContainerWidths] = useState<number[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Measure container widths on mount and resize
   useEffect(() => {
     const updateWidths = () => {
       setContainerWidths(
@@ -744,12 +747,14 @@ const QuickActionsSection = () => {
     };
   }, []);
 
+  // Get optimal text version based on container width
   const getTextVariant = (width: number) => {
     if (width < 220) return 'narrow';
     if (width < 320) return 'sm';
     return 'default';
   };
 
+  // Loading skeleton while measuring
   if (!isMounted) {
     return (
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -835,6 +840,7 @@ const OrientationHint = () => {
   const { isMobile, isLandscape } = useWindowOrientation();
   const [dismissed, setDismissed] = useState(false);
   
+  // Check if first-time user
   useEffect(() => {
     const hasSeenHint = localStorage.getItem('orientationHintSeen');
     setDismissed(!!hasSeenHint);
