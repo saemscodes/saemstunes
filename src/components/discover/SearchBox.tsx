@@ -1,127 +1,178 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Clock } from 'lucide-react';
-import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
-import { userPreferences } from '@/lib/animation-utils';
-import { getSearchSuggestions } from '@/lib/search';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Clock, X, TrendingUp, Loader } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useSearch } from '@/lib/hooks/useSearch';
+import { getRecentSearches, saveRecentSearch } from '@/lib/search';
 
-const SearchBox = () => {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+interface SearchBoxProps {
+  onResultClick?: (result: any) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+export const SearchBox: React.FC<SearchBoxProps> = ({
+  onResultClick,
+  placeholder = "Search for music, courses, artists...",
+  className = ""
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    results,
+    suggestions,
+    isLoading,
+    error,
+    hasMore,
+    loadMore
+  } = useSearch({ debounceDelay: 400 });
+
+  const recentSearches = getRecentSearches();
+  const trendingSearches = ["guitar lessons", "piano basics", "music theory", "vocal warmups"];
 
   useEffect(() => {
-    const savedSearches = userPreferences.load<string[]>('recent-searches', [
-      "Piano lessons", "Guitar chords", "Music theory", "Vocal techniques"
-    ]);
-    setRecentSearches(savedSearches);
-  }, []);
-
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      if (searchQuery.length > 1) {
-        setIsLoading(true);
-        const results = await getSearchSuggestions(searchQuery);
-        setSuggestions(results);
-        setIsLoading(false);
-        setShowSuggestions(true);
-      } else {
-        setSuggestions([]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        setIsFocused(false);
       }
     };
 
-    const timeoutId = setTimeout(fetchSuggestions, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleSearch = async (query: string) => {
-    if (!query.trim()) return;
-
-    const updatedSearches = [
-      query,
-      ...recentSearches.filter(item => item !== query)
-    ].slice(0, 5);
-    
-    setRecentSearches(updatedSearches);
-    userPreferences.save('recent-searches', updatedSearches);
-    setShowSuggestions(false);
-    setSearchQuery('');
-    
-    navigate('/search', { state: { initialQuery: query } });
-  };
-
-  const handleInputBlur = () => {
-    setTimeout(() => {
-      setShowSuggestions(false);
-    }, 200);
+  const handleInputChange = (value: string) => {
+    setLocalQuery(value);
+    setSearchQuery(value);
+    setShowSuggestions(true);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    handleSearch(suggestion);
+    setLocalQuery(suggestion);
+    setSearchQuery(suggestion);
+    setShowSuggestions(false);
+    saveRecentSearch(suggestion);
+    inputRef.current?.focus();
   };
 
+  const handleClear = () => {
+    setLocalQuery('');
+    setSearchQuery('');
+    setShowSuggestions(true);
+    inputRef.current?.focus();
+  };
+
+  const shouldShowSuggestions = showSuggestions && isFocused && !error;
+
   return (
-    <div className="relative max-w-md w-full">
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 z-10" />
-      <Input
-        id="search"
-        name="search"
-        placeholder="Search for music, courses, artists..."
-        className="pl-10 w-full relative z-20"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
-        onFocus={() => searchQuery.length > 1 && setShowSuggestions(true)}
-        onBlur={handleInputBlur}
-      />
-      
-      {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
-        <div className="absolute top-full left-0 right-0 bg-card shadow-lg rounded-md mt-1 p-2 z-50 border max-h-60 overflow-y-auto">
-          {suggestions.length > 0 && (
-            <>
-              <div className="text-xs text-muted-foreground mb-2 px-2">Suggestions</div>
-              {suggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                >
-                  <Search className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-sm">{suggestion}</span>
+    <div ref={containerRef} className={`relative ${className}`}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={localQuery}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => {
+            setIsFocused(true);
+            setShowSuggestions(true);
+          }}
+          className="pl-10 pr-10 w-full"
+        />
+        {localQuery && (
+          <button
+            onClick={handleClear}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {shouldShowSuggestions && (
+        <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-md shadow-lg mt-1 z-50 max-h-96 overflow-y-auto">
+          <div className="p-3">
+            {localQuery.length === 0 && recentSearches.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                  <Clock className="h-3 w-3" />
+                  Recent searches
                 </div>
-              ))}
-            </>
-          )}
-          
-          {recentSearches.length > 0 && suggestions.length === 0 && (
-            <>
-              <div className="text-xs text-muted-foreground mb-2 px-2">Recent searches</div>
-              {recentSearches.map((search, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer transition-colors"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSuggestionClick(search)}
-                >
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-sm">{search}</span>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map((search, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-secondary/80"
+                      onClick={() => handleSuggestionClick(search)}
+                    >
+                      {search}
+                    </Badge>
+                  ))}
                 </div>
-              ))}
-            </>
-          )}
-          
-          {isLoading && (
-            <div className="p-2 text-sm text-muted-foreground">Loading suggestions...</div>
-          )}
+              </div>
+            )}
+
+            {suggestions.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                  <TrendingUp className="h-3 w-3" />
+                  Suggestions
+                </div>
+                <div className="space-y-1">
+                  {suggestions.map((suggestion, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer text-sm"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                    >
+                      <Search className="h-3 w-3 text-muted-foreground" />
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {localQuery.length === 0 && suggestions.length === 0 && (
+              <div>
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                  <TrendingUp className="h-3 w-3" />
+                  Trending searches
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {trendingSearches.map((search, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-secondary/50"
+                      onClick={() => handleSuggestionClick(search)}
+                    >
+                      {search}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader className="h-4 w-4 animate-spin" />
+                <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 };
-
-export default SearchBox;
