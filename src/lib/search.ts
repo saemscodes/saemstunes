@@ -12,18 +12,25 @@ export interface SearchResult {
   description?: string;
 }
 
+export interface SearchSuggestion {
+  text: string;
+  type: 'recent' | 'suggestion' | 'popular';
+  score?: number;
+}
+
 export interface SearchFilters {
   source_tables?: string[];
   content_types?: string[];
 }
 
-// Cache for search results (simple in-memory cache)
 const searchCache = new Map<string, { results: SearchResult[]; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 const POPULAR_SEARCH_TERMS = [
   "guitar lessons", "piano basics", "vocal warmups", "music theory", 
-  "songwriting", "gospel music", "afrobeat", "chord progressions"
+  "songwriting", "gospel music", "afrobeat", "chord progressions",
+  "fingerstyle guitar", "music production", "love", "worship",
+  "african rhythms", "kenyan music", "gospel worship"
 ];
 
 export const searchAll = async (
@@ -39,7 +46,6 @@ export const searchAll = async (
   const cleanQuery = query.trim();
   const cacheKey = `${cleanQuery}-${limit}-${offset}-${JSON.stringify(filters)}`;
   
-  // Check cache first
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.results;
@@ -55,7 +61,7 @@ export const searchAll = async (
 
     if (error) {
       console.error('Search RPC error:', error);
-      return await fallbackSearch(cleanQuery, limit, offset, filters);
+      throw error;
     }
 
     const results = (data || []).map((item: SearchResult) => ({
@@ -65,7 +71,6 @@ export const searchAll = async (
       description: extractDescription(item.metadata, item.snippet)
     }));
 
-    // Cache successful results
     searchCache.set(cacheKey, {
       results,
       timestamp: Date.now()
@@ -78,29 +83,43 @@ export const searchAll = async (
   }
 };
 
-export const getSearchSuggestions = async (query: string, limit = 8): Promise<string[]> => {
+export const getSearchSuggestions = async (query: string, limit = 8): Promise<SearchSuggestion[]> => {
   if (!query || query.trim().length < 2) {
     return getDefaultSuggestions(limit);
   }
 
   const cleanQuery = query.trim().toLowerCase();
-  
+  const suggestions: SearchSuggestion[] = [];
+
   try {
-    // Use your existing search_all function to get relevant titles
     const results = await searchAll(cleanQuery, Math.floor(limit * 1.5), 0);
     
-    const suggestions = [...new Set(results.map(item => item.title))]
+    const titleSuggestions = [...new Set(results.map(item => item.title))]
       .filter(title => title && title.toLowerCase().includes(cleanQuery))
+      .slice(0, Math.floor(limit / 2))
+      .map(text => ({
+        text,
+        type: 'suggestion' as const,
+        score: 0.9
+      }));
+
+    suggestions.push(...titleSuggestions);
+
+    const matchingPopular = POPULAR_SEARCH_TERMS
+      .filter(term => term.toLowerCase().includes(cleanQuery))
+      .slice(0, Math.floor(limit / 2))
+      .map(term => ({
+        text: term,
+        type: 'popular' as const,
+        score: 0.8
+      }));
+
+    suggestions.push(...matchingPopular);
+
+    return suggestions
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, limit);
 
-    // Fallback to popular terms if no good matches
-    if (suggestions.length === 0) {
-      return POPULAR_SEARCH_TERMS
-        .filter(term => term.toLowerCase().includes(cleanQuery))
-        .slice(0, limit);
-    }
-
-    return suggestions;
   } catch (error) {
     console.error('Suggestion error:', error);
     return getDefaultSuggestions(limit);
@@ -131,7 +150,10 @@ export const saveRecentSearch = (query: string): void => {
   }
 };
 
-// Helper functions
+export const clearSearchCache = (): void => {
+  searchCache.clear();
+};
+
 const getContentType = (sourceTable: string): string => {
   const typeMap: Record<string, string> = {
     'video_content': 'video',
@@ -153,7 +175,6 @@ const extractImage = (metadata: any): string | undefined => {
 const extractDescription = (metadata: any, snippet: string): string | undefined => {
   if (metadata?.description) return metadata.description;
   if (snippet) {
-    // Clean up the snippet from ts_headline output
     const cleanSnippet = snippet
       .replace(/<b>/g, '')
       .replace(/<\/b>/g, '')
@@ -255,17 +276,17 @@ const calculateRelevanceScore = (item: any, query: string): number => {
   if (title.includes(queryLower)) score += 3;
   if (body.includes(queryLower)) score += 1;
   
-  // Boost score for exact matches
   if (title === queryLower) score += 2;
   
   return Math.min(score / 5, 1);
 };
 
-const getDefaultSuggestions = (limit: number): string[] => {
-  return POPULAR_SEARCH_TERMS.slice(0, limit);
+const getDefaultSuggestions = (limit: number): SearchSuggestion[] => {
+  return POPULAR_SEARCH_TERMS.slice(0, limit).map(term => ({
+    text: term,
+    type: 'popular' as const,
+    score: 0.7
+  }));
 };
 
-// Auto-clear cache every 30 minutes
-setInterval(() => {
-  searchCache.clear();
-}, 30 * 60 * 1000);
+setInterval(clearSearchCache, 30 * 60 * 1000);
