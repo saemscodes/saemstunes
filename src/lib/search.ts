@@ -14,12 +14,7 @@ export interface SearchResult {
 
 export interface SearchFilters {
   source_tables?: string[];
-  content_types?: string[];
 }
-
-// Cache for search results (simple in-memory cache)
-const searchCache = new Map<string, { results: SearchResult[]; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 const POPULAR_SEARCH_TERMS = [
   "guitar lessons", "piano basics", "vocal warmups", "music theory", 
@@ -37,39 +32,36 @@ export const searchAll = async (
   }
 
   const cleanQuery = query.trim();
-  const cacheKey = `${cleanQuery}-${limit}-${offset}-${JSON.stringify(filters)}`;
   
-  // Check cache first
-  const cached = searchCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.results;
-  }
-
   try {
-    const { data, error } = await supabase
-      .rpc('search_all', { 
-        _q: cleanQuery, 
-        _limit: limit, 
-        _offset: offset 
-      });
+    const { data, error } = await supabase.rpc('search_all', { 
+      _q: cleanQuery, 
+      _limit: limit, 
+      _offset: offset 
+    });
 
     if (error) {
       console.error('Search RPC error:', error);
-      return await fallbackSearch(cleanQuery, limit, offset, filters);
+      throw error;
     }
 
-    const results = (data || []).map((item: SearchResult) => ({
-      ...item,
+    let results = (data || []).map((item: any) => ({
+      source_table: item.source_table,
+      source_id: item.source_id,
+      title: item.title,
+      snippet: item.snippet || '',
+      rank: item.rank || 0.1,
+      metadata: item.metadata,
       type: getContentType(item.source_table),
       image: extractImage(item.metadata),
       description: extractDescription(item.metadata, item.snippet)
     }));
 
-    // Cache successful results
-    searchCache.set(cacheKey, {
-      results,
-      timestamp: Date.now()
-    });
+    if (filters.source_tables && filters.source_tables.length > 0) {
+      results = results.filter(result => 
+        filters.source_tables!.includes(result.source_table)
+      );
+    }
 
     return results;
   } catch (error) {
@@ -79,31 +71,33 @@ export const searchAll = async (
 };
 
 export const getSearchSuggestions = async (query: string, limit = 8): Promise<string[]> => {
-  if (!query || query.trim().length < 2) {
-    return getDefaultSuggestions(limit);
+  if (!query || query.trim().length < 1) {
+    return POPULAR_SEARCH_TERMS.slice(0, limit);
   }
 
   const cleanQuery = query.trim().toLowerCase();
   
   try {
-    // Use your existing search_all function to get relevant titles
-    const results = await searchAll(cleanQuery, Math.floor(limit * 1.5), 0);
-    
-    const suggestions = [...new Set(results.map(item => item.title))]
-      .filter(title => title && title.toLowerCase().includes(cleanQuery))
-      .slice(0, limit);
+    const { data, error } = await supabase
+      .from('search_index')
+      .select('title')
+      .ilike('title', `%${cleanQuery}%`)
+      .limit(limit * 2);
 
-    // Fallback to popular terms if no good matches
-    if (suggestions.length === 0) {
-      return POPULAR_SEARCH_TERMS
-        .filter(term => term.toLowerCase().includes(cleanQuery))
-        .slice(0, limit);
+    if (error) throw error;
+
+    const uniqueTitles = [...new Set(data.map(item => item.title).filter(Boolean))].slice(0, limit);
+    
+    if (uniqueTitles.length > 0) {
+      return uniqueTitles;
     }
 
-    return suggestions;
+    return POPULAR_SEARCH_TERMS
+      .filter(term => term.toLowerCase().includes(cleanQuery))
+      .slice(0, limit);
+
   } catch (error) {
-    console.error('Suggestion error:', error);
-    return getDefaultSuggestions(limit);
+    return POPULAR_SEARCH_TERMS.slice(0, limit);
   }
 };
 
@@ -131,7 +125,6 @@ export const saveRecentSearch = (query: string): void => {
   }
 };
 
-// Helper functions
 const getContentType = (sourceTable: string): string => {
   const typeMap: Record<string, string> = {
     'video_content': 'video',
@@ -153,11 +146,7 @@ const extractImage = (metadata: any): string | undefined => {
 const extractDescription = (metadata: any, snippet: string): string | undefined => {
   if (metadata?.description) return metadata.description;
   if (snippet) {
-    // Clean up the snippet from ts_headline output
-    const cleanSnippet = snippet
-      .replace(/<b>/g, '')
-      .replace(/<\/b>/g, '')
-      .substring(0, 150);
+    const cleanSnippet = snippet.replace(/<[^>]*>/g, '').substring(0, 150);
     return cleanSnippet.length > 140 ? cleanSnippet.substring(0, 140) + '...' : cleanSnippet;
   }
   return undefined;
@@ -226,8 +215,8 @@ const fallbackSearch = async (
       source_table: item.source_table,
       source_id: item.source_id,
       title: item.title,
-      snippet: highlightText(item.body, query) || item.body?.substring(0, 100) || '',
-      rank: calculateRelevanceScore(item, query),
+      snippet: item.body?.substring(0, 100) || '',
+      rank: calculateBasicRelevance(item, query),
       metadata: item.metadata,
       type: getContentType(item.source_table),
       image: extractImage(item.metadata),
@@ -239,33 +228,11 @@ const fallbackSearch = async (
   }
 };
 
-const highlightText = (text: string, query: string): string => {
-  if (!text || !query) return text || '';
-  const regex = new RegExp(`(${query.split(' ').filter(w => w.length > 2).join('|')})`, 'gi');
-  return text.replace(regex, '<b>$1</b>').substring(0, 100) + '...';
-};
-
-const calculateRelevanceScore = (item: any, query: string): number => {
+const calculateBasicRelevance = (item: any, query: string): number => {
   const title = item.title?.toLowerCase() || '';
-  const body = item.body?.toLowerCase() || '';
   const queryLower = query.toLowerCase();
   
-  let score = 0;
-  
-  if (title.includes(queryLower)) score += 3;
-  if (body.includes(queryLower)) score += 1;
-  
-  // Boost score for exact matches
-  if (title === queryLower) score += 2;
-  
-  return Math.min(score / 5, 1);
+  if (title === queryLower) return 0.9;
+  if (title.includes(queryLower)) return 0.7;
+  return 0.3;
 };
-
-const getDefaultSuggestions = (limit: number): string[] => {
-  return POPULAR_SEARCH_TERMS.slice(0, limit);
-};
-
-// Auto-clear cache every 30 minutes
-setInterval(() => {
-  searchCache.clear();
-}, 30 * 60 * 1000);
