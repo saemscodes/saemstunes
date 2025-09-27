@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect, useRef } from "react";
+// src/pages/Index.tsx (or wherever your homepage is located)
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAudioPlayer } from "@/context/AudioPlayerContext";
@@ -446,6 +446,23 @@ const Index = () => {
   // IMPROVED TRACK FETCHING
   const featuredTracks = useShuffledTracks(4, 30000);
 
+  // Preload VisionSection when user starts interacting with page
+  useEffect(() => {
+    const preloadOnInteraction = () => {
+      import('@/components/homepage/VisionSection');
+      document.removeEventListener('mousemove', preloadOnInteraction);
+      document.removeEventListener('touchstart', preloadOnInteraction);
+    };
+
+    document.addEventListener('mousemove', preloadOnInteraction, { once: true });
+    document.addEventListener('touchstart', preloadOnInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('mousemove', preloadOnInteraction);
+      document.removeEventListener('touchstart', preloadOnInteraction);
+    };
+  }, []);
+
   const handleInstrumentSelect = async (instrument: string) => {
     await markInstrumentSelectorAsShown();
     navigate(`/music-tools?tool=${instrument}`);
@@ -489,6 +506,11 @@ const Index = () => {
       console.error('Error sharing:', error);
     }
   };
+
+  // Memoize the LazyVisionSection to prevent re-renders
+  const memoizedVisionSection = useMemo(() => (
+    <LazyVisionSection key="vision-section" />
+  ), []);
     
   if (isLoading) {
     return (
@@ -535,15 +557,11 @@ const Index = () => {
               onShareTrack={handleShareTrack}
             />
 
-            {/*
             <QuickActionsSection />
           
-            {/*
             <Suspense fallback={<div className="h-64 bg-muted/20 animate-pulse rounded-lg" />}>
               <FourPointerSection />
-            </Suspense> 
-            */}
-            
+            </Suspense>
             
             <section className="py-8 bg-background flex items-center justify-center">
                <div className="container mx-auto px-4 max-w-full xl:max-w-7xl"> 
@@ -559,18 +577,18 @@ const Index = () => {
             </section>
 
             
-            <LazyVisionSection />
+            {memoizedVisionSection}
             
-            {/* <section>
+            <section>
               <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">
                 Try Our Music Tools
               </h2>
               <div className="overflow-x-hidden py-2">
                 <MusicToolsCarousel />
               </div>
-            </section> 
+            </section>
             
-            {/* <SocialMediaContainer /> */}
+            <SocialMediaContainer />
             
             {user && (
               <div className="overflow-x-auto">
