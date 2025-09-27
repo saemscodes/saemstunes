@@ -19,6 +19,10 @@ const SearchPage = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [trendingSearches] = useState([
+    "Piano basics", "Guitar chords", "Vocal warm-ups", "Music theory", "Saxophone lessons",
+    "Love songs", "Worship music", "Gospel chords", "African rhythms"
+  ]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -67,10 +71,14 @@ const SearchPage = () => {
     }
   };
 
-  const handleSearch = (query: string) => {
+  const saveSearchToHistory = (query: string) => {
     if (!query.trim()) return;
+    const updatedSearches = [
+      query,
+      ...recentSearches.filter(item => item !== query)
+    ].slice(0, 5);
+    setRecentSearches(updatedSearches);
     saveRecentSearch(query);
-    setRecentSearches(getRecentSearches());
   };
 
   const clearSearch = () => {
@@ -82,13 +90,13 @@ const SearchPage = () => {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchQuery) {
-      handleSearch(searchQuery);
+      saveSearchToHistory(searchQuery);
     }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setSearchQuery(suggestion);
-    handleSearch(suggestion);
+    saveSearchToHistory(suggestion);
   };
 
   const loadMore = () => {
@@ -102,7 +110,6 @@ const SearchPage = () => {
 
   const filteredResults = filterResultsByType(searchResults, activeTab);
 
-  // Extract unique tags from search results for quick filtering
   const extractQuickFilters = () => {
     const tags = new Set<string>();
     searchResults.forEach(result => {
@@ -124,7 +131,7 @@ const SearchPage = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-serif font-bold mb-6">Search</h1>
         
         <div className="relative mb-6">
@@ -157,43 +164,66 @@ const SearchPage = () => {
             </Button>
           </div>
 
-          {!searchQuery && recentSearches.length > 0 && (
+          {!searchQuery && (
             <div className="absolute top-full left-0 right-0 bg-background shadow-lg rounded-md mt-2 p-4 z-20 border">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Recent Searches
+              {recentSearches.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      Recent Searches
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto py-1 px-2 text-xs"
+                      onClick={() => {
+                        localStorage.removeItem('saemstunes-recent-searches');
+                        setRecentSearches([]);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {recentSearches.map((search, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-muted"
+                        onClick={() => handleSuggestionClick(search)}
+                      >
+                        <History className="mr-1 h-3 w-3" />
+                        {search}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <h3 className="text-sm font-medium flex items-center gap-1 mb-2">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Trending
                 </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto py-1 px-2 text-xs"
-                  onClick={() => {
-                    localStorage.removeItem('saemstunes-recent-searches');
-                    setRecentSearches([]);
-                  }}
-                >
-                  Clear All
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((search, idx) => (
-                  <Badge
-                    key={idx}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-primary/20 transition-colors px-3 py-1"
-                    onClick={() => handleSuggestionClick(search)}
-                  >
-                    <History className="mr-1 h-3 w-3" />
-                    {search}
-                  </Badge>
-                ))}
+                <div className="flex flex-wrap gap-2">
+                  {trendingSearches.map((search, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-muted"
+                      onClick={() => handleSuggestionClick(search)}
+                    >
+                      {search}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {showFilters && quickFilters.length > 0 && (
+        {showFilters && (
           <motion.div
             className="mb-6"
             initial={{ opacity: 0, height: 0 }}
@@ -208,12 +238,17 @@ const SearchPage = () => {
                     <Badge
                       key={index}
                       variant="outline"
-                      className="cursor-pointer hover:bg-primary/10 transition-colors"
+                      className="cursor-pointer hover:bg-muted"
                       onClick={() => handleSuggestionClick(tag)}
                     >
                       {tag}
                     </Badge>
                   ))}
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setShowFilters(false)}>
+                    Close
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -221,29 +256,23 @@ const SearchPage = () => {
         )}
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6 w-full flex overflow-x-auto">
-            <TabsTrigger value="all" className="flex-1">All Content</TabsTrigger>
-            <TabsTrigger value="artists" className="flex-1">Artists</TabsTrigger>
-            <TabsTrigger value="tracks" className="flex-1">Music</TabsTrigger>
-            <TabsTrigger value="resources" className="flex-1">Resources</TabsTrigger>
-            <TabsTrigger value="courses" className="flex-1">Courses</TabsTrigger>
-            <TabsTrigger value="video_content" className="flex-1">Videos</TabsTrigger>
+          <TabsList className="mb-6">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="artists">Artists</TabsTrigger>
+            <TabsTrigger value="video_content">Videos</TabsTrigger>
+            <TabsTrigger value="resources">Resources</TabsTrigger>
+            <TabsTrigger value="courses">Courses</TabsTrigger>
+            <TabsTrigger value="tracks">Tracks</TabsTrigger>
+            <TabsTrigger value="tutors">Tutors</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-0">
             {searchQuery ? (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-muted-foreground">
-                    Found {filteredResults.length} results for "{searchQuery}"
-                    {activeTab !== "all" && ` in ${activeTab.replace('_', ' ')}`}
-                  </p>
-                  {searchResults.length > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      Ranked by relevance
-                    </Badge>
-                  )}
-                </div>
+                <p className="text-muted-foreground mb-4">
+                  {filteredResults.length} results for "{searchQuery}"
+                  {activeTab !== "all" && ` in ${activeTab.replace('_', ' ')}`}
+                </p>
                 
                 {error && (
                   <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-4">
@@ -254,11 +283,11 @@ const SearchPage = () => {
                 {isLoading && page === 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <Card key={i} className="h-full animate-pulse">
+                      <Card key={i} className="h-full">
                         <CardContent className="p-4">
-                          <div className="space-y-2">
-                            <div className="h-4 bg-muted rounded w-3/4"></div>
-                            <div className="h-3 bg-muted rounded w-full"></div>
+                          <div className="animate-pulse">
+                            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-full mb-1"></div>
                             <div className="h-3 bg-muted rounded w-5/6"></div>
                           </div>
                         </CardContent>
@@ -275,54 +304,29 @@ const SearchPage = () => {
                           onClick={loadMore}
                           disabled={isLoading}
                           variant="outline"
-                          size="lg"
                         >
-                          {isLoading ? "Loading More..." : "Load More Results"}
+                          {isLoading ? "Loading..." : "Load More Results"}
                         </Button>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="text-center py-16">
-                    <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h2 className="text-xl font-medium mb-2">No results found</h2>
-                    <p className="text-muted-foreground mb-4">
-                      Try different keywords or browse by category
+                    <h2 className="text-xl font-medium">No results found</h2>
+                    <p className="text-muted-foreground mt-2">
+                      Try adjusting your search terms or exploring different categories
                     </p>
-                    <div className="flex gap-2 justify-center flex-wrap">
-                      {["guitar", "piano", "vocal", "music theory"].map((term) => (
-                        <Badge
-                          key={term}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-primary/10"
-                          onClick={() => handleSuggestionClick(term)}
-                        >
-                          {term}
-                        </Badge>
-                      ))}
-                    </div>
+                    <Button variant="outline" className="mt-4" onClick={clearSearch}>
+                      Clear Search
+                    </Button>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-12">
-                <Search className="h-20 w-20 text-muted-foreground mx-auto mb-6 opacity-50" />
-                <h2 className="text-2xl font-medium mb-3">Discover Music Content</h2>
-                <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                  Search for artists, music tracks, courses, and educational resources
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  Enter search terms to find videos, resources, tutors and more
                 </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {["guitar lessons", "piano basics", "vocal techniques", "music theory"].map((term) => (
-                    <Badge
-                      key={term}
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-primary/20 px-4 py-2 text-sm"
-                      onClick={() => handleSuggestionClick(term)}
-                    >
-                      {term}
-                    </Badge>
-                  ))}
-                </div>
               </div>
             )}
           </TabsContent>
