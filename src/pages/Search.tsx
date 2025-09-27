@@ -4,11 +4,11 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, X, Clock } from "lucide-react";
+import { Search, Filter, X, Clock, History, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { searchAll, SearchResult, saveRecentSearch, getRecentSearches } from "@/lib/search";
+import { searchAll, SearchResult, getSearchSuggestions, saveRecentSearch, getRecentSearches } from "@/lib/search";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import ResultsGrid from "@/components/search/ResultsGrid";
 
@@ -25,7 +25,7 @@ const SearchPage = () => {
   const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const debouncedQuery = useDebounce(searchQuery, 400);
+  const debouncedQuery = useDebounce(searchQuery, 350);
 
   useEffect(() => {
     setRecentSearches(getRecentSearches());
@@ -67,9 +67,9 @@ const SearchPage = () => {
     }
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return;
-    saveRecentSearch(searchQuery);
+  const handleSearch = (query: string) => {
+    if (!query.trim()) return;
+    saveRecentSearch(query);
     setRecentSearches(getRecentSearches());
   };
 
@@ -81,24 +81,28 @@ const SearchPage = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+    if (e.key === 'Enter' && searchQuery) {
+      handleSearch(searchQuery);
     }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setSearchQuery(suggestion);
-    setTimeout(() => handleSearch(), 100);
+    handleSearch(suggestion);
   };
 
   const loadMore = () => {
     performSearch(debouncedQuery, page + 1);
   };
 
-  const filteredResults = activeTab === "all" 
-    ? searchResults 
-    : searchResults.filter(result => result.source_table === activeTab);
+  const filterResultsByType = (results: SearchResult[], type: string) => {
+    if (type === "all") return results;
+    return results.filter(result => result.source_table === type);
+  };
 
+  const filteredResults = filterResultsByType(searchResults, activeTab);
+
+  // Extract unique tags from search results for quick filtering
   const extractQuickFilters = () => {
     const tags = new Set<string>();
     searchResults.forEach(result => {
@@ -120,7 +124,7 @@ const SearchPage = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-serif font-bold mb-6">Search</h1>
         
         <div className="relative mb-6">
@@ -180,6 +184,7 @@ const SearchPage = () => {
                     className="cursor-pointer hover:bg-primary/20 transition-colors px-3 py-1"
                     onClick={() => handleSuggestionClick(search)}
                   >
+                    <History className="mr-1 h-3 w-3" />
                     {search}
                   </Badge>
                 ))}
