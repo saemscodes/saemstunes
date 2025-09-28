@@ -1,4 +1,4 @@
-/* Saem's Tunes AI Component Styles - Tailwind Theme Integration */
+/* Saem's Tunes AI Component Styles - Enhanced with Connection Status */
 .saems-ai-container {
   position: fixed;
   z-index: 10000;
@@ -114,7 +114,7 @@
   }
 }
 
-/* Header with brown theme */
+/* Enhanced Header with Connection Status */
 .chat-header {
   display: flex;
   justify-content: space-between;
@@ -126,8 +126,8 @@
 
 .header-info {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .header-info h3 {
@@ -137,18 +137,24 @@
   font-family: var(--font-poppins);
 }
 
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
 .status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  transition: background-color 0.3s ease;
 }
 
-.status-indicator.online {
-  background: hsl(var(--gold-light));
-}
-
-.status-indicator.offline {
-  background: hsl(var(--destructive));
+.status-text {
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .header-actions {
@@ -171,24 +177,37 @@
   background: rgba(212, 169, 54, 0.3);
 }
 
-/* Settings panel */
+/* Enhanced Settings Panel */
 .settings-panel {
   padding: 16px;
   background: hsl(var(--muted));
   border-bottom: 1px solid hsl(var(--border));
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .setting-group {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .setting-group label {
   font-weight: 500;
   font-size: 14px;
   color: hsl(var(--foreground));
+  min-width: 80px;
 }
 
 .setting-group select {
@@ -198,17 +217,25 @@
   font-size: 14px;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  flex: 1;
 }
 
 .performance-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
 
-/* Messages container */
+.performance-stats div {
+  padding: 4px 6px;
+  background: hsl(var(--background));
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* Enhanced Messages Container */
 .messages-container {
   flex: 1;
   overflow-y: auto;
@@ -238,6 +265,18 @@
   padding: 12px 16px;
   border-radius: 18px;
   position: relative;
+  animation: messageSlide 0.3s ease;
+}
+
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-message .message-content {
@@ -274,9 +313,17 @@
   margin-top: 6px;
   font-size: 11px;
   opacity: 0.7;
+  flex-wrap: wrap;
 }
 
-/* Feedback buttons */
+.thinking-text {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Enhanced Feedback buttons */
 .feedback-buttons {
   display: flex;
   align-items: center;
@@ -307,7 +354,7 @@
   border-color: hsl(var(--gold-light));
 }
 
-/* Typing indicator */
+/* Enhanced Typing indicator */
 .typing-indicator {
   display: flex;
   gap: 4px;
@@ -330,7 +377,7 @@
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* Quick questions */
+/* Enhanced Quick questions */
 .quick-questions {
   padding: 12px 16px;
   border-top: 1px solid hsl(var(--border));
@@ -345,8 +392,8 @@
 }
 
 .quick-buttons {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
@@ -361,6 +408,9 @@
   transition: all 0.2s ease;
   color: hsl(var(--foreground));
   font-family: var(--font-nunito);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .quick-question-btn:hover {
@@ -374,7 +424,7 @@
   cursor: not-allowed;
 }
 
-/* Input area */
+/* Enhanced Input area */
 .input-area {
   padding: 16px;
   border-top: 1px solid hsl(var(--border));
@@ -459,7 +509,7 @@
   font-family: var(--font-nunito);
 }
 
-/* Error banner */
+/* Enhanced Error banner */
 .error-banner {
   background: hsl(var(--destructive) / 0.1);
   color: hsl(var(--destructive-foreground));
@@ -469,6 +519,7 @@
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid hsl(var(--destructive));
+  animation: slideUp 0.3s ease;
 }
 
 .error-banner button {
@@ -541,6 +592,10 @@
   .messages-container {
     max-height: 250px;
   }
+  
+  .quick-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Extra small devices */
@@ -557,13 +612,20 @@
     height: 50px;
     font-size: 20px;
   }
+  
+  .performance-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   .ai-toggle-btn,
   .ai-chat-interface,
-  .action-btn {
+  .action-btn,
+  .message-content,
+  .settings-panel,
+  .error-banner {
     transition: none;
     animation: none;
   }
@@ -591,46 +653,40 @@
   }
 }
 
-/* ----- Inward-opening layout overrides (place at end of file) ----- */
+/* ----- Inward-opening layout overrides ----- */
 
-/* make container a tiny anchor for absolute children */
 .saems-ai-container {
   width: 0;
   height: 0;
   pointer-events: auto;
 }
 
-/* Toggle button must be positioned absolute inside the anchor */
 .ai-toggle-btn {
-  position: absolute;   /* replaced relative -> absolute */
+  position: absolute;
   bottom: 0;
   right: 0;
   z-index: 10001;
 }
 
-/* corner-specific placements for the toggle */
 .saems-ai-container.bottom-left .ai-toggle-btn  { left: 0; right: auto; }
 .saems-ai-container.top-right  .ai-toggle-btn    { top: 0; bottom: auto; right: 0; }
 .saems-ai-container.top-left   .ai-toggle-btn    { top: 0; left: 0; bottom: auto; right: auto; }
 
-/* Chat panel: default for bottom-right -> open to the LEFT of the button (inward) */
 .ai-chat-interface {
   position: absolute;
-  bottom: calc(60px + 12px);    /* sits above the toggle button */
-  right: calc(100% + 12px);     /* open to the left of the toggle */
+  bottom: calc(60px + 12px);
+  right: calc(100% + 12px);
   left: auto;
   transform-origin: right center;
   z-index: 10000;
 }
 
-/* bottom-left -> open to the RIGHT of the toggle (inward) */
 .saems-ai-container.bottom-left .ai-chat-interface {
   left: calc(100% + 12px);
   right: auto;
   transform-origin: left center;
 }
 
-/* top-right -> open below the toggle and inward (to the left) */
 .saems-ai-container.top-right .ai-chat-interface {
   top: calc(60px + 12px);
   right: calc(100% + 12px);
@@ -638,7 +694,6 @@
   transform-origin: right top;
 }
 
-/* top-left -> open below the toggle and inward (to the right) */
 .saems-ai-container.top-left .ai-chat-interface {
   top: calc(60px + 12px);
   left: calc(100% + 12px);
@@ -646,7 +701,6 @@
   transform-origin: left top;
 }
 
-/* Notification dot: flip side for left-anchored toggle */
 .notification-dot {
   top: -6px;
   right: -6px;
@@ -673,4 +727,3 @@
     right: auto;
   }
 }
-
