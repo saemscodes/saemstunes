@@ -32,7 +32,7 @@ const SaemsTunesAI: React.FC<Props> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [selectedModel, setSelectedModel] = useState('fast');
+  const [selectedModel, setSelectedModel] = useState('TinyLlama-1.1B-Chat');
   const [showSettings, setShowSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -90,7 +90,42 @@ const SaemsTunesAI: React.FC<Props> = ({
     setInputValue('');
 
     try {
-      const result = await askAI(question, { modelProfile: selectedModel });
+      const modelConfigs = {
+        'TinyLlama-1.1B-Chat': {
+          model_name: "TinyLlama-1.1B-Chat",
+          model_repo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+          model_file: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+          max_response_length: 200,
+          temperature: 0.7,
+          top_p: 0.9,
+          context_window: 2048
+        },
+        'Phi-2': {
+          model_name: "Phi-2",
+          model_repo: "TheBloke/phi-2-GGUF",
+          model_file: "phi-2.Q4_K_M.gguf",
+          max_response_length: 250,
+          temperature: 0.7,
+          top_p: 0.9,
+          context_window: 2048
+        },
+        'Qwen-1.8B-Chat': {
+          model_name: "Qwen-1.8B-Chat",
+          model_repo: "TheBloke/Qwen1.5-1.8B-Chat-GGUF",
+          model_file: "qwen1.5-1.8b-chat-q4_k_m.gguf",
+          max_response_length: 300,
+          temperature: 0.7,
+          top_p: 0.9,
+          context_window: 4096
+        }
+      };
+
+      const config = modelConfigs[selectedModel as keyof typeof modelConfigs] || modelConfigs['TinyLlama-1.1B-Chat'];
+      
+      const result = await askAI(question, { 
+        modelProfile: selectedModel,
+        ...config
+      });
       
       const aiMessage: Message = {
         id: Date.now() + 1,
@@ -206,19 +241,20 @@ const SaemsTunesAI: React.FC<Props> = ({
           {showSettings && (
             <div className="settings-panel">
               <div className="setting-group">
-                <label>Model:</label>
+                <label>AI Model:</label>
                 <select 
                   value={selectedModel} 
                   onChange={(e) => setSelectedModel(e.target.value)}
                 >
-                  <option value="fast">Fast (Q4_K_M)</option>
-                  <option value="balanced">Balanced (Q5_K_M)</option>
-                  <option value="quality">Quality (Q8_0)</option>
+                  <option value="TinyLlama-1.1B-Chat">TinyLlama (Fastest)</option>
+                  <option value="Phi-2">Phi-2 (Balanced)</option>
+                  <option value="Qwen-1.8B-Chat">Qwen-1.8B (Conversational)</option>
                 </select>
               </div>
               <div className="performance-stats">
                 <div>Avg. Response: {performance?.averageResponseTime?.toFixed(0) || '0'}ms</div>
                 <div>Total Requests: {performance?.totalRequests || '0'}</div>
+                <div>Model: {selectedModel}</div>
               </div>
             </div>
           )}
