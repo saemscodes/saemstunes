@@ -19,6 +19,7 @@ import SplashScreen from "@/components/ui/splash-screen";
 import GlobalMiniPlayer from "@/components/player/GlobalMiniPlayer";
 import IdleStateManager from "@/components/idle-state/IdleStateManager";
 import AuthCallback from "@/components/auth/AuthCallback";
+import SaemsTunesAI from "@/LLM/SaemsTunesAI";
 
 // Page imports
 import Admin from "@/pages/Admin";
@@ -90,6 +91,13 @@ const App = () => {
                       <Sonner />
                       <SplashScreen loading={loading} />
                       <FeaturedItemsProvider>
+                        <SaemsTunesAI
+                          position="bottom-right"
+                          defaultOpen={false}
+                          showFeedback={true}
+                          maxHeight="600px"
+                          theme="default"
+                          />
                         <BrowserRouter>
                           <IdleStateManager idleTime={60000} />
                           <Routes>
