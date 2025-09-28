@@ -2,19 +2,39 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAIFAQ, useDebouncedAIFAQ } from '@/lib/hooks/useAIFAQ';
 import '@/LLM/SaemsTunesAI.css';
 
-const SaemsTunesAI = ({ 
+interface Message {
+  id: number;
+  text: string;
+  isAI: boolean;
+  timestamp: Date;
+  processingTime?: number;
+  modelUsed?: string;
+  isError?: boolean;
+  feedback?: boolean;
+  type?: string;
+}
+
+interface Props {
+  position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  defaultOpen?: boolean;
+  showFeedback?: boolean;
+  maxHeight?: string;
+  theme?: string;
+}
+
+const SaemsTunesAI: React.FC<Props> = ({
   position = 'bottom-right',
   defaultOpen = false,
   showFeedback = true,
   maxHeight = '600px',
   theme = 'default'
 }) => {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [selectedModel, setSelectedModel] = useState('fast');
   const [showSettings, setShowSettings] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { 
     askAI, 
@@ -25,9 +45,8 @@ const SaemsTunesAI = ({
     cancelRequest,
     submitFeedback,
     clearConversation 
-  } = useDebouncedAIFAQ();
+  } = useDebouncedAIFAQ() as any;
 
-  // Quick question suggestions
   const quickQuestions = [
     "How do I create a playlist?",
     "Can I upload my own music?",
@@ -39,14 +58,12 @@ const SaemsTunesAI = ({
     "How does the recommendation system work?"
   ];
 
-  // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   useEffect(scrollToBottom, [messages]);
 
-  // Initialize with welcome message
   useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
@@ -59,11 +76,10 @@ const SaemsTunesAI = ({
     }
   }, [messages.length]);
 
-  // Handle sending messages
   const handleSendMessage = async (question = inputValue) => {
     if (!question.trim() || isLoading) return;
 
-    const userMessage = {
+    const userMessage: Message = {
       id: Date.now(),
       text: question,
       isAI: false,
@@ -76,7 +92,7 @@ const SaemsTunesAI = ({
     try {
       const result = await askAI(question, { modelProfile: selectedModel });
       
-      const aiMessage = {
+      const aiMessage: Message = {
         id: Date.now() + 1,
         text: result.response,
         isAI: true,
@@ -87,7 +103,7 @@ const SaemsTunesAI = ({
 
       setMessages(prev => [...prev, aiMessage]);
     } catch (err) {
-      const errorMessage = {
+      const errorMessage: Message = {
         id: Date.now() + 1,
         text: "I'm having trouble connecting right now. Please try again in a moment.",
         isAI: true,
@@ -98,22 +114,18 @@ const SaemsTunesAI = ({
     }
   };
 
-  // Handle quick question selection
-  const handleQuickQuestion = (question) => {
+  const handleQuickQuestion = (question: string) => {
     setInputValue(question);
     handleSendMessage(question);
   };
 
-  // Handle feedback submission
-  const handleFeedback = (messageId, helpful) => {
+  const handleFeedback = (messageId: number, helpful: boolean) => {
     submitFeedback(conversationId, helpful, `Message ${messageId}`);
-    // Show feedback confirmation
     setMessages(prev => prev.map(msg => 
       msg.id === messageId ? { ...msg, feedback: helpful } : msg
     ));
   };
 
-  // Clear conversation
   const handleClearConversation = () => {
     clearConversation();
     setMessages([{
@@ -124,9 +136,8 @@ const SaemsTunesAI = ({
     }]);
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyPress = (e) => {
+    const handleKeyPress = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         setIsOpen(prev => !prev);
@@ -143,7 +154,6 @@ const SaemsTunesAI = ({
 
   return (
     <div className={`saems-ai-container ${theme} ${position}`}>
-      {/* Floating toggle button */}
       <button
         className={`ai-toggle-btn ${isOpen ? 'open' : ''} ${isLoading ? 'loading' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
@@ -161,10 +171,8 @@ const SaemsTunesAI = ({
         )}
       </button>
 
-      {/* Chat interface */}
       {isOpen && (
         <div className="ai-chat-interface" style={{ maxHeight }}>
-          {/* Header */}
           <div className="chat-header">
             <div className="header-info">
               <h3>🎵 Saem's Tunes AI</h3>
@@ -195,7 +203,6 @@ const SaemsTunesAI = ({
             </div>
           </div>
 
-          {/* Settings panel */}
           {showSettings && (
             <div className="settings-panel">
               <div className="setting-group">
@@ -210,20 +217,18 @@ const SaemsTunesAI = ({
                 </select>
               </div>
               <div className="performance-stats">
-                <div>Avg. Response: {performance.averageResponseTime?.toFixed(0) || '0'}ms</div>
-                <div>Total Requests: {performance.totalRequests || '0'}</div>
+                <div>Avg. Response: {performance?.averageResponseTime?.toFixed(0) || '0'}ms</div>
+                <div>Total Requests: {performance?.totalRequests || '0'}</div>
               </div>
             </div>
           )}
 
-          {/* Messages container */}
           <div className="messages-container">
             {messages.map((message) => (
               <div key={message.id} className={`message ${message.isAI ? 'ai-message' : 'user-message'} ${message.isError ? 'error' : ''}`}>
                 <div className="message-content">
                   <div className="message-text">{message.text}</div>
                   
-                  {/* Message metadata */}
                   <div className="message-meta">
                     <span className="timestamp">
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -240,7 +245,6 @@ const SaemsTunesAI = ({
                     )}
                   </div>
 
-                  {/* Feedback buttons for AI messages */}
                   {message.isAI && showFeedback && !message.isError && (
                     <div className="feedback-buttons">
                       <span>Helpful?</span>
@@ -262,7 +266,6 @@ const SaemsTunesAI = ({
               </div>
             ))}
             
-            {/* Loading indicator */}
             {isLoading && (
               <div className="message ai-message">
                 <div className="message-content">
@@ -278,7 +281,6 @@ const SaemsTunesAI = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick questions */}
           {messages.length <= 2 && (
             <div className="quick-questions">
               <p>Quick questions:</p>
@@ -297,7 +299,6 @@ const SaemsTunesAI = ({
             </div>
           )}
 
-          {/* Input area */}
           <div className="input-area">
             <div className="input-container">
               <input
@@ -337,13 +338,11 @@ const SaemsTunesAI = ({
               </div>
             </div>
             
-            {/* Input hints */}
             <div className="input-hints">
               <span>Press Enter to send • Ctrl+K to toggle</span>
             </div>
           </div>
 
-          {/* Error display */}
           {error && (
             <div className="error-banner">
               <span>Connection issue: {error}</span>
