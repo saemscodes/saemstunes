@@ -1,25 +1,26 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAIFAQ, useDebouncedAIFAQ } from '@/lib/hooks/useAIFAQ';
-import '@/LLM/SaemsTunesAI.css';
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useAIFAQ, useDebouncedAIFAQ } from '@/lib/hooks/useAIFAQ'
+import './SaemsTunesAI.css'
 
 interface Message {
-  id: number;
-  text: string;
-  isAI: boolean;
-  timestamp: Date;
-  processingTime?: number;
-  modelUsed?: string;
-  isError?: boolean;
-  feedback?: boolean;
-  type?: string;
+  id: number
+  text: string
+  isAI: boolean
+  timestamp: Date
+  processingTime?: number
+  modelUsed?: string
+  isError?: boolean
+  feedback?: boolean
+  type?: string
 }
 
 interface Props {
-  position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-  defaultOpen?: boolean;
-  showFeedback?: boolean;
-  maxHeight?: string;
-  theme?: string;
+  position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  defaultOpen?: boolean
+  showFeedback?: boolean
+  maxHeight?: string
+  theme?: 'default' | 'dark' | 'light'
+  userId?: string
 }
 
 const SaemsTunesAI: React.FC<Props> = ({
@@ -27,14 +28,16 @@ const SaemsTunesAI: React.FC<Props> = ({
   defaultOpen = false,
   showFeedback = true,
   maxHeight = '600px',
-  theme = 'default'
+  theme = 'default',
+  userId = 'anonymous'
 }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [selectedModel, setSelectedModel] = useState('TinyLlama-1.1B-Chat');
-  const [showSettings, setShowSettings] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Message[]>([])
+  const [inputValue, setInputValue] = useState('')
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const [selectedModel, setSelectedModel] = useState('microsoft/Phi-3.5-mini-instruct')
+  const [showSettings, setShowSettings] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'error'>('connected')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const { 
     askAI, 
@@ -44,8 +47,9 @@ const SaemsTunesAI: React.FC<Props> = ({
     conversationId,
     cancelRequest,
     submitFeedback,
-    clearConversation 
-  } = useDebouncedAIFAQ() as any;
+    clearConversation,
+    getSystemHealth
+  } = useDebouncedAIFAQ()
 
   const quickQuestions = [
     "How do I create a playlist?",
@@ -55,15 +59,35 @@ const SaemsTunesAI: React.FC<Props> = ({
     "Is there a mobile app?",
     "How do I share music with friends?",
     "What music genres are available?",
-    "How does the recommendation system work?"
-  ];
+    "How does the recommendation system work?",
+    "Tell me about music courses",
+    "How do I become an artist on the platform?"
+  ]
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
-  useEffect(scrollToBottom, [messages]);
+  useEffect(scrollToBottom, [messages])
 
+  // Check system health on mount
+  useEffect(() => {
+    const checkHealth = async () => {
+      setConnectionStatus('connecting')
+      try {
+        const health = await getSystemHealth()
+        setConnectionStatus(health.status === 'healthy' ? 'connected' : 'error')
+      } catch {
+        setConnectionStatus('error')
+      }
+    }
+
+    checkHealth()
+    const interval = setInterval(checkHealth, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [getSystemHealth])
+
+  // Initialize with welcome message
   useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
@@ -72,25 +96,34 @@ const SaemsTunesAI: React.FC<Props> = ({
         isAI: true,
         timestamp: new Date(),
         type: 'welcome'
-      }]);
+      }])
     }
-  }, [messages.length]);
+  }, [messages.length])
 
   const handleSendMessage = async (question = inputValue) => {
-    if (!question.trim() || isLoading) return;
+    if (!question.trim() || isLoading) return
 
     const userMessage: Message = {
       id: Date.now(),
       text: question,
       isAI: false,
       timestamp: new Date()
-    };
+    }
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
 
     try {
       const modelConfigs = {
+        'microsoft/Phi-3.5-mini-instruct': {
+          model_name: "microsoft/Phi-3.5-mini-instruct",
+          model_repo: "bartowski/Phi-3.5-mini-instruct-GGUF",
+          model_file: "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+          max_response_length: 300,
+          temperature: 0.7,
+          top_p: 0.9,
+          context_window: 4096
+        },
         'TinyLlama-1.1B-Chat': {
           model_name: "TinyLlama-1.1B-Chat",
           model_repo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
@@ -108,24 +141,16 @@ const SaemsTunesAI: React.FC<Props> = ({
           temperature: 0.7,
           top_p: 0.9,
           context_window: 2048
-        },
-        'Qwen-1.8B-Chat': {
-          model_name: "Qwen-1.8B-Chat",
-          model_repo: "TheBloke/Qwen1.5-1.8B-Chat-GGUF",
-          model_file: "qwen1.5-1.8b-chat-q4_k_m.gguf",
-          max_response_length: 300,
-          temperature: 0.7,
-          top_p: 0.9,
-          context_window: 4096
         }
-      };
+      }
 
-      const config = modelConfigs[selectedModel as keyof typeof modelConfigs] || modelConfigs['TinyLlama-1.1B-Chat'];
+      const config = modelConfigs[selectedModel as keyof typeof modelConfigs] || modelConfigs['microsoft/Phi-3.5-mini-instruct']
       
       const result = await askAI(question, { 
         modelProfile: selectedModel,
+        userId: userId,
         ...config
-      });
+      })
       
       const aiMessage: Message = {
         id: Date.now() + 1,
@@ -134,58 +159,72 @@ const SaemsTunesAI: React.FC<Props> = ({
         timestamp: new Date(),
         processingTime: result.processingTime,
         modelUsed: result.modelUsed
-      };
+      }
 
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, aiMessage])
+      setConnectionStatus('connected')
     } catch (err) {
       const errorMessage: Message = {
         id: Date.now() + 1,
-        text: "I'm having trouble connecting right now. Please try again in a moment.",
+        text: "I'm having trouble connecting right now. Please try again in a moment. Our team has been notified of the issue.",
         isAI: true,
         timestamp: new Date(),
         isError: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }
+      setMessages(prev => [...prev, errorMessage])
+      setConnectionStatus('error')
     }
-  };
+  }
 
   const handleQuickQuestion = (question: string) => {
-    setInputValue(question);
-    handleSendMessage(question);
-  };
+    setInputValue(question)
+    handleSendMessage(question)
+  }
 
   const handleFeedback = (messageId: number, helpful: boolean) => {
-    submitFeedback(conversationId, helpful, `Message ${messageId}`);
+    if (conversationId) {
+      submitFeedback(conversationId, helpful, `Message ${messageId}`)
+    }
     setMessages(prev => prev.map(msg => 
       msg.id === messageId ? { ...msg, feedback: helpful } : msg
-    ));
-  };
+    ))
+  }
 
   const handleClearConversation = () => {
-    clearConversation();
+    clearConversation()
     setMessages([{
       id: 1,
       text: "Conversation cleared. What would you like to know about Saem's Tunes?",
       isAI: true,
       timestamp: new Date()
-    }]);
-  };
+    }])
+  }
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsOpen(prev => !prev);
+        e.preventDefault()
+        setIsOpen(prev => !prev)
       }
       
       if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
+        setIsOpen(false)
       }
-    };
+    }
 
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [isOpen]);
+    document.addEventListener('keydown', handleKeyPress)
+    return () => document.removeEventListener('keydown', handleKeyPress)
+  }, [isOpen])
+
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return '#4CAF50'
+      case 'connecting': return '#FF9800'
+      case 'error': return '#F44336'
+      default: return '#4CAF50'
+    }
+  }
 
   return (
     <div className={`saems-ai-container ${theme} ${position}`}>
@@ -211,7 +250,16 @@ const SaemsTunesAI: React.FC<Props> = ({
           <div className="chat-header">
             <div className="header-info">
               <h3>🎵 Saem's Tunes AI</h3>
-              <span className="status-indicator online"></span>
+              <div className="connection-status">
+                <span 
+                  className="status-indicator" 
+                  style={{ backgroundColor: getConnectionStatusColor() }}
+                ></span>
+                <span className="status-text">
+                  {connectionStatus === 'connected' ? 'Connected' : 
+                   connectionStatus === 'connecting' ? 'Connecting...' : 'Connection Issues'}
+                </span>
+              </div>
             </div>
             <div className="header-actions">
               <button 
@@ -246,14 +294,15 @@ const SaemsTunesAI: React.FC<Props> = ({
                   value={selectedModel} 
                   onChange={(e) => setSelectedModel(e.target.value)}
                 >
+                  <option value="microsoft/Phi-3.5-mini-instruct">Phi-3.5-mini (Recommended)</option>
                   <option value="TinyLlama-1.1B-Chat">TinyLlama (Fastest)</option>
                   <option value="Phi-2">Phi-2 (Balanced)</option>
-                  <option value="Qwen-1.8B-Chat">Qwen-1.8B (Conversational)</option>
                 </select>
               </div>
               <div className="performance-stats">
                 <div>Avg. Response: {performance?.averageResponseTime?.toFixed(0) || '0'}ms</div>
                 <div>Total Requests: {performance?.totalRequests || '0'}</div>
+                <div>Cache Hit Rate: {performance?.cacheHitRate ? (performance.cacheHitRate * 100).toFixed(1) : '0'}%</div>
                 <div>Model: {selectedModel}</div>
               </div>
             </div>
@@ -310,6 +359,7 @@ const SaemsTunesAI: React.FC<Props> = ({
                     <span></span>
                     <span></span>
                   </div>
+                  <div className="thinking-text">Thinking about your question...</div>
                 </div>
               </div>
             )}
@@ -321,7 +371,7 @@ const SaemsTunesAI: React.FC<Props> = ({
             <div className="quick-questions">
               <p>Quick questions:</p>
               <div className="quick-buttons">
-                {quickQuestions.slice(0, 4).map((question, index) => (
+                {quickQuestions.slice(0, 6).map((question, index) => (
                   <button
                     key={index}
                     className="quick-question-btn"
@@ -343,8 +393,8 @@ const SaemsTunesAI: React.FC<Props> = ({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
+                    e.preventDefault()
+                    handleSendMessage()
                   }
                 }}
                 placeholder="Ask about Saem's Tunes..."
@@ -375,7 +425,7 @@ const SaemsTunesAI: React.FC<Props> = ({
             </div>
             
             <div className="input-hints">
-              <span>Press Enter to send • Ctrl+K to toggle</span>
+              <span>Press Enter to send • Ctrl+K to toggle • Using {selectedModel}</span>
             </div>
           </div>
 
@@ -388,7 +438,7 @@ const SaemsTunesAI: React.FC<Props> = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default SaemsTunesAI;
+export default SaemsTunesAI
