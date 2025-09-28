@@ -590,3 +590,87 @@
     width: 450px;
   }
 }
+
+/* ----- Inward-opening layout overrides (place at end of file) ----- */
+
+/* make container a tiny anchor for absolute children */
+.saems-ai-container {
+  width: 0;
+  height: 0;
+  pointer-events: auto;
+}
+
+/* Toggle button must be positioned absolute inside the anchor */
+.ai-toggle-btn {
+  position: absolute;   /* replaced relative -> absolute */
+  bottom: 0;
+  right: 0;
+  z-index: 10001;
+}
+
+/* corner-specific placements for the toggle */
+.saems-ai-container.bottom-left .ai-toggle-btn  { left: 0; right: auto; }
+.saems-ai-container.top-right  .ai-toggle-btn    { top: 0; bottom: auto; right: 0; }
+.saems-ai-container.top-left   .ai-toggle-btn    { top: 0; left: 0; bottom: auto; right: auto; }
+
+/* Chat panel: default for bottom-right -> open to the LEFT of the button (inward) */
+.ai-chat-interface {
+  position: absolute;
+  bottom: calc(60px + 12px);    /* sits above the toggle button */
+  right: calc(100% + 12px);     /* open to the left of the toggle */
+  left: auto;
+  transform-origin: right center;
+  z-index: 10000;
+}
+
+/* bottom-left -> open to the RIGHT of the toggle (inward) */
+.saems-ai-container.bottom-left .ai-chat-interface {
+  left: calc(100% + 12px);
+  right: auto;
+  transform-origin: left center;
+}
+
+/* top-right -> open below the toggle and inward (to the left) */
+.saems-ai-container.top-right .ai-chat-interface {
+  top: calc(60px + 12px);
+  right: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: right top;
+}
+
+/* top-left -> open below the toggle and inward (to the right) */
+.saems-ai-container.top-left .ai-chat-interface {
+  top: calc(60px + 12px);
+  left: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: left top;
+}
+
+/* Notification dot: flip side for left-anchored toggle */
+.notification-dot {
+  top: -6px;
+  right: -6px;
+}
+.saems-ai-container.bottom-left .notification-dot { right: auto; left: -6px; }
+.saems-ai-container.top-left .notification-dot    { right: auto; left: -6px; }
+.saems-ai-container.top-right .notification-dot   { right: -6px; left: auto; }
+
+/* Mobile: stretch panel inward while keeping toggle in corner */
+@media (max-width: 768px) {
+  .ai-chat-interface {
+    width: calc(100vw - 32px) !important;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: calc(60px + 12px) !important;
+    max-height: 60vh;
+  }
+  .ai-toggle-btn {
+    bottom: 12px;
+    right: 16px;
+  }
+  .saems-ai-container.bottom-left .ai-toggle-btn {
+    left: 16px;
+    right: auto;
+  }
+}
+
