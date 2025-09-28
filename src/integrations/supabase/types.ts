@@ -14,6 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
+      // ... ALL YOUR EXISTING TABLES (keeping them exactly as they are) ...
       access_tiers: {
         Row: {
           download_limit: number | null
@@ -2204,6 +2205,158 @@ export type Database = {
         }
         Relationships: []
       }
+
+      // ============ AI SYSTEM TABLES ============
+      ai_interactions: {
+        Row: {
+          id: string
+          user_id: string
+          conversation_id: string
+          query: string
+          response: string
+          processing_time: number
+          model_used: string
+          created_at: string
+          feedback: boolean | null
+          context_used: Json
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          conversation_id: string
+          query: string
+          response: string
+          processing_time: number
+          model_used: string
+          created_at?: string
+          feedback?: boolean | null
+          context_used?: Json
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          conversation_id?: string
+          query?: string
+          response?: string
+          processing_time?: number
+          model_used?: string
+          created_at?: string
+          feedback?: boolean | null
+          context_used?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          favorite_genres: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          favorite_genres?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          favorite_genres?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_activity: {
+        Row: {
+          id: string
+          user_id: string
+          activity_type: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          activity_type: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          activity_type?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      learning_progress: {
+        Row: {
+          id: string
+          user_id: string
+          completed_lessons: number
+          current_course: string | null
+          total_xp: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          completed_lessons?: number
+          current_course?: string | null
+          total_xp?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          completed_lessons?: number
+          current_course?: string | null
+          total_xp?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      // ============ END AI SYSTEM TABLES ============
     }
     Views: {
       resources_by_category: {
