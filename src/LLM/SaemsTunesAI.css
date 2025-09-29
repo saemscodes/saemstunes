@@ -1,32 +1,8 @@
 /* Saem's Tunes AI Component Styles - Enhanced with Connection Status */
-:root {
-  --gold-light: 45, 100%, 50%;
-  --gold-dark: 40, 100%, 40%;
-  --brown-light: 30, 30%, 60%;
-  --brown-dark: 25, 30%, 25%;
-  --background: 0, 0%, 100%;
-  --foreground: 0, 0%, 10%;
-  --card: 0, 0%, 100%;
-  --card-foreground: 0, 0%, 10%;
-  --muted: 0, 0%, 96%;
-  --muted-foreground: 0, 0%, 40%;
-  --accent: 45, 100%, 95%;
-  --accent-foreground: 25, 30%, 25%;
-  --destructive: 0, 84%, 60%;
-  --destructive-foreground: 0, 0%, 100%;
-  --border: 0, 0%, 85%;
-  --input: 0, 0%, 90%;
-  --radius: 12px;
-  --font-nunito: 'Nunito', sans-serif;
-  --font-poppins: 'Poppins', sans-serif;
-}
-
 .saems-ai-container {
   position: fixed;
   z-index: 10000;
   font-family: var(--font-nunito), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  width: auto;
-  height: auto;
 }
 
 /* Position variants with viewport boundary protection */
@@ -67,7 +43,6 @@
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  z-index: 10001;
 }
 
 .ai-toggle-btn:hover {
@@ -114,8 +89,9 @@
 /* Chat interface with proper viewport containment */
 .ai-chat-interface {
   position: absolute;
-  width: min(400px, 90vw);
-  max-width: 90vw;
+  bottom: 80px;
+  width: min(400px, calc(100vw - 40px));
+  max-width: calc(100vw - 40px);
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
   border-radius: var(--radius);
@@ -125,28 +101,6 @@
   overflow: hidden;
   animation: slideUp 0.3s ease;
   border: 1px solid hsl(var(--border));
-  z-index: 10000;
-}
-
-/* Position the chat interface properly for each corner */
-.saems-ai-container.bottom-right .ai-chat-interface {
-  bottom: 80px;
-  right: 0;
-}
-
-.saems-ai-container.bottom-left .ai-chat-interface {
-  bottom: 80px;
-  left: 0;
-}
-
-.saems-ai-container.top-right .ai-chat-interface {
-  top: 80px;
-  right: 0;
-}
-
-.saems-ai-container.top-left .ai-chat-interface {
-  top: 80px;
-  left: 0;
 }
 
 @keyframes slideUp {
@@ -340,7 +294,7 @@
 }
 
 .message.error .message-content {
-  background: hsla(var(--destructive), 0.1);
+  background: hsl(var(--destructive) / 0.1);
   color: hsl(var(--destructive-foreground));
   border: 1px solid hsl(var(--destructive));
 }
@@ -545,7 +499,7 @@
 }
 
 .cancel-btn:hover {
-  background: hsla(var(--destructive), 0.9);
+  background: hsl(var(--destructive) / 0.9);
 }
 
 .input-hints {
@@ -557,7 +511,7 @@
 
 /* Enhanced Error banner */
 .error-banner {
-  background: hsla(var(--destructive), 0.1);
+  background: hsl(var(--destructive) / 0.1);
   color: hsl(var(--destructive-foreground));
   padding: 8px 16px;
   font-size: 12px;
@@ -577,19 +531,6 @@
 }
 
 /* Theme variants */
-.saems-ai-container.dark {
-  --background: 0, 0%, 10%;
-  --foreground: 0, 0%, 90%;
-  --card: 0, 0%, 15%;
-  --card-foreground: 0, 0%, 90%;
-  --muted: 0, 0%, 20%;
-  --muted-foreground: 0, 0%, 60%;
-  --accent: 45, 30%, 25%;
-  --accent-foreground: 45, 100%, 85%;
-  --border: 0, 0%, 25%;
-  --input: 0, 0%, 30%;
-}
-
 .saems-ai-container.dark .ai-chat-interface {
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
@@ -613,17 +554,14 @@
 }
 
 /* Enhanced responsive design with viewport protection */
-
-/* Mobile First Approach */
-/* Mobile: 320px - 767px */
-@media (max-width: 767px) {
+@media (max-width: 480px) {
   .saems-ai-container {
     position: fixed;
   }
   
   .saems-ai-container.bottom-right,
   .saems-ai-container.bottom-left {
-    bottom: 16px;
+    bottom: 10px;
   }
   
   .saems-ai-container.top-right,
@@ -631,175 +569,52 @@
     top: 70px;
   }
   
-  .ai-toggle-btn {
-    width: 56px;
-    height: 56px;
-    font-size: 22px;
-  }
-  
   .ai-chat-interface {
-    width: calc(100vw - 32px) !important;
-    max-width: calc(100vw - 32px) !important;
-    left: 16px !important;
-    right: 16px !important;
-    bottom: 80px !important;
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    left: 10px;
+    right: 10px;
+    bottom: 70px;
   }
   
   .saems-ai-container.bottom-right .ai-chat-interface,
   .saems-ai-container.bottom-left .ai-chat-interface {
-    left: 16px !important;
-    right: 16px !important;
-    bottom: 80px !important;
+    left: 10px;
+    right: 10px;
   }
   
   .saems-ai-container.top-right .ai-chat-interface,
   .saems-ai-container.top-left .ai-chat-interface {
-    left: 16px !important;
-    right: 16px !important;
-    top: 80px !important;
-    bottom: auto !important;
+    left: 10px;
+    right: 10px;
   }
   
   .messages-container {
-    max-height: 40vh;
+    max-height: 250px;
   }
   
   .quick-buttons {
     grid-template-columns: 1fr;
-  }
-  
-  .message-content {
-    max-width: 90%;
-  }
-  
-  .performance-stats {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Tablet: 768px - 1023px */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .saems-ai-container.bottom-right,
-  .saems-ai-container.bottom-left {
-    bottom: 24px;
-  }
-  
-  .saems-ai-container.top-right,
-  .saems-ai-container.top-left {
-    top: 90px;
-  }
-  
-  .ai-chat-interface {
-    width: min(380px, 45vw);
-    max-width: 45vw;
-  }
-  
-  .saems-ai-container.bottom-right .ai-chat-interface {
-    bottom: 80px;
-    right: 0;
-    left: auto;
-  }
-  
-  .saems-ai-container.bottom-left .ai-chat-interface {
-    bottom: 80px;
-    left: 0;
-    right: auto;
-  }
-  
-  .saems-ai-container.top-right .ai-chat-interface {
-    top: 80px;
-    right: 0;
-    left: auto;
-  }
-  
-  .saems-ai-container.top-left .ai-chat-interface {
-    top: 80px;
-    left: 0;
-    right: auto;
-  }
-  
-  .messages-container {
-    max-height: 50vh;
-  }
-  
-  .quick-buttons {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-/* Desktop: 1024px and above */
-@media (min-width: 1024px) {
-  .saems-ai-container.bottom-right,
-  .saems-ai-container.bottom-left {
-    bottom: 32px;
-  }
-  
-  .saems-ai-container.top-right,
-  .saems-ai-container.top-left {
-    top: 100px;
-  }
-  
-  .ai-chat-interface {
-    width: 400px;
-  }
-  
-  .saems-ai-container.bottom-right .ai-chat-interface {
-    bottom: 80px;
-    right: 0;
-    left: auto;
-  }
-  
-  .saems-ai-container.bottom-left .ai-chat-interface {
-    bottom: 80px;
-    left: 0;
-    right: auto;
-  }
-  
-  .saems-ai-container.top-right .ai-chat-interface {
-    top: 80px;
-    right: 0;
-    left: auto;
-  }
-  
-  .saems-ai-container.top-left .ai-chat-interface {
-    top: 80px;
-    left: 0;
-    right: auto;
-  }
-  
-  .messages-container {
-    max-height: 400px;
   }
 }
 
 /* Extra small devices */
 @media (max-width: 360px) {
   .ai-chat-interface {
-    width: calc(100vw - 20px) !important;
-    max-width: calc(100vw - 20px) !important;
-    left: 10px !important;
-    right: 10px !important;
+    width: calc(100vw - 10px);
+    max-width: calc(100vw - 10px);
+    left: 5px;
+    right: 5px;
   }
   
   .ai-toggle-btn {
-    width: 52px;
-    height: 52px;
+    width: 50px;
+    height: 50px;
     font-size: 20px;
   }
   
   .performance-stats {
     grid-template-columns: 1fr;
-  }
-  
-  .quick-buttons {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Large screens */
-@media (min-width: 1440px) {
-  .ai-chat-interface {
-    width: 450px;
   }
 }
 
@@ -828,5 +643,177 @@
   
   .ai-toggle-btn {
     border: 2px solid hsl(var(--gold-dark));
+  }
+}
+
+/* Large screens */
+@media (min-width: 1440px) {
+  .ai-chat-interface {
+    width: 450px;
+  }
+}
+
+/* ----- Inward-opening layout overrides ----- */
+
+.saems-ai-container {
+  width: 0;
+  height: 0;
+  pointer-events: auto;
+}
+
+.ai-toggle-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 10001;
+}
+
+.saems-ai-container.bottom-left .ai-toggle-btn  { left: 0; right: auto; }
+.saems-ai-container.top-right  .ai-toggle-btn    { top: 0; bottom: auto; right: 0; }
+.saems-ai-container.top-left   .ai-toggle-btn    { top: 0; left: 0; bottom: auto; right: auto; }
+
+.ai-chat-interface {
+  position: absolute;
+  bottom: calc(60px + 12px);
+  right: calc(100% + 12px);
+  left: auto;
+  transform-origin: right center;
+  z-index: 10000;
+}
+
+.saems-ai-container.bottom-left .ai-chat-interface {
+  left: calc(100% + 12px);
+  right: auto;
+  transform-origin: left center;
+}
+
+.saems-ai-container.top-right .ai-chat-interface {
+  top: calc(60px + 12px);
+  right: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: right top;
+}
+
+.saems-ai-container.top-left .ai-chat-interface {
+  top: calc(60px + 12px);
+  left: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: left top;
+}
+
+.notification-dot {
+  top: -6px;
+  right: -6px;
+}
+.saems-ai-container.bottom-left .notification-dot { right: auto; left: -6px; }
+.saems-ai-container.top-left .notification-dot    { right: auto; left: -6px; }
+.saems-ai-container.top-right .notification-dot   { right: -6px; left: auto; }
+
+/* Mobile: stretch panel inward while keeping toggle in corner */
+@media (max-width: 768px) {
+  .ai-chat-interface {
+    width: calc(100vw - 32px) !important;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: calc(60px + 12px) !important;
+    max-height: 60vh;
+  }
+  .ai-toggle-btn {
+    bottom: 12px;
+    right: 16px;
+  }
+  .saems-ai-container.bottom-left .ai-toggle-btn {
+    left: 16px;
+    right: auto;
+  }
+}
+
+
+/* ----- Inward-opening layout overrides (place at end of file) ----- */
+
+/* make container a tiny anchor for absolute children */
+.saems-ai-container {
+  width: 0;
+  height: 0;
+  pointer-events: auto;
+}
+
+/* Toggle button must be positioned absolute inside the anchor */
+.ai-toggle-btn {
+  position: absolute;   /* replaced relative -> absolute */
+  bottom: 0;
+  right: 0;
+  z-index: 10001;
+}
+
+/* corner-specific placements for the toggle */
+.saems-ai-container.bottom-left .ai-toggle-btn  { left: 0; right: auto; }
+.saems-ai-container.top-right  .ai-toggle-btn    { top: 0; bottom: auto; right: 0; }
+.saems-ai-container.top-left   .ai-toggle-btn    { top: 0; left: 0; bottom: auto; right: auto; }
+
+/* Chat panel: default for bottom-right -> open to the LEFT of the button (inward) */
+.ai-chat-interface {
+  position: absolute;
+  bottom: calc(60px + 12px);    /* sits above the toggle button */
+  right: calc(100% + 12px);     /* open to the left of the toggle */
+  left: auto;
+  transform-origin: right center;
+  z-index: 10000;
+}
+
+/* bottom-left -> open to the RIGHT of the toggle (inward) */
+.saems-ai-container.bottom-left .ai-chat-interface {
+  left: calc(100% + 12px);
+  right: auto;
+  transform-origin: left center;
+}
+
+/* top-right -> open below the toggle and inward (to the left) */
+.saems-ai-container.top-right .ai-chat-interface {
+  top: calc(60px + 12px);
+  right: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: right top;
+}
+
+/* top-left -> open below the toggle and inward (to the right) */
+.saems-ai-container.top-left .ai-chat-interface {
+  top: calc(60px + 12px);
+  left: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: left top;
+}
+
+/* Notification dot: flip side for left-anchored toggle */
+.notification-dot {
+  top: -6px;
+  right: -6px;
+}
+.saems-ai-container.bottom-left .notification-dot { right: auto; left: -6px; }
+.saems-ai-container.top-left .notification-dot    { right: auto; left: -6px; }
+.saems-ai-container.top-right .notification-dot   { right: -6px; left: auto; }
+
+/* Mobile: stretch panel inward while keeping toggle in corner */
+@media (max-width: 768px) {
+  .ai-chat-interface {
+    width: calc(100vw - 32px) !important;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: calc(60px + 12px) !important;
+    max-height: 60vh;
+  }
+  .ai-toggle-btn {
+    bottom: 12px;
+    right: 16px;
+  }
+  .saems-ai-container.bottom-left .ai-toggle-btn {
+    left: 16px;
+    right: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-toggle-btn {
+    bottom: 80px !important; /* above sticky nav */
   }
 }
