@@ -34,9 +34,6 @@ const CONFIG = {
   // Fallback endpoint - Railway
   API_BASE_URL: import.meta.env.VITE_AI_API_URL || 'https://sta-ai-production.up.railway.app',
   
-  // Local fallback
-  LOCAL_API_URL: import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:8000',
-  
   // Default model configuration
   DEFAULT_MODEL: 'TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF',
   
