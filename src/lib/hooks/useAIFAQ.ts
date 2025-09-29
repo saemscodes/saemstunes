@@ -412,12 +412,12 @@ export const useAIFAQ = () => {
       }
 
       const aiResponse: AIResponse = {
-        response: result.response || 'I apologize, but I could not generate a response. Please try again.',
-        processingTime: result.processing_time || processingTime,
-        modelUsed: result.model_used || payload.model_profile,
-        conversationId: payload.conversation_id,
+        response: result.response,
+        processingTime: result.processing_time, // Map snake_case to camelCase
+        modelUsed: result.model_used,
+        conversationId: result.conversation_id,
         source: usedEndpoint.includes('huggingface') ? 'huggingface' : 'railway'
-      }
+      };
 
       // Update performance metrics
       setPerformance(prev => {
