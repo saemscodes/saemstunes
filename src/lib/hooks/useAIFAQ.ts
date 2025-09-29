@@ -362,11 +362,7 @@ export const useAIFAQ = () => {
       const payload = {
         message: question,
         user_id: options.userId || 'anonymous',
-        conversation_id: options.conversationId || conversationId || generateConversationId(),
-        context: context,
-        model_profile: options.modelProfile || CONFIG.DEFAULT_MODEL,
-        temperature: options.temperature || 0.7,
-        max_tokens: options.maxTokens || 300
+        conversation_id: options.conversationId || conversationId || generateConversationId()
       }
 
       let response
