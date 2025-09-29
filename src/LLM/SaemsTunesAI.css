@@ -811,3 +811,9 @@
     right: auto;
   }
 }
+
+@media (max-width: 768px) {
+  .ai-toggle-btn {
+    bottom: 80px !important; /* above sticky nav */
+  }
+}
