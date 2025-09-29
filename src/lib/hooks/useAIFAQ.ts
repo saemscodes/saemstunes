@@ -38,7 +38,7 @@ const CONFIG = {
   LOCAL_API_URL: import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:8000',
   
   // Default model configuration
-  DEFAULT_MODEL: 'microsoft/Phi-3.5-mini-instruct',
+  DEFAULT_MODEL: 'TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF',
   
   // Stability configuration
   MAX_RETRIES: 3,
