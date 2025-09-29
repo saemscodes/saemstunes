@@ -19,9 +19,6 @@ interface PerformanceMetrics {
 }
 
 interface AIOptions {
-  modelProfile?: string
-  temperature?: number
-  maxTokens?: number
   userId?: string
   conversationId?: string
 }
