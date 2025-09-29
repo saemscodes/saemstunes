@@ -32,7 +32,7 @@ const CONFIG = {
   HF_SPACE_URL: import.meta.env.VITE_HF_SPACE_URL || 'https://saemstunes-sta-ai.hf.space',
   
   // Fallback endpoint - Railway
-  API_BASE_URL: import.meta.env.VITE_AI_API_URL || 'https://sta-ai-production.up.railway.app/',
+  API_BASE_URL: import.meta.env.VITE_AI_API_URL || 'https://sta-ai-production.up.railway.app',
   
   // Local fallback
   LOCAL_API_URL: import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:8000',
