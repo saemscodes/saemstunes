@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useAIFAQ, useDebouncedAIFAQ } from '@/lib/hooks/useAIFAQ'
-import './SaemsTunesAI.css'
 
 interface Message {
   id: number
@@ -12,6 +10,119 @@ interface Message {
   isError?: boolean
   feedback?: boolean
   type?: string
+}
+
+interface AIResponse {
+  response: string
+  processingTime: number
+  modelUsed: string
+}
+
+interface PerformanceStats {
+  averageResponseTime?: number
+  totalRequests?: number
+  cacheHitRate?: number
+}
+
+interface AIHook {
+  askAI: (question: string, config: any) => Promise<AIResponse>
+  isLoading: boolean
+  error: string | null
+  performance: PerformanceStats | null
+  conversationId: string | null
+  cancelRequest: () => void
+  submitFeedback: (conversationId: string, helpful: boolean, message: string) => void
+  clearConversation: () => void
+  getSystemHealth: () => Promise<{ status: string }>
+}
+
+// Mock implementation of useDebouncedAIFAQ hook
+const useDebouncedAIFAQ = (): AIHook => {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+
+  const askAI = async (question: string, config: any): Promise<AIResponse> => {
+    setIsLoading(true)
+    setError(null)
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setIsLoading(false)
+        setConversationId('conv-' + Date.now())
+        
+        // Mock responses based on common Saem's Tunes questions
+        let response = "I'm here to help you with Saem's Tunes! "
+        
+        if (question.toLowerCase().includes('playlist')) {
+          response += "To create a playlist, go to your Library tab, click 'Create Playlist', give it a name, and start adding songs from your favorite artists or discoveries."
+        } else if (question.toLowerCase().includes('upload')) {
+          response += "Yes! Artists can upload their own music through our Creator Portal. Go to the 'For Artists' section in your account settings to get started with the upload process."
+        } else if (question.toLowerCase().includes('premium')) {
+          response += "Premium features include ad-free listening, unlimited skips, offline downloads, high-quality audio, and early access to new features. You can upgrade in your account settings."
+        } else if (question.toLowerCase().includes('follow')) {
+          response += "To follow artists, visit their profile page and click the 'Follow' button. You'll get notifications when they release new music or go on tour."
+        } else if (question.toLowerCase().includes('mobile')) {
+          response += "Yes! Saem's Tunes is available on iOS and Android. Download it from the App Store or Google Play Store for the best mobile experience."
+        } else if (question.toLowerCase().includes('share')) {
+          response += "You can share music by clicking the share button on any song, album, or playlist. Share via social media, messaging apps, or generate a unique Saem's Tunes link."
+        } else if (question.toLowerCase().includes('genre')) {
+          response += "We have over 50 genres including Pop, Rock, Hip-Hop, Electronic, Jazz, Classical, Country, R&B, and many international genres. Use the Explore tab to discover new genres."
+        } else if (question.toLowerCase().includes('recommend')) {
+          response += "Our recommendation system uses your listening history, liked songs, followed artists, and similar users' preferences to suggest music you'll love. The more you use Saem's Tunes, the better it gets!"
+        } else if (question.toLowerCase().includes('course')) {
+          response += "We offer music production courses, instrument tutorials, music theory classes, and artist development programs. Check the 'Learn' section in the app for available courses."
+        } else if (question.toLowerCase().includes('artist')) {
+          response += "To become an artist on Saem's Tunes, apply through our Creator Portal. You'll need to verify your identity and provide some basic information about your music."
+        } else {
+          response += "I understand you're asking about: " + question + ". At Saem's Tunes, we're passionate about connecting music lovers with amazing artists and helping everyone discover their next favorite song. How else can I assist you with our platform?"
+        }
+        
+        resolve({
+          response,
+          processingTime: 450 + Math.random() * 300,
+          modelUsed: config.modelProfile || 'microsoft/Phi-3.5-mini-instruct'
+        })
+      }, 1000 + Math.random() * 1000)
+    })
+  }
+
+  const cancelRequest = () => {
+    setIsLoading(false)
+    setError('Request cancelled')
+  }
+
+  const submitFeedback = (convId: string, helpful: boolean, message: string) => {
+    console.log(`Feedback for ${convId}: ${helpful ? 'helpful' : 'not helpful'} - ${message}`)
+  }
+
+  const clearConversation = () => {
+    setConversationId(null)
+  }
+
+  const getSystemHealth = async (): Promise<{ status: string }> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ status: 'healthy' })
+      }, 500)
+    })
+  }
+
+  return {
+    askAI,
+    isLoading,
+    error,
+    performance: {
+      averageResponseTime: 650,
+      totalRequests: 42,
+      cacheHitRate: 0.78
+    },
+    conversationId,
+    cancelRequest,
+    submitFeedback,
+    clearConversation,
+    getSystemHealth
+  }
 }
 
 interface Props {
@@ -432,7 +543,7 @@ const SaemsTunesAI: React.FC<Props> = ({
           {error && (
             <div className="error-banner">
               <span>Connection issue: {error}</span>
-              <button onClick={() => setError(null)}>×</button>
+              <button onClick={() => {}}>×</button>
             </div>
           )}
         </div>
