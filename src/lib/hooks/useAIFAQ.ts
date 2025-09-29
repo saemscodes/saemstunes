@@ -52,7 +52,6 @@ class ConnectionHealthMonitor {
   constructor() {
     this.endpoints.set(CONFIG.HF_SPACE_URL, true)
     this.endpoints.set(CONFIG.API_BASE_URL, true)
-    this.endpoints.set(CONFIG.LOCAL_API_URL, true)
   }
 
   async checkEndpointHealth(url: string): Promise<boolean> {
@@ -75,8 +74,7 @@ class ConnectionHealthMonitor {
   async getBestEndpoint(): Promise<string> {
     const endpoints = [
       CONFIG.HF_SPACE_URL,
-      CONFIG.API_BASE_URL, 
-      CONFIG.LOCAL_API_URL
+      CONFIG.API_BASE_URL
     ]
 
     for (const endpoint of endpoints) {
@@ -375,9 +373,9 @@ export const useAIFAQ = () => {
       let usedEndpoint = ''
 
       // Try endpoints in order of preference
-      const endpoints = await healthMonitor.getBestEndpoint()
+      const endpoints = [CONFIG.HF_SPACE_URL, CONFIG.API_BASE_URL]
       
-      for (const endpoint of [CONFIG.HF_SPACE_URL, CONFIG.API_BASE_URL, CONFIG.LOCAL_API_URL]) {
+      for (const endpoint of endpoints) {
         try {
           console.log(`🔄 Trying endpoint: ${endpoint}`)
           usedEndpoint = endpoint
@@ -398,7 +396,7 @@ export const useAIFAQ = () => {
           }
         } catch (endpointError) {
           console.warn(`Endpoint ${endpoint} failed:`, endpointError)
-          if (endpoint === CONFIG.LOCAL_API_URL) {
+          if (endpoint === CONFIG.API_BASE_URL) {
             throw new Error('All AI endpoints are unavailable')
           }
           continue
