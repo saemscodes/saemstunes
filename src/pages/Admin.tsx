@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useAISettings } from "@/context/AISettingsContext";
 import { 
   Users, 
   Music, 
@@ -13,7 +14,8 @@ import {
   Upload,
   Star,
   GripVertical,
-  RefreshCw
+  RefreshCw,
+  Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +24,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/branding/Logo";
 import AdminUpload from "@/components/admin/AdminUpload";
 import { useFeaturedItems } from "@/context/FeaturedItemsContext";
@@ -53,6 +57,7 @@ const NAV_ITEMS = [
   { icon: Settings, label: "Settings", value: "settings" },
   { icon: Star, label: "Featured", value: "featured" },
   { icon: Upload, label: "Upload", value: "upload" },
+  { icon: Brain, label: "AI Settings", value: "ai-settings" },
 ];
 
 interface UserProfile {
@@ -325,6 +330,129 @@ const SortableRow = ({
         </div>
       </td>
     </tr>
+  );
+};
+
+const AISettingsTab = () => {
+  const { settings, isLoading, updateSettings } = useAISettings();
+  const [localSettings, setLocalSettings] = useState(settings);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  const handleToggle = async (field: string, value: boolean) => {
+    if (!localSettings) return;
+    
+    const updated = { ...localSettings, [field]: value };
+    setLocalSettings(updated);
+    await updateSettings({ [field]: value });
+  };
+
+  const handleTierToggle = async (tier: string) => {
+    if (!localSettings) return;
+    
+    const currentTiers = localSettings.allowed_tiers || [];
+    const updatedTiers = currentTiers.includes(tier)
+      ? currentTiers.filter(t => t !== tier)
+      : [...currentTiers, tier];
+    
+    const updated = { ...localSettings, allowed_tiers: updatedTiers };
+    setLocalSettings(updated);
+    await updateSettings({ allowed_tiers: updatedTiers });
+  };
+
+  if (isLoading || !localSettings) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p>Loading AI settings...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const tiers = ['free', 'basic', 'premium', 'professional'];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">AI Feature Settings</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant={localSettings.is_enabled ? "default" : "secondary"}>
+            {localSettings.is_enabled ? "Enabled" : "Disabled"}
+          </Badge>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>SaemsTunes AI Controls</CardTitle>
+          <CardDescription>
+            Control who can access the AI assistant feature
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="ai-enabled" className="text-base">Enable AI Feature</Label>
+              <p className="text-sm text-muted-foreground">
+                Turn the entire AI feature on or off
+              </p>
+            </div>
+            <Switch
+              id="ai-enabled"
+              checked={localSettings.is_enabled}
+              onCheckedChange={(checked) => handleToggle('is_enabled', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="require-subscription" className="text-base">Require Subscription</Label>
+              <p className="text-sm text-muted-foreground">
+                Only allow subscribed users to access AI
+              </p>
+            </div>
+            <Switch
+              id="require-subscription"
+              checked={localSettings.require_subscription}
+              onCheckedChange={(checked) => handleToggle('require_subscription', checked)}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-base">Allowed Subscription Tiers</Label>
+            <p className="text-sm text-muted-foreground">
+              Select which subscription tiers can access the AI feature
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {tiers.map((tier) => (
+                <Badge
+                  key={tier}
+                  variant={localSettings.allowed_tiers?.includes(tier) ? "default" : "outline"}
+                  className="cursor-pointer capitalize"
+                  onClick={() => handleTierToggle(tier)}
+                >
+                  {tier}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-muted p-4 rounded-lg">
+            <h4 className="font-medium mb-2">Current Configuration:</h4>
+            <p className="text-sm">
+              AI Feature is <strong>{localSettings.is_enabled ? "ENABLED" : "DISABLED"}</strong>
+              <br />
+              Requires subscription: <strong>{localSettings.require_subscription ? "YES" : "NO"}</strong>
+              <br />
+              Allowed tiers: <strong>{localSettings.allowed_tiers?.join(", ") || "None"}</strong>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
@@ -1500,6 +1628,10 @@ const Admin = () => {
               </div>
               
               <AdminUpload />
+            </TabsContent>
+
+            <TabsContent value="ai-settings">
+              <AISettingsTab />
             </TabsContent>
             
             {['schedule', 'notifications', 'reports', 'settings'].map((tab) => (
