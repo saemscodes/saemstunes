@@ -32,6 +32,7 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
   const [isHovering, setIsHovering] = useState(false);
   const [hasTimedOut, setHasTimedOut] = useState(false);
   const [opacity, setOpacity] = useState(1);
+  const [redirecting, setRedirecting] = useState(false);
   
   const widgetMountTimeRef = useRef<number>(Date.now());
   const visibilityTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -113,7 +114,21 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
     }
   };
 
-  const handleMpesa = () => {
+  const handleMpesaRedirect = () => {
+    setRedirecting(true);
+    toast({
+      title: "Redirecting to Secure Payment",
+      description: "You will be taken to ZenLipa for M-Pesa processing",
+      duration: 2500,
+    });
+    
+    setTimeout(() => {
+      window.open('https://zenlipa.co.ke/me/civic-education-kenya', '_blank', 'noopener,noreferrer');
+      setRedirecting(false);
+    }, 800);
+  };
+
+  const handleMpesaCopy = () => {
     navigator.clipboard.writeText('+254798903373');
     toast({
       title: "M-Pesa number copied",
@@ -160,8 +175,8 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
               <div 
                 className={`absolute inset-0 rounded-full transition-all duration-500 ease-out ${
                   isHovering 
-                    ? 'bg-black/20 backdrop-blur-sm scale-100' 
-                    : 'bg-black/0 backdrop-blur-none scale-75'
+                    ? 'bg-[hsl(20_14%_21%)] backdrop-blur-sm scale-100' 
+                    : 'bg-[hsl(20_14%_21%)]/0 backdrop-blur-none scale-75'
                 }`} 
               />
               <span 
@@ -177,11 +192,11 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
             <div 
               className={`absolute right-0 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ease-out shadow-2xl ${
                 isHovering
-                  ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 shadow-emerald-500/50 scale-110'
-                  : 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 shadow-emerald-600/40 scale-100'
+                  ? 'bg-gradient-to-br from-[#D4A936] via-[#A67C00] to-[#7A5A00] shadow-[#A67C00]/50 scale-110'
+                  : 'bg-gradient-to-br from-[#A67C00] via-[#7A5A00] to-[#5A4A00] shadow-[#7A5A00]/40 scale-100'
               }`}
             >
-              <div className="absolute inset-1 rounded-full bg-gradient-to-br from-emerald-300/30 to-transparent" />
+              <div className="absolute inset-1 rounded-full bg-gradient-to-br from-[#D4A936]/30 to-transparent" />
               <Heart 
                 className={`relative z-10 transition-all duration-300 ease-out ${
                   isHovering 
@@ -191,7 +206,7 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
                 fill={isHovering ? "white" : "transparent"}
               />
               <div 
-                className={`absolute inset-0 rounded-full bg-emerald-400 transition-all duration-1000 ease-out ${
+                className={`absolute inset-0 rounded-full bg-[#D4A936] transition-all duration-1000 ease-out ${
                   isHovering 
                     ? 'animate-ping opacity-20' 
                     : 'opacity-0'
@@ -201,67 +216,81 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
           </div>
           {isHovering && (
             <>
-              <div className="absolute top-2 right-2 w-1 h-1 bg-emerald-300 rounded-full animate-bounce opacity-60" style={{ animationDelay: '0s' }} />
-              <div className="absolute top-4 right-6 w-0.5 h-0.5 bg-emerald-200 rounded-full animate-bounce opacity-40" style={{ animationDelay: '0.2s' }} />
-              <div className="absolute top-6 right-3 w-1 h-1 bg-emerald-400 rounded-full animate-bounce opacity-50" style={{ animationDelay: '0.4s' }} />
+              <div className="absolute top-2 right-2 w-1 h-1 bg-[#D4A936] rounded-full animate-bounce opacity-60" style={{ animationDelay: '0s' }} />
+              <div className="absolute top-4 right-6 w-0.5 h-0.5 bg-[#A67C00] rounded-full animate-bounce opacity-40" style={{ animationDelay: '0.2s' }} />
+              <div className="absolute top-6 right-3 w-1 h-1 bg-[#7A5A00] rounded-full animate-bounce opacity-50" style={{ animationDelay: '0.4s' }} />
             </>
           )}
         </div>
       ) : (
-        <div className="w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-emerald-200/50 dark:border-emerald-700/50 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 dark:from-emerald-400/20 dark:to-emerald-500/20 p-4 border-b border-emerald-200/30 dark:border-emerald-700/30">
+        <div className="w-80 bg-white dark:bg-[hsl(20_14%_15%)] backdrop-blur-xl border border-[hsl(20_5%_85%)] dark:border-[hsl(20_14%_25%)] rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-[#A67C00]/20 to-[#7A5A00]/20 dark:from-[#A67C00]/30 dark:to-[#7A5A00]/30 p-4 border-b border-[hsl(20_5%_85%)] dark:border-[hsl(20_14%_25%)]">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-lg flex items-center text-gray-900 dark:text-white">
+              <h3 className="font-bold text-lg flex items-center text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)]">
                 <div className="relative mr-3">
-                  <Gift className="h-6 w-6 text-emerald-600 dark:text-emerald-400 drop-shadow-sm" />
-                  <div className="absolute inset-0 bg-emerald-400 blur-sm opacity-30 rounded-full" />
+                  <Gift className="h-6 w-6 text-[#A67C00] dark:text-[#D4A936] drop-shadow-sm" />
+                  <div className="absolute inset-0 bg-[#A67C00] blur-sm opacity-30 rounded-full" />
                 </div>
                 Support Saem's Tunes
               </h3>
               <button
-                className="relative group rounded-full p-2 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 transition-all duration-300 backdrop-blur-sm"
+                className="relative group rounded-full p-2 hover:bg-[#A67C00]/10 dark:hover:bg-[#D4A936]/10 transition-all duration-300 backdrop-blur-sm"
                 onClick={handleCollapse}
               >
-                <X className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors" />
-                <div className="absolute inset-0 rounded-full bg-emerald-500/10 scale-0 group-hover:scale-100 transition-transform duration-300" />
+                <X className="h-4 w-4 text-[hsl(43_10%_40%)] dark:text-[hsl(0_0%_65%)] group-hover:text-[hsl(20_14%_21%)] dark:group-hover:text-[hsl(0_0%_95%)] transition-colors" />
+                <div className="absolute inset-0 rounded-full bg-[#A67C00]/10 scale-0 group-hover:scale-100 transition-transform duration-300" />
               </button>
             </div>
           </div>
           <div className="p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+            <p className="text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-4 leading-relaxed">
               Your support helps Saem's Tunes continue creating music and cultural content that celebrates Kenyan heritage and inspires civic engagement.
             </p>
             <div className="space-y-3">
               {DONATION_OPTIONS.map((option, index) => (
                 <div 
                   key={option.name}
-                  className="group relative p-4 rounded-xl flex items-center justify-between hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-300 border border-emerald-100/50 dark:border-emerald-800/50 backdrop-blur-sm"
+                  className="group relative p-4 rounded-xl flex items-center justify-between hover:bg-[hsl(43_30%_90%)] dark:hover:bg-[hsl(20_14%_20%)] transition-all duration-300 border border-[hsl(20_5%_85%)] dark:border-[hsl(20_14%_25%)] backdrop-blur-sm"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-50/30 dark:via-emerald-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-[hsl(43_30%_90%)]/30 dark:via-[hsl(20_14%_20%)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="flex items-center relative z-10">
                     <div className="text-2xl mr-4 transition-transform duration-300 group-hover:scale-110">
                       {option.icon}
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white mb-1">{option.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{option.description}</p>
+                      <p className="font-semibold text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-1">{option.name}</p>
+                      <p className="text-xs text-[hsl(43_10%_40%)] dark:text-[hsl(0_0%_65%)]">{option.description}</p>
                     </div>
                   </div>
                   {option.name.includes('M-Pesa') ? (
                     <button
-                      onClick={handleMpesa}
-                      className="relative z-10 px-4 py-2 text-sm rounded-lg flex items-center bg-emerald-500/10 dark:bg-emerald-400/10 hover:bg-emerald-500/20 dark:hover:bg-emerald-400/20 backdrop-blur-sm transition-all duration-300 text-emerald-700 dark:text-emerald-300 hover:scale-105 shadow-lg border border-emerald-200/50 dark:border-emerald-600/50"
+                      onClick={handleMpesaRedirect}
+                      disabled={redirecting}
+                      className={`relative z-10 px-4 py-2 text-sm rounded-lg flex items-center backdrop-blur-sm transition-all duration-300 shadow-lg border border-[#A67C00]/20 dark:border-[#D4A936]/20 ${
+                        redirecting
+                          ? 'bg-[hsl(43_30%_80%)] dark:bg-[hsl(20_14%_30%)] text-[hsl(43_10%_40%)] dark:text-[hsl(0_0%_65%)] cursor-not-allowed'
+                          : 'bg-[#A67C00] hover:bg-[#7A5A00] text-white hover:scale-105'
+                      }`}
                     >
-                      <span className="mr-2">Copy</span>
-                      <Copy className="h-3 w-3" />
+                      {redirecting ? (
+                        <span className="flex items-center">
+                          <span className="mr-2">Redirecting</span>
+                          <div className="h-3 w-3 border-2 border-t-transparent border-current rounded-full animate-spin" />
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <span className="mr-2">Donate</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </span>
+                      )}
                     </button>
                   ) : (
                     <a
                       href={option.url}
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="relative z-10 px-4 py-2 text-sm rounded-lg flex items-center bg-emerald-500/10 dark:bg-emerald-400/10 hover:bg-emerald-500/20 dark:hover:bg-emerald-400/20 backdrop-blur-sm transition-all duration-300 text-emerald-700 dark:text-emerald-300 hover:scale-105 shadow-lg border border-emerald-200/50 dark:border-emerald-600/50"
+                      className="relative z-10 px-4 py-2 text-sm rounded-lg flex items-center bg-[hsl(20_14%_21%)] dark:bg-[hsl(20_14%_30%)] hover:bg-[hsl(20_14%_15%)] dark:hover:bg-[hsl(20_14%_35%)] backdrop-blur-sm transition-all duration-300 text-white hover:scale-105 shadow-lg"
                     >
                       <span className="mr-2">Visit</span>
                       <ExternalLink className="h-3 w-3" />
@@ -271,7 +300,7 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
               ))}
             </div>
             <button
-              className="w-full mt-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 dark:from-emerald-600 dark:to-emerald-700 dark:hover:from-emerald-700 dark:hover:to-emerald-800 text-white transition-all duration-300 shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] backdrop-blur-sm border border-emerald-400/20 dark:border-emerald-600/20"
+              className="w-full mt-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#A67C00] to-[#7A5A00] hover:from-[#7A5A00] hover:to-[#5A4A00] text-white transition-all duration-300 shadow-lg hover:shadow-[#A67C00]/25 hover:scale-[1.02] backdrop-blur-sm border border-[#A67C00]/20"
               onClick={handleCollapse}
             >
               Maybe Later
