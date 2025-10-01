@@ -14,6 +14,7 @@ import LazyVisionSection from '@/components/LazyVisionSection';
 import InstrumentSelector from "@/components/ui/InstrumentSelector";
 import MusicToolsCarousel from "@/components/ui/MusicToolsCarousel";
 import DotGrid from "@/components/effects/DotGrid";
+import DonationWidget from "@/components/DonationWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,8 @@ const isUuid = (id: string) => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(id);
 };
+
+
 
 // User Preferences Service
 class UserPreferencesService {
@@ -436,6 +439,11 @@ const Index = () => {
   const { user } = useAuth();
   const { state } = useAudioPlayer();
   const navigate = useNavigate();
+
+  const [showDonationWidget, setShowDonationWidget] = useState(false);
+  const [donationTimedOut, setDonationTimedOut] = useState(false);
+  const handleDonationTimeout = () => setDonationTimedOut(true);
+  const handleSupportUsClick = () => setShowDonationWidget(true);
   
   // Use the new auth-based instrument selector logic with database integration
   const { showInstrumentSelector, isLoading, markInstrumentSelectorAsShown } = useInstrumentSelectorLogic(user);
@@ -628,6 +636,11 @@ const Index = () => {
             </section>
             
           </div>
+          {(showDonationWidget || !donationTimedOut) && (
+            <div className="fixed bottom-6 right-6 z-50">
+              <DonationWidget onTimedOut={handleDonationTimeout} />
+            </div>
+          )}
         </div>
       </MainLayout>
     </>
