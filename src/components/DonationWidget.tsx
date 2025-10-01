@@ -135,16 +135,6 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
     }, 800);
   };
   
-  const handleMpesaCopy = () => {
-    navigator.clipboard.writeText('+254798903373');
-    toast({
-      title: "M-Pesa number copied",
-      description: "Number copied to clipboard. You can proceed to send your MPesa donation there via 'Send Money'",
-      duration: 3000,
-    });
-  };
-
-  if (hasTimedOut || !isVisible) return null;
 
   return (
     <div
@@ -251,7 +241,7 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
           </div>
           <div className="p-4">
             <p className="text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-4 leading-relaxed">
-              Your support helps Saem's Tunes continue creating music and cultural content that celebrates Kenyan heritage and inspires civic engagement.
+                By supporting Saem's Tunes, you become part of a vision where Jesus is glorified, music comes alive, and learners of every age - from tots to adults - shine in creativity.
             </p>
             <div className="space-y-3">
               {DONATION_OPTIONS.map((option, index) => (
