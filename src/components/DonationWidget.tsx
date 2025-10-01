@@ -116,6 +116,13 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
 
   const handleMpesaRedirect = () => {
     setRedirecting(true);
+
+    const mpesaOption = DONATION_OPTIONS.find(option =>
+      option.name.includes('M-Pesa')
+      );
+    const redirectUrl = mpesaOption ? mpesaOption.url : 'https://zenlipa.co.ke/c/8UsifM';
+
+    
     toast({
       title: "Redirecting to Secure Payment",
       description: "You will be taken to ZenLipa for M-Pesa processing",
@@ -123,11 +130,11 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
     });
     
     setTimeout(() => {
-      window.open('https://zenlipa.co.ke/me/civic-education-kenya', '_blank', 'noopener,noreferrer');
+      window.open(redirectUrl, '_blank', 'noopener,noreferrer');
       setRedirecting(false);
     }, 800);
   };
-
+  
   const handleMpesaCopy = () => {
     navigator.clipboard.writeText('+254798903373');
     toast({
