@@ -1,3 +1,4 @@
+
 import React, { ReactNode, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -6,6 +7,7 @@ import {
   Home,
   Video,
   BookOpen,
+  Calendar,
   User,
   Settings,
   LogOut,
@@ -16,6 +18,7 @@ import {
   Mail,
   Heart,
   Bell,
+  Facebook,
   Music,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,8 +29,8 @@ import ThemeToggle from "@/components/theme/ThemeToggle";
 import MobileNavigation from "./MobileNavigation";
 import MiniPlayer from "../player/MiniPlayer";
 import Logo from "../branding/Logo";
-import DonationWidget from "@/components/DonationWidget";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Badge } from "../ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { FloatingBackButton } from "@/components/ui/floating-back-button";
 import {
@@ -88,31 +91,8 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
   const [isAtTop, setIsAtTop] = useState(true);
   const [animateLogo, setAnimateLogo] = useState(false);
   const [cooldown, setCooldown] = useState(false);
-  const [showDonationWidget, setShowDonationWidget] = useState(false);
-  const [donationTimedOut, setDonationTimedOut] = useState(false);
-  
   const logoRef = useRef<HTMLDivElement>(null);
   const desktopLogoRef = useRef<HTMLDivElement>(null);
-
-  // Handle donation widget timeout
-  const handleDonationTimeout = () => {
-    setDonationTimedOut(true);
-    setShowDonationWidget(false);
-  };
-  
-  // Handle support us click from navbar - show donation widget
-  const handleSupportUsClick = () => {
-    setShowDonationWidget(true);
-    setDonationTimedOut(false);
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
-  // Handle closing donation widget manually
-  const handleCloseDonationWidget = () => {
-    setShowDonationWidget(false);
-  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -202,7 +182,7 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     },
     {
       name: "Profile",
-      href: "/profile",
+      href: "/auth",
       icon: User,
       roles: ["student", "adult", "parent", "teacher", "admin"],
     },
@@ -229,9 +209,9 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
     },
     {
       name: "Support us",
+      href: "/support-us",
       icon: Heart,
       ariaLabel: "Support Saem's Tunes",
-      onClick: handleSupportUsClick,
     },
   ];
 
@@ -246,14 +226,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
   const handleNavigation = (href: string) => {
     navigate(href);
     setIsMobileMenuOpen(false);
-  };
-
-  const handleSocialLinkClick = (item: any) => {
-    if (item.onClick) {
-      item.onClick();
-    } else {
-      handleNavigation(item.href);
-    }
   };
 
   const handleLogoClick = (logoType: 'mobile' | 'desktop') => {
@@ -407,7 +379,7 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                           variant="ghost"
                           size="sm"
                           className="justify-start gap-3 text-muted-foreground hover:text-primary-foreground"
-                          onClick={() => handleSocialLinkClick(item)}
+                          onClick={() => handleNavigation(item.href)}
                           aria-label={item.ariaLabel}
                         >
                           <item.icon className="h-4 w-4" />
@@ -605,7 +577,7 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start gap-3"
-                onClick={() => handleSocialLinkClick(item)}
+                onClick={() => handleNavigation(item.href)}
                 aria-label={item.ariaLabel}
               >
                 <item.icon className="h-4 w-4" />
@@ -663,16 +635,6 @@ const MainLayout = ({ children, showMiniPlayer = false }: MainLayoutProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Floating Donation Widget */}
-      {(showDonationWidget || !donationTimedOut) && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <DonationWidget 
-            onTimedOut={handleDonationTimeout}
-            onClose={handleCloseDonationWidget}
-          />
-        </div>
-      )}
     </div>
   );
 };
