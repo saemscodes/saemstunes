@@ -240,8 +240,8 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
             </div>
           </div>
           <div className="p-4">
-            <p className="text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-4 leading-relaxed">
-                By supporting Saem's Tunes, you become part of a vision where Jesus is glorified, music comes alive, and learners of every age - from tots to adults - shine in creativity.
+             <p className="text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-4 leading-relaxed text-center">
+                Empower musicians, equip worship leaders, and raise up the next generation to represent Christ through music.
             </p>
             <div className="space-y-3">
               {DONATION_OPTIONS.map((option, index) => (
