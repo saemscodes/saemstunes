@@ -241,7 +241,7 @@ const DonationWidget: React.FC<DonationWidgetProps> = ({ onTimedOut, isVisible: 
           </div>
           <div className="p-4">
              <p className="text-sm text-[hsl(20_14%_21%)] dark:text-[hsl(0_0%_95%)] mb-4 leading-relaxed text-center">
-                Help build a platform breaking barriers to music education in Kenya and beyond - empowering musicians, equipping worship leaders & unlocking potential through accessible learning.
+                Help us build this platform - for music learners in Kenya, Africa and across the world
             </p>
             <div className="space-y-3">
               {DONATION_OPTIONS.map((option, index) => (
