@@ -7,7 +7,8 @@ import {
   Music, 
   ArrowRight, 
   Loader2, 
-  AlertCircle 
+  AlertCircle,
+  Shield 
 } from "lucide-react";
 import {
   Card,
@@ -56,6 +57,7 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [adminTapCount, setAdminTapCount] = useState(0);
   
   // Get redirect path from location state or default to "/"
   const from = location.state?.from?.pathname || "/";
@@ -110,8 +112,14 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
       setLoginAttempts(0);
       sessionStorage.removeItem('loginAttempts');
       
+      // Show success message
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in.",
+      });
+      
       navigate(from);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
       
       // Increment login attempts and store in sessionStorage
@@ -120,8 +128,16 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
       sessionStorage.setItem('loginAttempts', newAttempts.toString());
       
       // Show error message
+      let errorMessage = "Invalid email or password. Please try again.";
+      
+      if (error.message.includes('captcha')) {
+        errorMessage = "CAPTCHA verification failed. Please try again.";
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = "Too many attempts. Please wait before trying again.";
+      }
+      
       form.setError("root", { 
-        message: "Invalid email or password. Please try again." 
+        message: errorMessage 
       });
       
       // Reset captcha on error if it was shown
@@ -134,6 +150,7 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
       if (newAttempts >= 2) {
         setShowCaptcha(true);
       }
+      
     } finally {
       setIsSubmitting(false);
     }
@@ -156,6 +173,22 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
     });
   };
 
+  const handleAdminIconTap = () => {
+    const newCount = adminTapCount + 1;
+    setAdminTapCount(newCount);
+    
+    if (newCount >= 5) {
+      // Reset count
+      setAdminTapCount(0);
+      // Trigger admin login modal
+      if (onAdminTap) {
+        onAdminTap();
+      } else {
+        navigate('/admin/login');
+      }
+    }
+  };
+
   if (showForgotPassword) {
     return (
       <ForgotPasswordForm onCancel={() => setShowForgotPassword(false)} />
@@ -170,10 +203,19 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          onClick={onAdminTap}
         >
-          <div className="bg-gold/10 p-3 rounded-full cursor-pointer">
-            <Music className="h-8 w-8 text-gold" />
+          <div 
+            className={`bg-gold/10 p-3 rounded-full cursor-pointer transition-all duration-300 ${
+              adminTapCount > 0 ? 'scale-110 bg-gold/20' : ''
+            }`}
+            onClick={handleAdminIconTap}
+            title={adminTapCount > 0 ? `${5 - adminTapCount} taps to admin` : "Tap 5 times for admin"}
+          >
+            {adminTapCount > 0 ? (
+              <Shield className="h-8 w-8 text-gold" />
+            ) : (
+              <Music className="h-8 w-8 text-gold" />
+            )}
           </div>
         </motion.div>
         <motion.div
@@ -256,7 +298,7 @@ const LoginForm = ({ onAdminTap }: LoginFormProps) => {
             {/* Conditionally render captcha */}
             {showCaptcha && (
               <motion.div 
-                className="flex justify-center my-4"
+                className="flex justify-center my-4 p-4 border rounded-lg bg-muted/30"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
