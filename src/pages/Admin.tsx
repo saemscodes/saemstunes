@@ -17,7 +17,8 @@ import {
   RefreshCw,
   Brain,
   Shield,
-  AlertCircle
+  AlertCircle,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +29,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Logo from "@/components/branding/Logo";
 import AdminUpload from "@/components/admin/AdminUpload";
-import { useFeaturedItems } from "@/context/FeaturedItemsContext";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -41,7 +40,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -50,6 +48,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Dashboard", value: "dashboard" },
@@ -72,9 +73,10 @@ interface UserProfile {
   email: string;
   role: string;
   is_admin: boolean;
-  subscription_tier: string;
   created_at: string;
   avatar_url?: string;
+  display_name?: string;
+  subscription_tier: string;
 }
 
 interface ContentItem {
@@ -106,34 +108,33 @@ interface FeaturedItem {
   created_at?: string;
 }
 
-// Error handler with admin-specific messages
+interface AdminStatus {
+  is_admin: boolean;
+  is_authenticated: boolean;
+  user_id?: string;
+  email?: string;
+  role?: string;
+  display_name?: string;
+  subscription_tier?: string;
+  has_admin_access: boolean;
+  message?: string;
+}
+
 const handleSupabaseError = (error: any, context: string) => {
-  console.error(`Supabase Error (${context}):`, {
+  console.error(`❌ Supabase Error (${context}):`, {
     message: error.message,
     code: error.code,
     details: error.details,
     hint: error.hint
   });
   
-  // Admin-specific error messages
-  let userMessage = error.message;
-  if (error.code === '42501') {
-    userMessage = "Permission denied. Your admin role may not be properly configured. Please check your admin status in the database.";
-  } else if (error.code === 'PGRST301') {
-    userMessage = "Row-level security policy violation. Admin permissions not detected.";
-  }
-  
   toast({
     title: `Database Error: ${context}`,
-    description: userMessage,
-    variant: "destructive",
-    duration: 5000
+    description: error.message,
+    variant: "destructive"
   });
-  
-  return userMessage;
 };
 
-// Feature item form with proper admin validation
 const FeaturedItemForm = ({ 
   item, 
   onSave, 
@@ -146,7 +147,7 @@ const FeaturedItemForm = ({
   const [formData, setFormData] = useState<FeaturedItem>(item);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -155,33 +156,45 @@ const FeaturedItemForm = ({
 
   const handleImageUpload = async () => {
     if (!imageFile) {
-      toast({ title: "Please select an image file first" });
+      toast({
+        title: "No image selected",
+        description: "Please select an image file",
+        variant: "destructive"
+      });
       return;
     }
     
     try {
       setUploading(true);
       
-      // Validate file
-      if (imageFile.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({ 
-          title: "File too large", 
-          description: "Maximum file size is 5MB",
-          variant: "destructive"
+      // Check if bucket exists, create if not
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const hasFeaturedImagesBucket = buckets?.some(b => b.name === 'featured-images');
+      
+      if (!hasFeaturedImagesBucket) {
+        const { error: createBucketError } = await supabase.storage.createBucket('featured-images', {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
         });
-        return;
+        
+        if (createBucketError) {
+          console.error("Bucket creation error:", createBucketError);
+          // Continue anyway - bucket might already exist
+        }
       }
       
       const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `featured/${fileName}`;
+      
+      console.log("Uploading image to:", filePath);
       
       const { error: uploadError } = await supabase.storage
         .from('featured-images')
         .upload(filePath, imageFile, {
           cacheControl: '3600',
-          upsert: false,
-          contentType: imageFile.type
+          upsert: false
         });
       
       if (uploadError) {
@@ -193,15 +206,18 @@ const FeaturedItemForm = ({
         .from('featured-images')
         .getPublicUrl(filePath);
       
+      console.log("Got public URL:", publicUrl);
+      
       setFormData(prev => ({ ...prev, image: publicUrl }));
       toast({ 
-        title: "Image uploaded successfully!",
-        description: "Click Save to apply changes"
+        title: "✅ Image uploaded successfully!",
+        description: "Image is now ready to use"
       });
     } catch (error: any) {
+      console.error("Image upload error:", error);
       toast({ 
-        title: "Image upload failed",
-        description: error.message,
+        title: "❌ Image upload failed",
+        description: error.message || "Unknown error",
         variant: "destructive"
       });
     } finally {
@@ -212,60 +228,59 @@ const FeaturedItemForm = ({
   const handleSubmit = async () => {
     if (!formData.title || !formData.description || !formData.image || !formData.link) {
       toast({
-        title: "Validation Error",
-        description: "All fields marked with * are required",
+        title: "Missing required fields",
+        description: "Please fill in all required fields (title, description, image, link)",
         variant: "destructive"
       });
       return;
     }
-
-    setLoading(true);
+    
+    setSaving(true);
     try {
       await onSave(formData);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <Card>
+    <Card className="border-2 border-primary/20">
       <CardHeader>
-        <CardTitle>{item.id ? 'Edit Featured Item' : 'Create Featured Item'}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Star className="h-5 w-5 text-gold" />
+          {item.id ? 'Edit Featured Item' : 'Create New Featured Item'}
+        </CardTitle>
         <CardDescription>
-          {item.id ? 'Update the featured item details' : 'Add a new item to the featured section'}
+          Featured items appear on the homepage carousel
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800">Admin Required</AlertTitle>
-            <AlertDescription className="text-blue-700">
-              You must have admin privileges to create or edit featured items.
-            </AlertDescription>
-          </Alert>
-          
           <div>
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title" className="font-semibold">
+              Title <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="title"
               name="title"
               value={formData.title}
               onChange={handleChange}
-              placeholder="Enter item title"
+              placeholder="Enter a descriptive title"
               required
               className="mt-1"
             />
           </div>
           
           <div>
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description" className="font-semibold">
+              Description <span className="text-destructive">*</span>
+            </Label>
             <Textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Enter detailed description"
+              placeholder="Brief description of this featured item"
               required
               rows={3}
               className="mt-1"
@@ -273,54 +288,71 @@ const FeaturedItemForm = ({
           </div>
           
           <div>
-            <Label htmlFor="image">Image *</Label>
-            <div className="space-y-2 mt-1">
+            <Label htmlFor="image" className="font-semibold">
+              Image <span className="text-destructive">*</span>
+            </Label>
+            <div className="space-y-3 mt-1">
               {formData.image && (
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-sm text-muted-foreground">Current Image:</p>
                   <img 
                     src={formData.image} 
                     alt="Preview" 
-                    className="w-20 h-20 object-cover rounded-md border shadow-sm" 
+                    className="w-32 h-32 object-cover rounded-lg border-2 border-muted"
+                    onError={(e) => {
+                      console.error("Image failed to load:", formData.image);
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
-                  <div className="text-sm text-gray-500">
-                    Current image
-                  </div>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  className="flex-1"
-                />
-                <Button 
-                  type="button" 
-                  variant="secondary"
-                  disabled={!imageFile || uploading}
-                  onClick={handleImageUpload}
-                  className="whitespace-nowrap"
-                >
-                  {uploading ? "Uploading..." : "Upload"}
-                </Button>
+              
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="secondary"
+                    disabled={!imageFile || uploading}
+                    onClick={handleImageUpload}
+                    className="whitespace-nowrap"
+                  >
+                    {uploading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : "Upload"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload an image (JPG, PNG, WebP, GIF). Max 5MB.
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Upload a high-quality image (max 5MB). Supported formats: JPG, PNG, WebP
-              </p>
             </div>
           </div>
           
           <div>
-            <Label htmlFor="link">Link *</Label>
+            <Label htmlFor="link" className="font-semibold">
+              Link <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="link"
               name="link"
               value={formData.link}
               onChange={handleChange}
-              placeholder="Enter URL or path (e.g., /courses or https://example.com)"
+              placeholder="/tracks or https://example.com"
               required
               className="mt-1"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Use internal paths like "/tracks" or external URLs like "https://example.com"
+            </p>
           </div>
           
           <div className="flex items-center space-x-2 pt-2">
@@ -329,27 +361,38 @@ const FeaturedItemForm = ({
               name="is_external"
               checked={formData.is_external || false}
               onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, is_external: !!checked }))
+                setFormData(prev => ({ ...prev, is_external: checked === true }))
               }
             />
-            <Label htmlFor="is_external" className="text-sm font-medium">
-              Open in new tab (external link)
+            <Label htmlFor="is_external" className="cursor-pointer">
+              Open link in new tab (external links)
             </Label>
           </div>
           
-          <div className="flex gap-2 pt-4 border-t">
+          <div className="flex gap-2 pt-6 border-t">
             <Button 
               type="button" 
-              className="bg-gold hover:bg-gold/90 text-white"
+              className="bg-gold hover:bg-gold/90 text-white flex-1"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={saving || uploading}
             >
-              {loading ? "Saving..." : "Save"}
+              {saving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Save Featured Item
+                </>
+              )}
             </Button>
             <Button 
               variant="outline" 
               onClick={onCancel}
-              disabled={loading}
+              disabled={saving}
+              className="flex-1"
             >
               Cancel
             </Button>
@@ -360,7 +403,6 @@ const FeaturedItemForm = ({
   );
 };
 
-// Sortable row component
 const SortableRow = ({ 
   item, 
   onEdit, 
@@ -376,13 +418,11 @@ const SortableRow = ({
     setNodeRef,
     transform,
     transition,
-    isDragging,
   } = useSortable({ id: item.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
@@ -392,7 +432,7 @@ const SortableRow = ({
       className="border-b hover:bg-muted/50 transition-colors"
     >
       <td 
-        className="p-3 cursor-grab active:cursor-grabbing"
+        className="p-3 cursor-move"
         {...attributes}
         {...listeners}
       >
@@ -400,39 +440,46 @@ const SortableRow = ({
       </td>
       <td className="p-3 font-medium">{item.title}</td>
       <td className="p-3">
-        <img 
-          src={item.image} 
-          alt={item.title}
-          className="w-16 h-10 object-cover rounded shadow-sm"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "https://via.placeholder.com/64x40?text=No+Image";
-          }}
-        />
+        <div className="flex items-center gap-2">
+          <img 
+            src={item.image} 
+            alt={item.title}
+            className="w-16 h-10 object-cover rounded border"
+            onError={(e) => {
+              console.error("Image failed to load:", item.image);
+              (e.target as HTMLImageElement).src = 'https://placehold.co/64x40/1a1a1a/ffffff?text=Image';
+            }}
+          />
+        </div>
       </td>
       <td className="p-3">
-        <div className="max-w-xs truncate text-sm text-gray-600">
-          {item.link}
+        <div className="max-w-xs truncate">
+          <a 
+            href={item.link} 
+            target={item.is_external ? "_blank" : "_self"}
+            rel={item.is_external ? "noopener noreferrer" : ""}
+            className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
+          >
+            {item.link}
+          </a>
           {item.is_external && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-              External
-            </span>
+            <span className="ml-2 text-xs text-muted-foreground">(external)</span>
           )}
         </div>
       </td>
       <td className="p-3">
         <div className="flex gap-2">
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm"
             onClick={() => onEdit(item)}
-            className="h-8 px-3"
           >
             Edit
           </Button>
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm" 
-            className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="text-destructive border-destructive/20 hover:bg-destructive/10"
             onClick={() => onDelete(item.id)}
           >
             Delete
@@ -443,11 +490,9 @@ const SortableRow = ({
   );
 };
 
-// AI Settings Tab
 const AISettingsTab = () => {
   const { settings, isLoading, updateSettings } = useAISettings();
   const [localSettings, setLocalSettings] = useState(settings);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -458,20 +503,7 @@ const AISettingsTab = () => {
     
     const updated = { ...localSettings, [field]: value };
     setLocalSettings(updated);
-    
-    setSaving(true);
-    try {
-      await updateSettings({ [field]: value });
-      toast({
-        title: "AI Settings Updated",
-        description: `${field.replace('_', ' ')} has been ${value ? 'enabled' : 'disabled'}.`
-      });
-    } catch (error: any) {
-      handleSupabaseError(error, 'update AI settings');
-      setLocalSettings(settings); // Revert on error
-    } finally {
-      setSaving(false);
-    }
+    await updateSettings({ [field]: value });
   };
 
   const handleTierToggle = async (tier: string) => {
@@ -484,28 +516,14 @@ const AISettingsTab = () => {
     
     const updated = { ...localSettings, allowed_tiers: updatedTiers };
     setLocalSettings(updated);
-    
-    setSaving(true);
-    try {
-      await updateSettings({ allowed_tiers: updatedTiers });
-      toast({
-        title: "Access Updated",
-        description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} tier ${updatedTiers.includes(tier) ? 'granted' : 'revoked'} AI access.`
-      });
-    } catch (error: any) {
-      handleSupabaseError(error, 'update AI tiers');
-      setLocalSettings(settings);
-    } finally {
-      setSaving(false);
-    }
+    await updateSettings({ allowed_tiers: updatedTiers });
   };
 
   if (isLoading || !localSettings) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gold"></div>
-          <p className="mt-4 text-gray-500">Loading AI settings...</p>
+          <p>Loading AI settings...</p>
         </CardContent>
       </Card>
     );
@@ -516,22 +534,11 @@ const AISettingsTab = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">AI Feature Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Control who can access the AI assistant feature
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">AI Feature Settings</h1>
         <div className="flex items-center gap-2">
-          <Badge 
-            variant={localSettings.is_enabled ? "default" : "secondary"}
-            className="text-sm"
-          >
+          <Badge variant={localSettings.is_enabled ? "default" : "secondary"}>
             {localSettings.is_enabled ? "Enabled" : "Disabled"}
           </Badge>
-          {saving && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gold"></div>
-          )}
         </div>
       </div>
 
@@ -539,92 +546,66 @@ const AISettingsTab = () => {
         <CardHeader>
           <CardTitle>SaemsTunes AI Controls</CardTitle>
           <CardDescription>
-            Configure AI assistant permissions and accessibility
+            Control who can access the AI assistant feature
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="ai-enabled" className="text-base font-medium">Enable AI Feature</Label>
+              <Label htmlFor="ai-enabled" className="text-base">Enable AI Feature</Label>
               <p className="text-sm text-muted-foreground">
-                Turn the entire AI assistant feature on or off globally
+                Turn the entire AI feature on or off
               </p>
             </div>
             <Switch
               id="ai-enabled"
               checked={localSettings.is_enabled}
               onCheckedChange={(checked) => handleToggle('is_enabled', checked)}
-              disabled={saving}
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="require-subscription" className="text-base font-medium">Require Subscription</Label>
+              <Label htmlFor="require-subscription" className="text-base">Require Subscription</Label>
               <p className="text-sm text-muted-foreground">
-                Only allow subscribed users to access AI features
+                Only allow subscribed users to access AI
               </p>
             </div>
             <Switch
               id="require-subscription"
               checked={localSettings.require_subscription}
               onCheckedChange={(checked) => handleToggle('require_subscription', checked)}
-              disabled={saving}
             />
           </div>
 
-          <div className="p-4 rounded-lg border space-y-4">
-            <div>
-              <Label className="text-base font-medium">Allowed Subscription Tiers</Label>
-              <p className="text-sm text-muted-foreground">
-                Select which subscription tiers can access the AI feature
-              </p>
-            </div>
+          <div className="space-y-4">
+            <Label className="text-base">Allowed Subscription Tiers</Label>
+            <p className="text-sm text-muted-foreground">
+              Select which subscription tiers can access the AI feature
+            </p>
             <div className="flex flex-wrap gap-2">
               {tiers.map((tier) => (
                 <Badge
                   key={tier}
                   variant={localSettings.allowed_tiers?.includes(tier) ? "default" : "outline"}
-                  className="cursor-pointer capitalize px-3 py-1.5 text-sm"
+                  className="cursor-pointer capitalize"
                   onClick={() => handleTierToggle(tier)}
                 >
                   {tier}
-                  {localSettings.allowed_tiers?.includes(tier) && (
-                    <span className="ml-1">✓</span>
-                  )}
                 </Badge>
               ))}
             </div>
           </div>
 
-          <div className="bg-muted/30 p-4 rounded-lg border">
-            <h4 className="font-medium mb-2 text-gray-700">Current Configuration</h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">AI Feature Status:</span>
-                <span className={`font-medium ${localSettings.is_enabled ? 'text-green-600' : 'text-red-600'}`}>
-                  {localSettings.is_enabled ? 'ENABLED' : 'DISABLED'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Requires Subscription:</span>
-                <span className="font-medium">
-                  {localSettings.require_subscription ? 'YES' : 'NO'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Allowed Tiers:</span>
-                <span className="font-medium">
-                  {localSettings.allowed_tiers?.join(", ") || "None"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Last Updated:</span>
-                <span className="font-medium">
-                  {new Date(localSettings.updated_at || localSettings.created_at || '').toLocaleDateString()}
-                </span>
-              </div>
-            </div>
+          <div className="bg-muted p-4 rounded-lg">
+            <h4 className="font-medium mb-2">Current Configuration:</h4>
+            <p className="text-sm">
+              AI Feature is <strong>{localSettings.is_enabled ? "ENABLED" : "DISABLED"}</strong>
+              <br />
+              Requires subscription: <strong>{localSettings.require_subscription ? "YES" : "NO"}</strong>
+              <br />
+              Allowed tiers: <strong>{localSettings.allowed_tiers?.join(", ") || "None"}</strong>
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -632,16 +613,294 @@ const AISettingsTab = () => {
   );
 };
 
-// Main Admin Component
+const AdminToolsTab = () => {
+  const [testResults, setTestResults] = useState<any>(null);
+  const [testing, setTesting] = useState(false);
+  const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const runAdminTests = async () => {
+    setTesting(true);
+    try {
+      // Test 1: Check admin status
+      const { data: statusData, error: statusError } = await supabase
+        .rpc('verify_admin_status');
+      
+      if (statusError) throw statusError;
+      setAdminStatus(statusData);
+      
+      // Test 2: Test admin access
+      const { data: testData, error: testError } = await supabase
+        .rpc('test_admin_access');
+      
+      if (testError) throw testError;
+      setTestResults(testData);
+      
+      toast({
+        title: "✅ Admin tests completed",
+        description: "Check results below",
+      });
+    } catch (error: any) {
+      console.error("Admin test error:", error);
+      toast({
+        title: "❌ Admin tests failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const verifyAdminAccess = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('verify_admin_status');
+      
+      if (error) throw error;
+      
+      setAdminStatus(data);
+      
+      toast({
+        title: data.has_admin_access ? "✅ Admin Access Verified" : "❌ Not Admin",
+        description: data.has_admin_access 
+          ? `Logged in as ${data.email} (${data.role})`
+          : "You don't have admin access",
+        variant: data.has_admin_access ? "default" : "destructive"
+      });
+    } catch (error: any) {
+      console.error("Verification error:", error);
+      toast({
+        title: "❌ Verification failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Admin Tools & Diagnostics</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant={adminStatus?.has_admin_access ? "default" : "secondary"}>
+            {adminStatus?.has_admin_access ? "Admin" : "Not Admin"}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin Status Verification</CardTitle>
+            <CardDescription>
+              Verify your current admin permissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={verifyAdminAccess}
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Verify Admin Access
+                </>
+              )}
+            </Button>
+            
+            {adminStatus && (
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Admin Status</p>
+                    <p className={`font-semibold ${adminStatus.has_admin_access ? 'text-green-600' : 'text-destructive'}`}>
+                      {adminStatus.has_admin_access ? '✅ ADMIN' : '❌ NOT ADMIN'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Role</p>
+                    <p className="font-semibold">{adminStatus.role || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-semibold truncate">{adminStatus.email || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Subscription</p>
+                    <p className="font-semibold">{adminStatus.subscription_tier || 'Not set'}</p>
+                  </div>
+                </div>
+                {adminStatus.message && (
+                  <p className="text-sm text-muted-foreground mt-2">{adminStatus.message}</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Database Access Tests</CardTitle>
+            <CardDescription>
+              Test RLS policies and database permissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={runAdminTests}
+              disabled={testing}
+              variant="outline"
+              className="w-full"
+            >
+              {testing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Running Tests...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Run Admin Access Tests
+                </>
+              )}
+            </Button>
+            
+            {testResults && (
+              <div className="bg-muted p-4 rounded-lg space-y-3">
+                <div className="space-y-2">
+                  <p className="font-medium">Test Results:</p>
+                  <pre className="text-xs bg-black/10 p-2 rounded overflow-auto max-h-40">
+                    {JSON.stringify(testResults, null, 2)}
+                  </pre>
+                </div>
+                <div className={`p-2 rounded ${testResults.status.includes('CONFIRMED') ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}`}>
+                  <p className="text-sm font-medium">{testResults.status}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Database Functions</CardTitle>
+          <CardDescription>
+            Direct database function calls for troubleshooting
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Important</AlertTitle>
+            <AlertDescription>
+              These functions bypass RLS and should only be used for debugging.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const { data, error } = await supabase.rpc('is_admin');
+                  if (error) throw error;
+                  toast({
+                    title: "is_admin() Result",
+                    description: `Returns: ${data ? 'TRUE' : 'FALSE'}`,
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              Test is_admin()
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const { data, error } = await supabase.rpc('is_current_user_admin');
+                  if (error) throw error;
+                  toast({
+                    title: "is_current_user_admin() Result",
+                    description: `Returns: ${data ? 'TRUE' : 'FALSE'}`,
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              Test is_current_user_admin()
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const { data: user } = await supabase.auth.getUser();
+                  if (!user.user) throw new Error("Not logged in");
+                  
+                  const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.user.id)
+                    .single();
+                  
+                  if (error) throw error;
+                  
+                  toast({
+                    title: "Profile Data",
+                    description: `Role: ${profile.role}, is_admin: ${profile.is_admin}`,
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              Check Profile Data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const Admin = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [editingItem, setEditingItem] = useState<FeaturedItem | null>(null);
-  const [checkingAdmin, setCheckingAdmin] = useState(false);
-  const { featuredItems, loading, refreshItems } = useFeaturedItems();
+  const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
   
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -680,67 +939,125 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Check admin status on component mount
+  // Check admin status on mount and when user changes
   useEffect(() => {
     const checkAdminStatus = async () => {
-      const adminAuth = sessionStorage.getItem('adminAuth');
-      if (adminAuth === 'true') {
-        setCheckingAdmin(true);
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            // Verify user is actually admin in database
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('is_admin, role')
-              .eq('id', user.id)
-              .single();
-
-            if (!error && (profile.is_admin || profile.role === 'admin')) {
-              setIsAuthenticated(true);
-            } else {
-              // Not admin in database, clear session
-              sessionStorage.removeItem('adminAuth');
-              toast({
-                title: "Admin Access Revoked",
-                description: "Your admin privileges have been removed from the database.",
-                variant: "destructive"
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error checking admin status:", error);
-        } finally {
-          setCheckingAdmin(false);
+      setLoading(true);
+      try {
+        // First check if we have a user
+        if (!user) {
+          console.log("No user found, redirecting to login");
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
         }
+
+        console.log("Checking admin status for user:", user.email);
+        
+        // Check admin status using our new function
+        const { data: status, error } = await supabase
+          .rpc('verify_admin_status');
+        
+        if (error) {
+          console.error("Admin status check error:", error);
+          toast({
+            title: "Admin Check Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        console.log("Admin status result:", status);
+        setAdminStatus(status);
+        
+        if (status.has_admin_access) {
+          console.log("✅ User has admin access");
+          setIsAuthenticated(true);
+          // Store in session storage for persistence
+          sessionStorage.setItem('adminAuth', 'true');
+          sessionStorage.setItem('adminUser', JSON.stringify({
+            id: user.id,
+            email: user.email,
+            role: status.role
+          }));
+        } else {
+          console.log("❌ User does NOT have admin access");
+          setIsAuthenticated(false);
+          sessionStorage.removeItem('adminAuth');
+          sessionStorage.removeItem('adminUser');
+          
+          toast({
+            title: "Access Denied",
+            description: "You do not have admin privileges. Contact an administrator.",
+            variant: "destructive",
+            duration: 5000
+          });
+          
+          // Redirect to home after a delay
+          setTimeout(() => {
+            navigate('/');
+          }, 3000);
+        }
+      } catch (error: any) {
+        console.error("Error checking admin status:", error);
+        toast({
+          title: "Authentication Error",
+          description: error.message,
+          variant: "destructive"
+        });
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
       }
     };
 
     checkAdminStatus();
+  }, [user, navigate]);
+
+  // Also check session storage on mount
+  useEffect(() => {
+    const adminAuth = sessionStorage.getItem('adminAuth');
+    const adminUser = sessionStorage.getItem('adminUser');
+    
+    if (adminAuth === 'true' && adminUser) {
+      try {
+        const userData = JSON.parse(adminUser);
+        console.log("Found admin user in session:", userData);
+        // We still need to verify with the server
+      } catch (error) {
+        console.error("Error parsing admin user from session:", error);
+        sessionStorage.removeItem('adminAuth');
+        sessionStorage.removeItem('adminUser');
+      }
+    }
   }, []);
 
-  // Fetch dashboard data when authenticated
   useEffect(() => {
     if (isAuthenticated && activeTab === 'dashboard') {
       fetchDashboardData();
     }
   }, [isAuthenticated, activeTab]);
 
-  // Fetch users when users tab is active
   useEffect(() => {
     if (isAuthenticated && activeTab === 'users') {
       fetchUsers();
     }
   }, [isAuthenticated, activeTab, usersPage, usersSearch]);
 
-  // Fetch content when content tab is active
   useEffect(() => {
     if (isAuthenticated && activeTab === 'content') {
       fetchContent();
     }
-  }, [isAuthenticated, activeTab, contentPage, contentSearch]);
+  }, [isAuthenticated, activeTab]);
 
-  // Fetch dashboard data function
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'featured') {
+      fetchFeaturedItems();
+    }
+  }, [isAuthenticated, activeTab]);
+
   const fetchDashboardData = async () => {
     setDashboardLoading(true);
     try {
@@ -761,7 +1078,7 @@ const Admin = () => {
         supabase.rpc('get_current_month_revenue'),
         supabase
           .from('profiles')
-          .select('id, first_name, last_name, email, role, is_admin, created_at')
+          .select('id, first_name, last_name, email, role, created_at, is_admin, display_name')
           .order('created_at', { ascending: false })
           .limit(4),
         supabase.rpc('get_recent_content', { limit_count: 4 })
@@ -794,18 +1111,17 @@ const Admin = () => {
     }
   };
 
-  // Fetch users function
   const fetchUsers = async () => {
     setUsersLoading(true);
     try {
       let query = supabase
         .from('profiles')
-        .select('id, first_name, last_name, email, role, is_admin, subscription_tier, created_at', { count: 'exact' })
+        .select('id, first_name, last_name, email, role, created_at, is_admin, display_name, subscription_tier', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((usersPage - 1) * usersPerPage, usersPage * usersPerPage - 1);
 
       if (usersSearch) {
-        query = query.or(`first_name.ilike.%${usersSearch}%,last_name.ilike.%${usersSearch}%,email.ilike.%${usersSearch}%`);
+        query = query.or(`first_name.ilike.%${usersSearch}%,last_name.ilike.%${usersSearch}%,email.ilike.%${usersSearch}%,display_name.ilike.%${usersSearch}%`);
       }
 
       const { data, error, count } = await query;
@@ -828,7 +1144,6 @@ const Admin = () => {
     }
   };
 
-  // Fetch content function
   const fetchContent = async () => {
     setContentLoading(true);
     try {
@@ -837,9 +1152,9 @@ const Admin = () => {
         audioRes,
         coursesRes
       ] = await Promise.all([
-        supabase.from('video_content').select('id, title, created_at, approved'),
-        supabase.from('tracks').select('id, title, created_at, approved'),
-        supabase.from('courses').select('id, title, created_at')
+        supabase.from('video_content').select('id, title, created_at'),
+        supabase.from('tracks').select('id, title, created_at'),
+        supabase.from('learning_paths').select('id, title, created_at')
       ]);
 
       if (videosRes.error) handleSupabaseError(videosRes.error, 'fetch videos');
@@ -850,16 +1165,14 @@ const Admin = () => {
         ...item,
         type: 'video',
         views: 0,
-        created_at: new Date(item.created_at).toISOString(),
-        approved: item.approved || false
+        created_at: new Date(item.created_at).toISOString()
       })) || [];
 
       const audio = audioRes.data?.map(item => ({
         ...item,
         type: 'audio',
         plays: 0,
-        created_at: new Date(item.created_at).toISOString(),
-        approved: item.approved || false
+        created_at: new Date(item.created_at).toISOString()
       })) || [];
 
       const courses = coursesRes.data?.map(item => ({
@@ -869,7 +1182,10 @@ const Admin = () => {
         created_at: new Date(item.created_at).toISOString()
       })) || [];
 
-      // Get statistics for each content type
+      const videoIds = videos.map(v => v.id);
+      const audioIds = audio.map(a => a.id);
+      const courseIds = courses.map(c => c.id);
+
       const [
         videoStatsRes,
         audioStatsRes,
@@ -879,6 +1195,10 @@ const Admin = () => {
         supabase.rpc('get_audio_play_counts'),
         supabase.rpc('get_course_enrollment_counts')
       ]);
+
+      if (videoStatsRes.error) handleSupabaseError(videoStatsRes.error, 'video stats');
+      if (audioStatsRes.error) handleSupabaseError(audioStatsRes.error, 'audio stats');
+      if (courseStatsRes.error) handleSupabaseError(courseStatsRes.error, 'course stats');
 
       const videoStats = videoStatsRes.data?.reduce((acc, curr) => {
         acc[curr.video_content_id] = curr.view_count;
@@ -910,7 +1230,6 @@ const Admin = () => {
         }))
       ];
 
-      // Sort by creation date
       combinedContent.sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -927,276 +1246,278 @@ const Admin = () => {
     }
   };
 
-  // Handle admin login with proper Supabase auth
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    
+  const fetchFeaturedItems = async () => {
+    setItemsLoading(true);
     try {
-      // First, sign in with Supabase
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: loginForm.username,
-        password: loginForm.password,
-      });
-
-      if (authError) {
-        setLoginError(`Authentication failed: ${authError.message}`);
-        return;
-      }
-
-      if (!authData.user) {
-        setLoginError('No user data returned');
-        return;
-      }
-
-      // Verify user is admin in database
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_admin, role')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (profileError) {
-        setLoginError('Failed to fetch user profile');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Check both is_admin column and role column
-      const isUserAdmin = profile.is_admin || profile.role === 'admin';
+      // Use the new admin function
+      const { data, error } = await supabase
+        .rpc('get_featured_items_admin');
       
-      if (!isUserAdmin) {
-        setLoginError('User does not have admin privileges. Please contact an administrator.');
-        await supabase.auth.signOut();
-        return;
+      if (error) {
+        console.error("Error fetching featured items:", error);
+        // Fall back to regular select
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('featured_items')
+          .select('*')
+          .order('order', { ascending: true })
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) throw fallbackError;
+        setFeaturedItems(fallbackData || []);
+      } else {
+        setFeaturedItems(data || []);
       }
-
-      // Set authenticated state
-      setIsAuthenticated(true);
-      sessionStorage.setItem('adminAuth', 'true');
-      
-      toast({
-        title: "Admin Access Granted",
-        description: `Welcome, ${authData.user.email}`,
-      });
-
     } catch (error: any) {
-      setLoginError(`Login failed: ${error.message}`);
+      console.error("Failed to load featured items:", error);
+      toast({ 
+        title: "Failed to load featured items",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setItemsLoading(false);
     }
   };
 
-  // Handle logout
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      // Clear session storage
       sessionStorage.removeItem('adminAuth');
+      sessionStorage.removeItem('adminUser');
+      
+      // Log out from Supabase
+      if (user) {
+        await logout();
+      }
+      
+      // Reset state
       setIsAuthenticated(false);
-      setLoginForm({ username: '', password: '' });
+      setAdminStatus(null);
       
       toast({
-        title: "Logged out successfully",
-        description: "You have been signed out of the admin panel.",
+        title: "Logged out",
+        description: "You have been logged out from the admin panel.",
       });
+      
+      // Redirect to home
+      navigate('/');
     } catch (error: any) {
+      console.error("Logout failed:", error);
       toast({
-        title: "Logout failed",
+        title: "Logout Error",
         description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  // Handle saving featured items with RPC function
   const handleSaveFeaturedItem = async (item: FeaturedItem) => {
     try {
+      console.log("Saving featured item:", item);
+      
       if (item.id) {
-        // Update existing item using RPC function
-        const { error } = await supabase.rpc('admin_update_featured_item', {
-          p_id: item.id,
-          p_title: item.title,
-          p_description: item.description,
-          p_image: item.image,
-          p_link: item.link,
-          p_is_external: item.is_external || false,
-          p_order: item.order || 0
-        });
-        
+        // Update existing item using admin function
+        const { data, error } = await supabase
+          .rpc('admin_update_featured_item', {
+            p_id: item.id,
+            p_title: item.title,
+            p_description: item.description,
+            p_image: item.image,
+            p_link: item.link,
+            p_is_external: item.is_external || false,
+            p_order: item.order || featuredItems.length
+          });
+          
         if (error) {
+          console.error("Update error:", error);
           handleSupabaseError(error, 'update featured item');
           return;
         }
+        
+        console.log("Update successful:", data);
       } else {
-        // Create new item using RPC function
-        const { data, error } = await supabase.rpc('admin_create_featured_item', {
-          p_title: item.title,
-          p_description: item.description,
-          p_image: item.image,
-          p_link: item.link,
-          p_is_external: item.is_external || false,
-          p_order: featuredItems.length
-        });
-
+        // Create new item using admin function
+        const { data, error } = await supabase
+          .rpc('admin_create_featured_item', {
+            p_title: item.title,
+            p_description: item.description,
+            p_image: item.image,
+            p_link: item.link,
+            p_is_external: item.is_external || false,
+            p_order: featuredItems.length
+          });
+          
         if (error) {
+          console.error("Create error:", error);
           handleSupabaseError(error, 'create featured item');
           return;
         }
         
-        // Update local item with new ID
+        console.log("Create successful, new ID:", data);
         item.id = data;
       }
       
-      // Refresh the items list
-      await refreshItems();
+      // Refresh the list
+      await fetchFeaturedItems();
       setEditingItem(null);
       
       toast({ 
-        title: "Success!",
-        description: item.id ? "Featured item updated successfully!" : "New featured item created!",
+        title: "✅ Featured item saved successfully!",
+        description: "The item has been saved and will appear on the homepage."
       });
-      
     } catch (error: any) {
+      console.error("Save error:", error);
       toast({ 
-        title: "Failed to save featured item",
-        description: error.message,
+        title: "❌ Failed to save featured item",
+        description: error.message || "Unknown error occurred",
         variant: "destructive"
       });
     }
   };
 
-  // Handle deleting featured items with RPC function
   const handleDeleteFeaturedItem = async (id: string) => {
     if (!confirm("Are you sure you want to delete this featured item? This action cannot be undone.")) {
       return;
     }
-
+    
     try {
-      const { error } = await supabase.rpc('admin_delete_featured_item', {
-        p_id: id
-      });
-
+      console.log("Deleting featured item:", id);
+      
+      const { data, error } = await supabase
+        .rpc('admin_delete_featured_item', { p_id: id });
+      
       if (error) {
+        console.error("Delete error:", error);
         handleSupabaseError(error, 'delete featured item');
         return;
       }
       
-      // Refresh the items list
-      await refreshItems();
+      console.log("Delete successful:", data);
+      
+      // Refresh the list
+      await fetchFeaturedItems();
       
       toast({ 
-        title: "Success!",
-        description: "Featured item deleted successfully.",
+        title: "✅ Featured item deleted!",
+        description: "The item has been removed from the featured list."
       });
-      
     } catch (error: any) {
+      console.error("Delete error:", error);
       toast({ 
-        title: "Failed to delete featured item",
+        title: "❌ Failed to delete featured item",
         description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  // Handle reordering featured items
   const handleReorder = async (startIndex: number, endIndex: number) => {
     const items = [...featuredItems];
     const [removed] = items.splice(startIndex, 1);
     items.splice(endIndex, 0, removed);
     
-    // Update order for all items
     const updatedItems = items.map((item, index) => ({
       ...item,
       order: index
     }));
 
     try {
-      // Use RPC function for bulk update
-      const { error } = await supabase.rpc('admin_reorder_featured_items', {
-        p_items: JSON.stringify(updatedItems.map(item => ({
-          id: item.id,
-          order: item.order
-        })))
-      });
-      
-      if (error) {
-        handleSupabaseError(error, 'reorder items');
-        return;
+      // Update each item's order
+      for (const item of updatedItems) {
+        const { error } = await supabase
+          .rpc('admin_update_featured_item', {
+            p_id: item.id,
+            p_title: item.title,
+            p_description: item.description,
+            p_image: item.image,
+            p_link: item.link,
+            p_is_external: item.is_external || false,
+            p_order: item.order
+          });
+        
+        if (error) {
+          console.error("Reorder error for item:", item.id, error);
+          throw error;
+        }
       }
       
-      // Refresh the items list
-      await refreshItems();
+      // Refresh the list
+      await fetchFeaturedItems();
       
-    } catch (error: any) {
       toast({ 
-        title: "Failed to reorder items",
+        title: "✅ Order updated!",
+        description: "Featured items have been reordered."
+      });
+    } catch (error: any) {
+      console.error("Reorder error:", error);
+      toast({ 
+        title: "❌ Failed to reorder items",
         description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  // Set up drag and drop sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  // Handle drag end
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (event: any) => {
     const { active, over } = event;
     
-    if (active && over && active.id !== over.id) {
+    if (active.id !== over.id) {
       const oldIndex = featuredItems.findIndex(item => item.id === active.id);
       const newIndex = featuredItems.findIndex(item => item.id === over.id);
       handleReorder(oldIndex, newIndex);
     }
   };
 
-  // Handle deleting user
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+    if (!confirm("Are you sure you want to delete this user? This will permanently remove their account and data.")) {
       return;
     }
-
+    
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
+      // First delete from auth.users (requires admin permissions)
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authError) {
+        console.error("Auth delete error:", authError);
+        // Try to delete just from profiles if auth delete fails
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
 
-      if (error) {
-        handleSupabaseError(error, 'delete user');
-        return;
+        if (profileError) {
+          handleSupabaseError(profileError, 'delete user profile');
+          return;
+        }
       }
       
-      // Refresh users list
-      await fetchUsers();
-      
+      fetchUsers();
       toast({ 
-        title: "Success!",
-        description: "User deleted successfully.",
+        title: "✅ User deleted successfully!",
+        description: "User account has been removed."
       });
-      
     } catch (error: any) {
+      console.error("Delete error:", error);
       toast({ 
-        title: "Failed to delete user",
+        title: "❌ Failed to delete user",
         description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  // Handle deleting content
   const handleDeleteContent = async (contentId: string, contentType: string) => {
     if (!confirm(`Are you sure you want to delete this ${contentType}? This action cannot be undone.`)) {
       return;
     }
-
+    
     try {
       let tableName = '';
       switch (contentType) {
@@ -1207,7 +1528,7 @@ const Admin = () => {
           tableName = 'tracks';
           break;
         case 'course':
-          tableName = 'courses';
+          tableName = 'learning_paths';
           break;
         default:
           throw new Error(`Unknown content type: ${contentType}`);
@@ -1223,148 +1544,148 @@ const Admin = () => {
         return;
       }
       
-      // Refresh content list
-      await fetchContent();
-      
+      fetchContent();
       toast({ 
-        title: "Success!",
-        description: `${contentType} deleted successfully.`,
+        title: "✅ Content deleted successfully!",
+        description: `The ${contentType} has been removed.`
       });
-      
     } catch (error: any) {
+      console.error("Delete error:", error);
       toast({ 
-        title: "Failed to delete content",
+        title: "❌ Failed to delete content",
         description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  // If checking admin status, show loading
-  if (checkingAdmin) {
+  // Loading state
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gold mb-4"></div>
-          <h2 className="text-xl font-semibold">Verifying Admin Access...</h2>
-          <p className="text-muted-foreground mt-2">Checking your admin privileges</p>
+        <div className="text-center space-y-4">
+          <Logo size="lg" />
+          <div className="space-y-2">
+            <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
+            <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Checking admin permissions...
+          </p>
         </div>
       </div>
     );
   }
 
-  // Show login form if not authenticated
-  if (!isAuthenticated) {
+  // Not authenticated or not admin
+  if (!isAuthenticated || !adminStatus?.has_admin_access) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Card className="w-full max-w-md shadow-lg">
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <Logo size="lg" />
             </div>
-            <CardTitle className="text-2xl">Admin Portal</CardTitle>
-            <CardDescription>
-              Enter your administrator credentials to access the admin panel
+            <CardTitle className="text-2xl">Admin Access Required</CardTitle>
+            <CardDescription className="pt-2">
+              {adminStatus?.is_authenticated 
+                ? "Your account does not have administrator privileges."
+                : "You need to be logged in as an administrator."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Alert className="mb-6 bg-amber-50 border-amber-200">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-amber-800">Admin Access Required</AlertTitle>
-              <AlertDescription className="text-amber-700">
-                You must have admin privileges in the database to access this panel.
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Access Denied</AlertTitle>
+              <AlertDescription>
+                {adminStatus?.is_authenticated 
+                  ? `Logged in as ${adminStatus.email} (Role: ${adminStatus.role || 'Not set'})`
+                  : "Please log in with an admin account."}
               </AlertDescription>
             </Alert>
             
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              {loginError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Login Failed</AlertTitle>
-                  <AlertDescription>{loginError}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="username">Admin Email</Label>
-                <Input
-                  id="username"
-                  type="email"
-                  value={loginForm.username}
-                  onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
-                  placeholder="admin@saemstunes.com"
-                  required
-                  autoComplete="username"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter your password"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-gold hover:bg-gold/90 text-white font-medium"
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                To access the admin panel, your account must have:
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                <li>Role set to "admin" in your profile</li>
+                <li>Or is_admin column set to TRUE</li>
+                <li>Proper RLS policies configured</li>
+              </ul>
+            </div>
+            
+            <div className="pt-4 space-y-3">
+              <Button 
+                onClick={() => navigate('/')}
+                variant="outline"
+                className="w-full"
               >
-                Access Admin Panel
+                Return to Home
               </Button>
-            </form>
+              
+              {user && (
+                <Button 
+                  onClick={handleLogout}
+                  className="w-full"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout & Try Different Account
+                </Button>
+              )}
+            </div>
           </CardContent>
-          <CardFooter className="border-t pt-4">
-            <p className="text-xs text-center text-muted-foreground w-full">
-              This panel requires database-level admin privileges. Contact your database administrator if you need access.
-            </p>
+          <CardFooter className="flex flex-col items-center text-xs text-muted-foreground border-t pt-4">
+            <p>Admin Panel • Saem's Tunes</p>
+            <p>Need help? Check Admin Tools tab for diagnostics.</p>
           </CardFooter>
         </Card>
       </div>
     );
   }
 
-  // Main admin panel layout
+  // MAIN ADMIN PANEL
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <header className="bg-background border-b sticky top-0 z-50 shadow-sm">
         <div className="container flex items-center justify-between py-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Logo size="sm" />
-            <div className="hidden md:flex items-center gap-2">
-              <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold">
-                ADMIN PANEL
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  ADMIN PANEL
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {adminStatus?.role || 'Admin'}
+                </Badge>
               </div>
-              <div className="text-xs text-muted-foreground">
-                v1.0.0 • Production
-              </div>
+              <p className="text-xs text-muted-foreground">
+                {adminStatus?.email} • {adminStatus?.subscription_tier}
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="relative w-full max-w-xs hidden md:block">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search admin panel..." 
-                className="pl-9 bg-background border-muted shadow-sm"
+                className="pl-8 bg-background border-muted"
               />
             </div>
             
             <div className="flex items-center gap-2">
               <div className="text-right hidden md:block">
-                <p className="text-sm font-medium">
-                  {user?.email || 'Administrator'}
-                </p>
-                <p className="text-xs text-muted-foreground">Admin Access</p>
+                <p className="text-sm font-medium">{adminStatus?.display_name || 'Administrator'}</p>
+                <p className="text-xs text-muted-foreground">Last login: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
               </div>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={handleLogout}
                 className="hover:bg-destructive/10 hover:text-destructive"
-                title="Logout"
               >
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -1374,7 +1695,7 @@ const Admin = () => {
       </header>
       
       <div className="flex flex-1">
-        {/* Desktop sidebar */}
+        {/* Desktop Sidebar */}
         <aside className="hidden md:block w-64 bg-background border-r p-4">
           <nav className="space-y-1">
             {NAV_ITEMS.map((item) => (
@@ -1383,467 +1704,497 @@ const Admin = () => {
                 variant={activeTab === item.value ? "secondary" : "ghost"}
                 className={`w-full justify-start ${
                   activeTab === item.value 
-                    ? "bg-gold/10 text-gold hover:bg-gold/20 border border-gold/20" 
-                    : "hover:bg-muted"
+                    ? "bg-gold/10 text-gold hover:bg-gold/20 border-l-4 border-gold" 
+                    : "border-l-4 border-transparent"
                 }`}
                 onClick={() => setActiveTab(item.value)}
               >
-                <item.icon className="mr-2.5 h-4 w-4" />
+                <item.icon className="mr-3 h-4 w-4" />
                 {item.label}
-                {item.value === "featured" && featuredItems.length > 0 && (
-                  <span className="ml-auto text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                    {featuredItems.length}
-                  </span>
-                )}
               </Button>
             ))}
           </nav>
           
           <div className="mt-auto pt-6 border-t mt-6">
             <div className="text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Database:</span>
-                <span className="font-medium">PostgreSQL 15.8</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Server:</span>
-                <span className="font-medium">Supabase</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Environment:</span>
-                <span className="font-medium text-green-600">Production</span>
-              </div>
+              <p className="font-medium">Saem's Tunes Admin</p>
+              <p>Version 2.0.0 • Enhanced Security</p>
+              <p className="pt-2 text-green-600">
+                <CheckCircle className="h-3 w-3 inline mr-1" />
+                Admin Access Verified
+              </p>
             </div>
           </div>
         </aside>
         
-        {/* Mobile tabs */}
-        <div className="md:hidden w-full border-b bg-background shadow-sm">
+        {/* Mobile Navigation */}
+        <div className="md:hidden w-full border-b bg-background sticky top-14 z-40">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full overflow-x-auto justify-start py-1 h-auto px-2">
-              {NAV_ITEMS.slice(0, 4).map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <TabsTrigger 
                   key={item.value} 
                   value={item.value} 
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs"
+                  className="flex flex-col items-center gap-1 px-3 py-2 h-auto"
                 >
-                  <item.icon className="h-3.5 w-3.5" />
-                  <span>{item.label}</span>
+                  <item.icon className="h-4 w-4" />
+                  <span className="text-xs mt-1">{item.label}</span>
                 </TabsTrigger>
               ))}
-              <TabsTrigger value="more" className="px-3 py-2 text-xs">
-                <span>More</span>
-              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
         
-        {/* Main content */}
+        {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <Tabs value={activeTab} className="w-full">
-            
-            {/* Dashboard Tab */}
-            <TabsContent value="dashboard" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Overview of your platform's performance and activity
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={fetchDashboardData}
-                    disabled={dashboardLoading}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${dashboardLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date().toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                </div>
-              </div>
+          <div className="max-w-7xl mx-auto">
+            <Tabs value={activeTab} className="w-full">
               
-              {dashboardLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[...Array(4)].map((_, i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardHeader className="pb-2">
-                        <div className="h-4 bg-muted rounded w-3/4"></div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-6 bg-muted rounded w-1/2 mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-3/4"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Users
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{dashboardStats.totalUsers.toLocaleString()}</div>
-                      <p className="text-xs text-green-600 flex items-center mt-1">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1"></span>
-                        +12% from last month
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Active Subscriptions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{dashboardStats.activeSubscriptions.toLocaleString()}</div>
-                      <p className="text-xs text-green-600 flex items-center mt-1">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1"></span>
-                        +5% from last month
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Content Views
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{dashboardStats.contentViews.toLocaleString()}</div>
-                      <p className="text-xs text-green-600 flex items-center mt-1">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1"></span>
-                        +22% from last month
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Monthly Revenue
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${dashboardStats.revenue.toLocaleString()}</div>
-                      <p className="text-xs text-green-600 flex items-center mt-1">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1"></span>
-                        +18% from last month
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle>Recent Users</CardTitle>
-                    <CardDescription>
-                      Users who joined recently
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {dashboardLoading ? (
-                      <div className="p-6">
-                        {[...Array(4)].map((_, i) => (
-                          <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
-                            <div className="space-y-2">
-                              <div className="h-4 bg-muted rounded w-32"></div>
-                              <div className="h-3 bg-muted rounded w-48"></div>
-                            </div>
-                            <div className="h-3 bg-muted rounded w-16"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : recentUsers.length === 0 ? (
-                      <div className="p-6 text-center text-muted-foreground">
-                        <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No recent users found</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {recentUsers.map((user) => (
-                          <div key={user.id} className="p-4 hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium">{user.first_name} {user.last_name}</div>
-                                <div className="text-sm text-muted-foreground">{user.email}</div>
-                              </div>
-                              <div className="flex flex-col items-end gap-1">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  user.is_admin || user.role === 'admin' 
-                                    ? 'bg-purple-100 text-purple-800'
-                                    : user.role === 'tutor'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {user.is_admin || user.role === 'admin' ? 'Admin' : user.role}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(user.created_at).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                  <CardFooter className="border-t p-3">
-                    <Button 
-                      variant="link" 
-                      className="text-gold h-auto p-0 font-medium"
-                      onClick={() => setActiveTab("users")}
-                    >
-                      View all users →
-                    </Button>
-                  </CardFooter>
-                </Card>
-                
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle>Recent Content</CardTitle>
-                    <CardDescription>
-                      Recently added content
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {dashboardLoading ? (
-                      <div className="p-6">
-                        {[...Array(4)].map((_, i) => (
-                          <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
-                            <div className="space-y-2">
-                              <div className="h-4 bg-muted rounded w-40"></div>
-                              <div className="h-3 bg-muted rounded w-24"></div>
-                            </div>
-                            <div className="h-3 bg-muted rounded w-16"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : recentContent.length === 0 ? (
-                      <div className="p-6 text-center text-muted-foreground">
-                        <Music className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No recent content found</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {recentContent.map((content) => (
-                          <div key={content.id} className="p-4 hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium truncate">{content.title}</div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    content.type === 'video' 
-                                      ? 'bg-red-100 text-red-800'
-                                      : content.type === 'audio'
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {content.type}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    {content.views ? `${content.views} views` : 
-                                    content.enrollments ? `${content.enrollments} enrollments` :
-                                    content.plays ? `${content.plays} plays` :
-                                    content.downloads ? `${content.downloads} downloads` : '0 engagement'}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="text-xs text-gray-500 ml-4 whitespace-nowrap">
-                                {new Date(content.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                  <CardFooter className="border-t p-3">
-                    <Button 
-                      variant="link" 
-                      className="text-gold h-auto p-0 font-medium"
-                      onClick={() => setActiveTab("content")}
-                    >
-                      View all content →
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </div>
-            </TabsContent>
-            
-            {/* Users Tab */}
-            <TabsContent value="users">
-              <div className="space-y-6">
+              {/* DASHBOARD TAB */}
+              <TabsContent value="dashboard" className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold">User Management</h1>
-                    <p className="text-sm text-muted-foreground">
-                      Manage and monitor all registered users
+                    <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+                    <p className="text-muted-foreground">
+                      Welcome back, {adminStatus?.display_name || 'Admin'}! Here's what's happening.
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Updated: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </Badge>
                     <Button 
+                      size="sm" 
                       variant="outline"
-                      onClick={fetchUsers}
-                      disabled={usersLoading}
+                      onClick={fetchDashboardData}
+                      disabled={dashboardLoading}
                     >
-                      <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${usersLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-3 w-3 mr-1 ${dashboardLoading ? 'animate-spin' : ''}`} />
                       Refresh
-                    </Button>
-                    <Button className="bg-gold hover:bg-gold/90 text-white">
-                      Add New User
                     </Button>
                   </div>
                 </div>
                 
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <CardTitle>All Users</CardTitle>
-                        <CardDescription>
-                          Total users: {totalUsersCount.toLocaleString()}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          placeholder="Search users by name or email..." 
-                          className="w-full md:w-64" 
-                          value={usersSearch}
-                          onChange={(e) => {
-                            setUsersSearch(e.target.value);
-                            setUsersPage(1);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {usersLoading ? (
-                      <div className="p-6">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="flex items-center justify-between py-4 border-b last:border-0">
-                            <div className="space-y-2">
-                              <div className="h-4 bg-muted rounded w-40"></div>
-                              <div className="h-3 bg-muted rounded w-56"></div>
-                            </div>
-                            <div className="h-3 bg-muted rounded w-24"></div>
-                            <div className="h-3 bg-muted rounded w-16"></div>
-                            <div className="flex gap-2">
-                              <div className="h-8 w-16 bg-muted rounded"></div>
-                              <div className="h-8 w-16 bg-muted rounded"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : users.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No users found</h3>
-                        <p className="text-gray-500">
-                          {usersSearch ? 'Try a different search term' : 'No users registered yet'}
+                {dashboardLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardHeader className="pb-2">
+                          <Skeleton className="h-4 w-3/4" />
+                        </CardHeader>
+                        <CardContent>
+                          <Skeleton className="h-6 w-1/2 mb-2" />
+                          <Skeleton className="h-3 w-3/4" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Total Users
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{dashboardStats.totalUsers.toLocaleString()}</div>
+                        <p className="text-xs text-green-600 flex items-center mt-1">
+                          <span className="h-2 w-2 bg-green-500 rounded-full mr-1"></span>
+                          +12% from last month
                         </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Active Subscriptions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{dashboardStats.activeSubscriptions.toLocaleString()}</div>
+                        <p className="text-xs text-green-600 flex items-center mt-1">
+                          <span className="h-2 w-2 bg-green-500 rounded-full mr-1"></span>
+                          +5% from last month
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Content Views
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{dashboardStats.contentViews.toLocaleString()}</div>
+                        <p className="text-xs text-green-600 flex items-center mt-1">
+                          <span className="h-2 w-2 bg-green-500 rounded-full mr-1"></span>
+                          +22% from last month
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Revenue
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">${dashboardStats.revenue.toLocaleString()}</div>
+                        <p className="text-xs text-green-600 flex items-center mt-1">
+                          <span className="h-2 w-2 bg-green-500 rounded-full mr-1"></span>
+                          +18% from last month
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Recent Users</CardTitle>
+                          <CardDescription>
+                            Users who joined recently
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline">
+                          {recentUsers.length} users
+                        </Badge>
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {dashboardLoading ? (
+                        <div className="p-6">
+                          {[...Array(4)].map((_, i) => (
+                            <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-3 w-48" />
+                              </div>
+                              <Skeleton className="h-3 w-16" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : recentUsers.length === 0 ? (
+                        <div className="p-6 text-center text-muted-foreground">
+                          <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No recent users found</p>
+                        </div>
+                      ) : (
                         <table className="w-full">
                           <thead className="border-b bg-muted/30">
-                            <tr className="text-xs font-medium text-muted-foreground">
-                              <th className="text-left p-4">User</th>
-                              <th className="text-left p-4">Email</th>
-                              <th className="text-left p-4">Role</th>
-                              <th className="text-left p-4">Tier</th>
-                              <th className="text-left p-4">Joined</th>
-                              <th className="text-left p-4">Actions</th>
+                            <tr className="text-xs text-muted-foreground font-medium">
+                              <th className="text-left p-3">Name</th>
+                              <th className="text-left p-3">Role</th>
+                              <th className="text-left p-3 hidden md:table-cell">Joined</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y">
-                            {users.map((user) => (
-                              <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                                <td className="p-4">
-                                  <div className="font-medium">{user.first_name} {user.last_name}</div>
+                          <tbody>
+                            {recentUsers.map((user) => (
+                              <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                <td className="p-3">
+                                  <div className="font-medium">{user.display_name || `${user.first_name} ${user.last_name}` || 'No name'}</div>
+                                  <div className="text-xs text-muted-foreground truncate max-w-[200px]">{user.email}</div>
                                 </td>
-                                <td className="p-4">
-                                  <div className="text-sm">{user.email}</div>
-                                </td>
-                                <td className="p-4">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    user.is_admin || user.role === 'admin' 
-                                      ? 'bg-purple-100 text-purple-800'
+                                <td className="p-3">
+                                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                    user.role === 'admin' || user.is_admin
+                                      ? 'bg-gold/10 text-gold'
                                       : user.role === 'tutor'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : user.role === 'premium'
-                                      ? 'bg-gold/20 text-gold'
-                                      : 'bg-gray-100 text-gray-800'
+                                      ? 'bg-blue-500/10 text-blue-600'
+                                      : 'bg-muted text-muted-foreground'
                                   }`}>
-                                    {user.is_admin ? 'Admin' : user.role}
+                                    {user.role || 'user'} {user.is_admin && ' (admin)'}
                                   </span>
                                 </td>
-                                <td className="p-4">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    user.subscription_tier === 'professional'
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : user.subscription_tier === 'premium'
-                                      ? 'bg-gold/20 text-gold'
-                                      : user.subscription_tier === 'basic'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {user.subscription_tier}
-                                  </span>
-                                </td>
-                                <td className="p-4 text-sm">
+                                <td className="p-3 hidden md:table-cell text-sm">
                                   {new Date(user.created_at).toLocaleDateString()}
-                                </td>
-                                <td className="p-4">
-                                  <div className="flex items-center gap-2">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      className="h-8 px-3"
-                                    >
-                                      Edit
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeleteUser(user.id)}
-                                    >
-                                      Delete
-                                    </Button>
-                                  </div>
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                      )}
+                    </CardContent>
+                    <CardFooter className="border-t p-3">
+                      <Button 
+                        variant="link" 
+                        className="text-gold h-auto p-0"
+                        onClick={() => setActiveTab("users")}
+                      >
+                        View all users →
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Recent Content</CardTitle>
+                          <CardDescription>
+                            Recently added content
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline">
+                          {recentContent.length} items
+                        </Badge>
                       </div>
-                    )}
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {dashboardLoading ? (
+                        <div className="p-6">
+                          {[...Array(4)].map((_, i) => (
+                            <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="h-3 w-24" />
+                              </div>
+                              <Skeleton className="h-3 w-16" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : recentContent.length === 0 ? (
+                        <div className="p-6 text-center text-muted-foreground">
+                          <Music className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No recent content found</p>
+                        </div>
+                      ) : (
+                        <table className="w-full">
+                          <thead className="border-b bg-muted/30">
+                            <tr className="text-xs text-muted-foreground font-medium">
+                              <th className="text-left p-3">Title</th>
+                              <th className="text-left p-3">Type</th>
+                              <th className="text-left p-3 hidden md:table-cell">Created</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recentContent.map((content) => (
+                              <tr key={content.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                <td className="p-3">
+                                  <div className="font-medium truncate max-w-[180px]">{content.title}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {content.views ? `${content.views} views` : 
+                                    content.enrollments ? `${content.enrollments} enrollments` :
+                                    content.plays ? `${content.plays} plays` :
+                                    content.downloads ? `${content.downloads} downloads` : 'No engagement yet'}
+                                  </div>
+                                </td>
+                                <td className="p-3">
+                                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                    content.type === 'video'
+                                      ? 'bg-red-500/10 text-red-600'
+                                      : content.type === 'audio'
+                                      ? 'bg-purple-500/10 text-purple-600'
+                                      : content.type === 'course'
+                                      ? 'bg-green-500/10 text-green-600'
+                                      : 'bg-muted text-muted-foreground'
+                                  }`}>
+                                    {content.type}
+                                  </span>
+                                </td>
+                                <td className="p-3 hidden md:table-cell text-sm">
+                                  {new Date(content.created_at).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </CardContent>
+                    <CardFooter className="border-t p-3">
+                      <Button 
+                        variant="link" 
+                        className="text-gold h-auto p-0"
+                        onClick={() => setActiveTab("content")}
+                      >
+                        View all content →
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </div>
+                
+                {/* Admin Status Card */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">Admin Status</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Your current admin permissions and access
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        ACTIVE
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Admin Level</p>
+                        <p className="font-medium">{adminStatus?.role || 'Admin'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="font-medium truncate">{adminStatus?.email}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Subscription</p>
+                        <p className="font-medium">{adminStatus?.subscription_tier || 'Professional'}</p>
+                      </div>
+                    </div>
                   </CardContent>
-                  {users.length > 0 && (
-                    <CardFooter className="border-t p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                </Card>
+              </TabsContent>
+              
+              {/* USERS TAB */}
+              <TabsContent value="users">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold">User Management</h1>
+                      <p className="text-muted-foreground">
+                        Manage all registered users and their permissions
+                      </p>
+                    </div>
+                    <Button className="bg-gold hover:bg-gold/90 text-white">
+                      <Users className="h-4 w-4 mr-2" />
+                      Add New User
+                    </Button>
+                  </div>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <CardTitle>All Users</CardTitle>
+                          <CardDescription>
+                            Manage and monitor all registered users
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            placeholder="Search users by name, email, or role..." 
+                            className="w-full md:w-64" 
+                            value={usersSearch}
+                            onChange={(e) => {
+                              setUsersSearch(e.target.value);
+                              setUsersPage(1);
+                            }}
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={fetchUsers}
+                            disabled={usersLoading}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${usersLoading ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {usersLoading ? (
+                        <div className="p-6">
+                          {[...Array(8)].map((_, i) => (
+                            <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="h-3 w-56" />
+                              </div>
+                              <Skeleton className="h-3 w-24" />
+                              <Skeleton className="h-3 w-16" />
+                              <div className="flex gap-2">
+                                <Skeleton className="h-8 w-16" />
+                                <Skeleton className="h-8 w-16" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : users.length === 0 ? (
+                        <div className="p-6 text-center text-muted-foreground">
+                          <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                          <h3 className="font-medium mb-1">No users found</h3>
+                          <p className="text-sm">
+                            {usersSearch ? 'Try a different search term' : 'No users in the system yet'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="border-b bg-muted/30">
+                              <tr className="text-xs text-muted-foreground font-medium">
+                                <th className="text-left p-3">Name</th>
+                                <th className="text-left p-3">Email</th>
+                                <th className="text-left p-3">Role</th>
+                                <th className="text-left p-3">Joined</th>
+                                <th className="text-left p-3">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {users.map((user) => (
+                                <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                  <td className="p-3 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {user.display_name || `${user.first_name} ${user.last_name}` || 'No name'}
+                                      {user.is_admin && (
+                                        <Badge variant="outline" className="text-xs bg-gold/10 text-gold border-gold/20">
+                                          Admin
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="truncate max-w-[200px]">{user.email}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <Badge variant="outline" className={
+                                      user.role === 'admin' 
+                                        ? 'bg-gold/10 text-gold border-gold/20'
+                                        : user.role === 'tutor'
+                                        ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                        : ''
+                                    }>
+                                      {user.role || 'user'}
+                                    </Badge>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {user.subscription_tier || 'free'}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-sm">
+                                    {new Date(user.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <Button variant="ghost" size="sm">Edit</Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeleteUser(user.id)}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="border-t p-3 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="text-sm text-muted-foreground">
-                        Showing {((usersPage - 1) * usersPerPage) + 1} to {Math.min(usersPage * usersPerPage, totalUsersCount)} of {totalUsersCount} users
+                        Showing {Math.min(usersPerPage, users.length)} of {totalUsersCount} users
+                        {usersSearch && ` • Search: "${usersSearch}"`}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button 
@@ -1854,22 +2205,9 @@ const Admin = () => {
                         >
                           Previous
                         </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, Math.ceil(totalUsersCount / usersPerPage)) }, (_, i) => {
-                            const pageNum = i + 1;
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={usersPage === pageNum ? "default" : "outline"}
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setUsersPage(pageNum)}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
-                        </div>
+                        <span className="text-sm px-2">
+                          Page {usersPage} of {Math.ceil(totalUsersCount / usersPerPage)}
+                        </span>
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -1880,158 +2218,150 @@ const Admin = () => {
                         </Button>
                       </div>
                     </CardFooter>
-                  )}
-                </Card>
-              </div>
-            </TabsContent>
-            
-            {/* Content Tab */}
-            <TabsContent value="content">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-2xl font-bold">Content Management</h1>
-                    <p className="text-sm text-muted-foreground">
-                      Manage lessons, music, and educational materials
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline"
-                      onClick={fetchContent}
-                      disabled={contentLoading}
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${contentLoading ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
-                    <Button className="bg-gold hover:bg-gold/90 text-white">
-                      Add New Content
-                    </Button>
-                  </div>
+                  </Card>
                 </div>
-                
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <CardTitle>All Content</CardTitle>
-                        <CardDescription>
-                          Total items: {totalContentCount.toLocaleString()}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          placeholder="Search content..." 
-                          className="w-full md:w-64" 
-                          value={contentSearch}
-                          onChange={(e) => {
-                            setContentSearch(e.target.value);
-                            setContentPage(1);
-                          }}
-                        />
-                      </div>
+              </TabsContent>
+              
+              {/* CONTENT TAB */}
+              <TabsContent value="content">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold">Content Management</h1>
+                      <p className="text-muted-foreground">
+                        Manage lessons, music, and educational materials
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {contentLoading ? (
-                      <div className="p-6">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="flex items-center justify-between py-4 border-b last:border-0">
-                            <div className="space-y-2">
-                              <div className="h-4 bg-muted rounded w-48"></div>
-                              <div className="h-3 bg-muted rounded w-24"></div>
-                            </div>
-                            <div className="h-3 bg-muted rounded w-16"></div>
-                            <div className="h-3 bg-muted rounded w-24"></div>
-                            <div className="flex gap-2">
-                              <div className="h-8 w-16 bg-muted rounded"></div>
-                              <div className="h-8 w-16 bg-muted rounded"></div>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline"
+                        onClick={fetchContent}
+                        disabled={contentLoading}
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${contentLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
+                      <Button className="bg-gold hover:bg-gold/90 text-white">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Add New Content
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <CardTitle>All Content</CardTitle>
+                          <CardDescription>
+                            Manage lessons, music, and educational materials
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            placeholder="Search content..." 
+                            className="w-full md:w-64" 
+                            value={contentSearch}
+                            onChange={(e) => {
+                              setContentSearch(e.target.value);
+                              setContentPage(1);
+                            }}
+                          />
+                        </div>
                       </div>
-                    ) : allContent.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No content found</h3>
-                        <p className="text-gray-500">
-                          {contentSearch ? 'Try a different search term' : 'No content available yet'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="border-b bg-muted/30">
-                            <tr className="text-xs font-medium text-muted-foreground">
-                              <th className="text-left p-4">Title</th>
-                              <th className="text-left p-4">Type</th>
-                              <th className="text-left p-4">Engagement</th>
-                              <th className="text-left p-4">Created</th>
-                              <th className="text-left p-4">Status</th>
-                              <th className="text-left p-4">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {paginatedContent.map((item) => (
-                              <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                                <td className="p-4 font-medium">{item.title}</td>
-                                <td className="p-4">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    item.type === 'video' 
-                                      ? 'bg-red-100 text-red-800'
-                                      : item.type === 'audio'
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {item.type}
-                                  </span>
-                                </td>
-                                <td className="p-4">
-                                  <div className="text-sm font-medium">
-                                    {item.views ? `${item.views} views` : 
-                                    item.enrollments ? `${item.enrollments} enrollments` :
-                                    item.plays ? `${item.plays} plays` :
-                                    item.downloads ? `${item.downloads} downloads` : '0'}
-                                  </div>
-                                </td>
-                                <td className="p-4 text-sm">
-                                  {new Date(item.created_at).toLocaleDateString()}
-                                </td>
-                                <td className="p-4">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    (item as any).approved === false
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-green-100 text-green-800'
-                                  }`}>
-                                    {(item as any).approved === false ? 'Pending' : 'Approved'}
-                                  </span>
-                                </td>
-                                <td className="p-4">
-                                  <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="sm" className="h-8 px-3">
-                                      Edit
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeleteContent(item.id, item.type)}
-                                    >
-                                      Delete
-                                    </Button>
-                                  </div>
-                                </td>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {contentLoading ? (
+                        <div className="p-6">
+                          {[...Array(8)].map((_, i) => (
+                            <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-48" />
+                                <Skeleton className="h-3 w-24" />
+                              </div>
+                              <Skeleton className="h-3 w-16" />
+                              <Skeleton className="h-3 w-24" />
+                              <div className="flex gap-2">
+                                <Skeleton className="h-8 w-16" />
+                                <Skeleton className="h-8 w-16" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : allContent.length === 0 ? (
+                        <div className="p-6 text-center text-muted-foreground">
+                          <Music className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                          <h3 className="font-medium mb-1">No content found</h3>
+                          <p className="text-sm">
+                            {contentSearch ? 'Try a different search term' : 'No content in the system yet'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="border-b bg-muted/30">
+                              <tr className="text-xs text-muted-foreground font-medium">
+                                <th className="text-left p-3">Title</th>
+                                <th className="text-left p-3">Type</th>
+                                <th className="text-left p-3">Engagement</th>
+                                <th className="text-left p-3">Created</th>
+                                <th className="text-left p-3">Actions</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </CardContent>
-                  {allContent.length > 0 && (
-                    <CardFooter className="border-t p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            </thead>
+                            <tbody>
+                              {paginatedContent.map((item) => (
+                                <tr key={item.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                  <td className="p-3 font-medium">
+                                    <div className="truncate max-w-[200px]">{item.title}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <Badge variant="outline" className={
+                                      item.type === 'video'
+                                        ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                                        : item.type === 'audio'
+                                        ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                        : item.type === 'course'
+                                        ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                                        : ''
+                                    }>
+                                      {item.type}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="text-sm">
+                                      {item.views ? `${item.views.toLocaleString()} views` : 
+                                      item.enrollments ? `${item.enrollments.toLocaleString()} enrollments` :
+                                      item.plays ? `${item.plays.toLocaleString()} plays` :
+                                      item.downloads ? `${item.downloads.toLocaleString()} downloads` : 'N/A'}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-sm">
+                                    {new Date(item.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <Button variant="outline" size="sm">Edit</Button>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                                        onClick={() => handleDeleteContent(item.id, item.type)}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="border-t p-3 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="text-sm text-muted-foreground">
-                        Showing {((contentPage - 1) * contentPerPage) + 1} to {Math.min(contentPage * contentPerPage, totalContentCount)} of {totalContentCount} items
+                        Showing {Math.min(contentPerPage, paginatedContent.length)} of {totalContentCount} content items
+                        {contentSearch && ` • Search: "${contentSearch}"`}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button 
@@ -2042,22 +2372,9 @@ const Admin = () => {
                         >
                           Previous
                         </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, Math.ceil(totalContentCount / contentPerPage)) }, (_, i) => {
-                            const pageNum = i + 1;
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={contentPage === pageNum ? "default" : "outline"}
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setContentPage(pageNum)}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
-                        </div>
+                        <span className="text-sm px-2">
+                          Page {contentPage} of {Math.ceil(totalContentCount / contentPerPage)}
+                        </span>
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -2068,29 +2385,19 @@ const Admin = () => {
                         </Button>
                       </div>
                     </CardFooter>
-                  )}
-                </Card>
-              </div>
-            </TabsContent>
-            
-            {/* Featured Items Tab */}
-            <TabsContent value="featured" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">Featured Items</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Manage featured content displayed on the homepage
-                  </p>
+                  </Card>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline"
-                    onClick={refreshItems}
-                    disabled={loading}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
+              </TabsContent>
+              
+              {/* FEATURED ITEMS TAB */}
+              <TabsContent value="featured" className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold">Featured Items</h1>
+                    <p className="text-muted-foreground">
+                      Manage featured content that appears on the homepage carousel
+                    </p>
+                  </div>
                   <Button 
                     onClick={() => setEditingItem({
                       id: '',
@@ -2103,219 +2410,177 @@ const Admin = () => {
                     })}
                     className="bg-gold hover:bg-gold/90 text-white"
                   >
-                    <Star className="h-3.5 w-3.5 mr-1.5" />
-                    Add New
+                    <Star className="h-4 w-4 mr-2" />
+                    Add New Featured Item
                   </Button>
                 </div>
-              </div>
 
-              {editingItem ? (
-                <FeaturedItemForm 
-                  item={editingItem}
-                  onSave={handleSaveFeaturedItem}
-                  onCancel={() => setEditingItem(null)}
-                />
-              ) : loading ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gold mb-4"></div>
-                    <p className="text-gray-500">Loading featured items...</p>
-                  </CardContent>
-                </Card>
-              ) : featuredItems.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Star className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">No featured items</h3>
-                    <p className="text-gray-500 mb-4">
-                      Get started by creating your first featured item
-                    </p>
-                    <Button 
-                      className="bg-gold hover:bg-gold/90 text-white"
-                      onClick={() => setEditingItem({
-                        id: '',
-                        title: '',
-                        description: '',
-                        image: '',
-                        link: '',
-                        is_external: false,
-                        order: 0
-                      })}
-                    >
-                      <Star className="h-4 w-4 mr-2" />
-                      Create First Featured Item
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle>Manage Featured Items</CardTitle>
-                      <CardDescription>
-                        Drag and drop to reorder. Items are displayed in this order on the homepage.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="border-b bg-muted/30">
-                            <tr className="text-xs font-medium text-muted-foreground">
-                              <th className="text-left p-4 w-10"></th>
-                              <th className="text-left p-4">Title</th>
-                              <th className="text-left p-4">Image</th>
-                              <th className="text-left p-4">Link</th>
-                              <th className="text-left p-4">Actions</th>
-                            </tr>
-                          </thead>
-                          <SortableContext 
-                            items={featuredItems.map(item => item.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <tbody>
-                              {featuredItems
-                                .sort((a, b) => (a.order || 0) - (b.order || 0))
-                                .map((item) => (
-                                <SortableRow 
-                                  key={item.id} 
-                                  item={item} 
-                                  onEdit={setEditingItem} 
-                                  onDelete={handleDeleteFeaturedItem} 
-                                />
-                              ))}
-                            </tbody>
-                          </SortableContext>
-                        </table>
-                      </div>
+                {editingItem ? (
+                  <FeaturedItemForm 
+                    item={editingItem}
+                    onSave={handleSaveFeaturedItem}
+                    onCancel={() => setEditingItem(null)}
+                  />
+                ) : itemsLoading ? (
+                  <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p>Loading featured items...</p>
+                  </div>
+                ) : featuredItems.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Star className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <h3 className="font-medium text-lg mb-2">No featured items yet</h3>
+                      <p className="text-muted-foreground mb-6">
+                        Create your first featured item to display on the homepage carousel
+                      </p>
+                      <Button 
+                        className="bg-gold hover:bg-gold/90 text-white"
+                        onClick={() => setEditingItem({
+                          id: '',
+                          title: '',
+                          description: '',
+                          image: '',
+                          link: '',
+                          is_external: false,
+                          order: 0
+                        })}
+                      >
+                        <Star className="h-4 w-4 mr-2" />
+                        Create First Featured Item
+                      </Button>
                     </CardContent>
-                    <CardFooter className="border-t p-4">
-                      <div className="text-sm text-muted-foreground">
-                        {featuredItems.length} featured item{featuredItems.length !== 1 ? 's' : ''} • Drag to reorder
-                      </div>
-                    </CardFooter>
                   </Card>
-                </DndContext>
-              )}
-            </TabsContent>
-            
-            {/* Upload Tab */}
-            <TabsContent value="upload" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">Content Upload</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Upload new content to the platform
-                  </p>
-                </div>
-              </div>
+                ) : (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>Featured Items ({featuredItems.length})</CardTitle>
+                            <CardDescription>
+                              Drag and drop to reorder. Items appear in this order on the homepage.
+                            </CardDescription>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={fetchFeaturedItems}
+                            disabled={itemsLoading}
+                          >
+                            <RefreshCw className={`h-3 w-3 mr-1 ${itemsLoading ? 'animate-spin' : ''}`} />
+                            Refresh
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="border-b bg-muted/30">
+                              <tr className="text-xs text-muted-foreground font-medium">
+                                <th className="text-left p-3 w-10"></th>
+                                <th className="text-left p-3">Title</th>
+                                <th className="text-left p-3">Image</th>
+                                <th className="text-left p-3">Link</th>
+                                <th className="text-left p-3">Actions</th>
+                              </tr>
+                            </thead>
+                            <SortableContext 
+                              items={featuredItems.map(item => item.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <tbody>
+                                {featuredItems.map((item, index) => (
+                                  <SortableRow 
+                                    key={item.id} 
+                                    item={item} 
+                                    onEdit={setEditingItem} 
+                                    onDelete={handleDeleteFeaturedItem} 
+                                  />
+                                ))}
+                              </tbody>
+                            </SortableContext>
+                          </table>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="border-t p-3 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="h-4 w-4" />
+                          <span>Drag handle to reorder items</span>
+                        </div>
+                      </CardFooter>
+                    </Card>
+                  </DndContext>
+                )}
+              </TabsContent>
               
-              <AdminUpload />
-            </TabsContent>
-
-            {/* AI Settings Tab */}
-            <TabsContent value="ai-settings">
-              <AISettingsTab />
-            </TabsContent>
-
-            {/* Admin Tools Tab */}
-            <TabsContent value="admin-tools">
-              <div className="space-y-6">
+              {/* UPLOAD TAB */}
+              <TabsContent value="upload" className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold">Admin Tools</h1>
-                    <p className="text-sm text-muted-foreground">
-                      Advanced tools for database and system administration
+                    <h1 className="text-2xl font-bold">Content Upload</h1>
+                    <p className="text-muted-foreground">
+                      Upload new content to the platform
                     </p>
                   </div>
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                    Restricted Access
-                  </Badge>
                 </div>
-
-                <Alert className="bg-red-50 border-red-200">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertTitle className="text-red-800">Advanced Tools</AlertTitle>
-                  <AlertDescription className="text-red-700">
-                    These tools perform direct database operations. Use with extreme caution.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-gold" />
-                        Database Maintenance
-                      </CardTitle>
-                      <CardDescription>
-                        Run maintenance tasks on the database
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Button variant="outline" className="w-full justify-start">
-                        Clean Up Old Records
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        Rebuild Search Index
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        Update Statistics
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5 text-gold" />
-                        User Management
-                      </CardTitle>
-                      <CardDescription>
-                        Advanced user operations
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Button variant="outline" className="w-full justify-start">
-                        Bulk User Export
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        Reset User Passwords
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        Audit Logs
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* Other tabs placeholder */}
-            {['schedule', 'notifications', 'reports', 'settings'].map((tab) => (
-              <TabsContent key={tab} value={tab}>
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="bg-muted p-4 rounded-full mb-4">
-                    {tab === 'schedule' && <Calendar className="h-8 w-8 text-gold" />}
-                    {tab === 'notifications' && <Bell className="h-8 w-8 text-gold" />}
-                    {tab === 'reports' && <FileText className="h-8 w-8 text-gold" />}
-                    {tab === 'settings' && <Settings className="h-8 w-8 text-gold" />}
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 capitalize">{tab.replace('-', ' ')}</h2>
-                  <p className="text-muted-foreground text-center max-w-md mb-6">
-                    This section is currently under development.
-                  </p>
-                  <Button variant="outline">
-                    Check Back Soon
-                  </Button>
-                </div>
+                
+                <AdminUpload />
               </TabsContent>
-            ))}
-          </Tabs>
+
+              {/* AI SETTINGS TAB */}
+              <TabsContent value="ai-settings">
+                <AISettingsTab />
+              </TabsContent>
+              
+              {/* ADMIN TOOLS TAB */}
+              <TabsContent value="admin-tools">
+                <AdminToolsTab />
+              </TabsContent>
+              
+              {/* OTHER TABS */}
+              {['schedule', 'notifications', 'reports', 'settings'].map((tab) => (
+                <TabsContent key={tab} value={tab}>
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="bg-muted p-4 rounded-full mb-4">
+                      {tab === 'schedule' && <Calendar className="h-8 w-8 text-gold" />}
+                      {tab === 'notifications' && <Bell className="h-8 w-8 text-gold" />}
+                      {tab === 'reports' && <FileText className="h-8 w-8 text-gold" />}
+                      {tab === 'settings' && <Settings className="h-8 w-8 text-gold" />}
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2 capitalize">{tab.replace('-', ' ')}</h2>
+                    <p className="text-muted-foreground text-center max-w-md">
+                      This section is currently under development. Check back soon for updates!
+                    </p>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
         </main>
+      </div>
+      
+      {/* Mobile bottom navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-2 z-50">
+        <div className="flex justify-around">
+          {NAV_ITEMS.slice(0, 5).map((item) => (
+            <Button
+              key={item.value}
+              variant="ghost"
+              size="icon"
+              className={`rounded-full ${
+                activeTab === item.value ? 'bg-gold/10 text-gold' : ''
+              }`}
+              onClick={() => setActiveTab(item.value)}
+            >
+              <item.icon className="h-5 w-5" />
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   );
