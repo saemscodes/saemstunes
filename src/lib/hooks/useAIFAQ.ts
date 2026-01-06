@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase, supabaseClient } from '@/lib/supabase/client'
+import { supabase } from '@/integrations/supabase/client'
 
 interface AIResponse {
   response: string
