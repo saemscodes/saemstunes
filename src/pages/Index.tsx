@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase/production-client';
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";

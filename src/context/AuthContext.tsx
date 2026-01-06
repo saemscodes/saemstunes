@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase/production-client';
 // context/AuthContext.tsx
 import React, {
   createContext,
