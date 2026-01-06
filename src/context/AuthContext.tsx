@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase/production-client';
 // context/AuthContext.tsx
 import React, {
   createContext,
@@ -6,13 +5,14 @@ import React, {
   useEffect,
   useContext,
   ReactNode,
+  useCallback,
 } from "react";
 import {
   Session,
   User,
   AuthChangeEvent,
 } from "@supabase/supabase-js";
-import { supabase } from '@/lib/supabase/singleton';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 import { UserProfile, UserRole } from "@/types/user";
 
@@ -36,12 +36,14 @@ interface AuthContextProps {
   signOut: () => Promise<void>;
   signUp: (email: string, password?: string) => Promise<void>;
   login: (email: string, password: string, captchaToken?: string | null) => Promise<void>;
+  adminLogin: (email: string, password: string, adminCode: string, captchaToken?: string | null) => Promise<{ isAdmin: boolean; requiresAdminCode: boolean }>;
   updateUser: (data: any) => Promise<void>;
   updateUserProfile: (userData: ExtendedUser) => void;
   logout: () => Promise<void>;
   subscription: UserSubscription | null;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   signInWithOAuth: (provider: 'google' | 'facebook') => Promise<void>;
+  verifyAdminWithSupabase: () => Promise<{ has_admin_access: boolean; role?: string; email?: string }>;
 }
 
 interface AuthProviderProps {
@@ -55,6 +57,11 @@ interface UserSubscription {
 }
 
 export type SubscriptionTier = 'free' | 'basic' | 'premium' | 'professional';
+
+const FIXED_ADMIN_CREDENTIALS = {
+  username: 'saemstunes',
+  password: 'ilovetosing123'
+};
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
@@ -86,6 +93,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return null;
     }
   };
+
+  const verifyAdminWithSupabase = useCallback(async () => {
+    try {
+      const { data: status, error } = await supabase
+        .rpc('verify_admin_status');
+      
+      if (error) {
+        console.error("Admin status check error:", error);
+        return { has_admin_access: false, error: error.message };
+      }
+      
+      return {
+        has_admin_access: status.has_admin_access || false,
+        role: status.role,
+        email: status.email
+      };
+    } catch (error: any) {
+      console.error("Error checking admin status:", error);
+      return { has_admin_access: false, error: error.message };
+    }
+  }, []);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -151,7 +179,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const userSubscription: UserSubscription = {
             tier: profile.subscription_tier,
             isActive: profile.subscription_tier !== 'free',
-            expiresAt: null, // You might want to store expiration in your profile table
+            expiresAt: null,
           };
           setSubscription(userSubscription);
         }
@@ -192,7 +220,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         options: captchaToken ? { captchaToken } : undefined
       });
       if (error) throw error;
+      
+      // After successful login, fetch user profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await fetchProfile(user.id);
+      }
     } catch (error: any) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const adminLogin = async (email: string, password: string, adminCode: string, captchaToken?: string | null) => {
+    try {
+      setIsLoading(true);
+      
+      // Step 1: Verify admin code
+      if (adminCode !== "ST-ADMIN-2024") {
+        throw new Error("Invalid admin code");
+      }
+
+      // Step 2: Check for fixed admin credentials
+      if (email === FIXED_ADMIN_CREDENTIALS.username && password === FIXED_ADMIN_CREDENTIALS.password) {
+        // Fixed admin login - bypass Supabase auth
+        const fixedAdminSession = {
+          user: {
+            id: 'fixed-admin-id',
+            email: 'admin@saemstunes.com',
+            user_metadata: { role: 'admin' }
+          }
+        };
+        setSession(fixedAdminSession as any);
+        
+        const extendedUser: ExtendedUser = {
+          ...fixedAdminSession.user,
+          role: 'admin',
+          name: 'Fixed Admin',
+          avatar: undefined,
+          subscribed: true,
+          subscriptionTier: 'professional'
+        };
+        setUser(extendedUser);
+        
+        // Store in session storage
+        sessionStorage.setItem('adminAuth', 'true');
+        sessionStorage.setItem('adminUser', JSON.stringify({
+          id: 'fixed-admin-id',
+          email: 'admin@saemstunes.com',
+          role: 'admin'
+        }));
+        
+        return { isAdmin: true, requiresAdminCode: false };
+      }
+
+      // Step 3: Regular admin login via Supabase with CAPTCHA
+      const { error, data } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: captchaToken ? { captchaToken } : undefined
+      });
+      
+      if (error) {
+        // Check if it's a CAPTCHA error
+        if (error.message.includes('captcha')) {
+          throw new Error("CAPTCHA verification failed. Please complete the CAPTCHA challenge.");
+        }
+        throw error;
+      }
+
+      // Step 4: Verify admin status with Supabase RPC
+      const adminStatus = await verifyAdminWithSupabase();
+      
+      if (!adminStatus.has_admin_access) {
+        // User is authenticated but not an admin
+        await supabase.auth.signOut();
+        throw new Error("User does not have admin privileges");
+      }
+
+      // Step 5: Fetch profile and set session
+      if (data.user) {
+        await fetchProfile(data.user.id);
+      }
+      
+      // Store in session storage
+      sessionStorage.setItem('adminAuth', 'true');
+      sessionStorage.setItem('adminUser', JSON.stringify({
+        id: data.user?.id,
+        email: data.user?.email,
+        role: adminStatus.role
+      }));
+      
+      return { isAdmin: true, requiresAdminCode: true };
+      
+    } catch (error: any) {
+      console.error("Admin login failed:", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -223,6 +346,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     try {
       setIsLoading(true);
+      // Clear session storage
+      sessionStorage.removeItem('adminAuth');
+      sessionStorage.removeItem('adminUser');
+      sessionStorage.removeItem('loginAttempts');
       await supabase.auth.signOut();
     } catch (error: any) {
       toast({
@@ -326,12 +453,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     signUp,
     login,
+    adminLogin,
     updateUser,
     updateUserProfile,
     logout,
     subscription,
     updateProfile,
     signInWithOAuth,
+    verifyAdminWithSupabase,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
