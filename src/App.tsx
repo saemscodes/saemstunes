@@ -66,6 +66,8 @@ import Signup from "./pages/Signup";
 import MusicShowcase from "./pages/MusicShowcase";
 import Profile from "./pages/Profile";
 
+import DebugPage from './pages/DebugPage'
+
 const queryClient = new QueryClient();
 
 const AIConditionalRenderer = () => {
@@ -142,6 +144,7 @@ const App = () => {
                               <Route path="/signup" element={<Auth />} />
                               <Route path="/auth" element={<Auth />} />
                               <Route path="/verification-waiting" element={<VerificationWaiting />} />
+                              <Route path="/debug" element={<DebugPage />} />
                               <Route path="/terms" element={<Terms />} />
                               <Route path="/privacy" element={<Privacy />} />
                               <Route path="/unauthorized" element={<Unauthorized />} />
