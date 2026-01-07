@@ -20,7 +20,8 @@ import {
   AlertCircle,
   CheckCircle,
   Home,
-  ChevronRight
+  ChevronRight,
+  MoreVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Dashboard", value: "dashboard" },
@@ -942,19 +944,19 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Simplified admin status check - only verify if we have session storage
+  // Check admin status on mount
   useEffect(() => {
     const checkAdminStatus = () => {
       setLoading(true);
       
-      // First check session storage
+      // Check session storage first
       const adminAuth = sessionStorage.getItem('adminAuth');
       const adminUser = sessionStorage.getItem('adminUser');
       
       if (adminAuth === 'true' && adminUser) {
         try {
           const userData = JSON.parse(adminUser);
-          console.log("✅ Admin access verified from session storage:", userData);
+          console.log("✅ Admin access verified from session storage");
           
           setAdminStatus({
             is_admin: true,
@@ -976,33 +978,49 @@ const Admin = () => {
         }
       }
       
-      // If no session storage, check auth context
+      // If no session storage but we're in auth loading state
       if (authLoading) {
-        // Still loading auth, wait
+        console.log("Auth still loading, waiting...");
         return;
       }
       
-      // If we have a user (either from Supabase or fixed admin)
+      // If we have a user (from Supabase or fixed admin)
       if (user || isFixedAdmin) {
-        console.log("User exists in context, checking Supabase RPC...");
+        console.log("User exists in context, checking admin status...");
+        
+        // For fixed admin, we're already authenticated
+        if (isFixedAdmin) {
+          setAdminStatus({
+            is_admin: true,
+            is_authenticated: true,
+            email: 'admin@saemstunes.com',
+            role: 'admin',
+            display_name: 'Fixed Admin',
+            subscription_tier: 'professional',
+            has_admin_access: true,
+            message: "Fixed admin access"
+          });
+          setIsAuthenticated(true);
+          setLoading(false);
+          return;
+        }
         
         // For Supabase users, verify with RPC
-        if (!isFixedAdmin && user) {
-          supabase.rpc('verify_admin_status')
-            .then(({ data: status, error }) => {
-              if (error) {
-                console.error("RPC error, but continuing with session check:", error);
-                // If RPC fails but we have session, continue
-                if (adminAuth === 'true') {
-                  console.log("RPC failed but session exists, granting access");
-                  setIsAuthenticated(true);
-                  setLoading(false);
-                  return;
-                }
-              }
-              
+        if (user && !isFixedAdmin) {
+          console.log("Verifying Supabase admin status...");
+          
+          // Use a timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Admin verification timeout")), 10000)
+          );
+          
+          const verificationPromise = supabase.rpc('verify_admin_status');
+          
+          Promise.race([verificationPromise, timeoutPromise])
+            .then((result: any) => {
+              const status = result.data;
               if (status?.has_admin_access) {
-                console.log("✅ Supabase admin access verified:", status);
+                console.log("✅ Supabase admin access verified");
                 setAdminStatus(status);
                 setIsAuthenticated(true);
                 
@@ -1018,43 +1036,80 @@ const Admin = () => {
                 }));
               } else {
                 console.log("❌ User does not have admin access");
-                setIsAuthenticated(false);
-                handleAccessDenied();
+                handleAccessDenied("You do not have admin privileges");
               }
             })
             .catch((error) => {
-              console.error("Error in admin check:", error);
-              // If we have session storage, still allow access
-              if (adminAuth === 'true') {
-                console.log("Error but session exists, granting access");
-                setIsAuthenticated(true);
-              } else {
-                setIsAuthenticated(false);
-                handleAccessDenied();
-              }
+              console.error("Admin verification error:", error);
+              
+              // Fallback: Check if user has admin role in profile
+              supabase
+                .from('profiles')
+                .select('role, is_admin')
+                .eq('id', user.id)
+                .single()
+                .then(({ data: profile, error: profileError }) => {
+                  if (profileError) {
+                    console.error("Profile check error:", profileError);
+                    handleAccessDenied("Unable to verify admin status");
+                    return;
+                  }
+                  
+                  if (profile?.role === 'admin' || profile?.is_admin === true) {
+                    console.log("✅ Admin access confirmed via profile check");
+                    setIsAuthenticated(true);
+                    
+                    // Update session storage
+                    sessionStorage.setItem('adminAuth', 'true');
+                    sessionStorage.setItem('fixedAdmin', 'false');
+                    sessionStorage.setItem('adminUser', JSON.stringify({
+                      id: user.id,
+                      email: user.email,
+                      role: profile.role,
+                      display_name: user.name,
+                      subscription_tier: 'professional'
+                    }));
+                    
+                    setAdminStatus({
+                      is_admin: true,
+                      is_authenticated: true,
+                      user_id: user.id,
+                      email: user.email,
+                      role: profile.role,
+                      display_name: user.name,
+                      subscription_tier: 'professional',
+                      has_admin_access: true,
+                      message: "Admin access granted via profile check"
+                    });
+                  } else {
+                    handleAccessDenied("Your profile does not have admin role");
+                  }
+                });
             })
             .finally(() => {
               setLoading(false);
             });
         } else {
-          // Fixed admin or user without RPC check
-          console.log("Fixed admin or bypassing RPC check");
-          setIsAuthenticated(true);
+          // No user at all
+          console.log("❌ No user found");
+          setIsAuthenticated(false);
           setLoading(false);
+          navigate('/admin/login');
         }
       } else {
-        // No user at all
-        console.log("❌ No user found, redirecting to admin login");
+        // No user and not fixed admin
+        console.log("❌ No authenticated user");
         setIsAuthenticated(false);
         setLoading(false);
         navigate('/admin/login');
       }
     };
 
-    const handleAccessDenied = () => {
+    const handleAccessDenied = (message: string) => {
+      console.error("Access denied:", message);
       toast({
         title: "Access Denied",
-        description: "You do not have admin privileges. Contact an administrator.",
+        description: message,
         variant: "destructive",
         duration: 5000
       });
@@ -1065,12 +1120,12 @@ const Admin = () => {
       sessionStorage.removeItem('fixedAdmin');
       
       setTimeout(() => {
-        navigate('/');
+        navigate('/admin/login');
       }, 3000);
     };
 
     // Add a small delay to ensure session storage is set
-    const timeoutId = setTimeout(checkAdminStatus, 100);
+    const timeoutId = setTimeout(checkAdminStatus, 500);
     
     return () => clearTimeout(timeoutId);
   }, [user, authLoading, isFixedAdmin, navigate]);
@@ -1115,22 +1170,16 @@ const Admin = () => {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'active')
           .gt('valid_until', new Date().toISOString()),
-        supabase.rpc('get_total_content_views'),
-        supabase.rpc('get_current_month_revenue'),
+        supabase.rpc('get_total_content_views').catch(() => ({ data: [{ total_views: 0 }], error: null })),
+        supabase.rpc('get_current_month_revenue').catch(() => ({ data: [{ total_revenue: 0 }], error: null })),
         supabase
           .from('profiles')
           .select('id, first_name, last_name, email, role, created_at, is_admin, display_name')
           .order('created_at', { ascending: false })
-          .limit(4),
-        supabase.rpc('get_recent_content', { limit_count: 4 })
+          .limit(4)
+          .catch(() => ({ data: [], error: null })),
+        supabase.rpc('get_recent_content', { limit_count: 4 }).catch(() => ({ data: [], error: null }))
       ]);
-
-      if (totalUsersRes.error) handleSupabaseError(totalUsersRes.error, 'total users');
-      if (activeSubscriptionsRes.error) handleSupabaseError(activeSubscriptionsRes.error, 'active subscriptions');
-      if (contentViewsRes.error) handleSupabaseError(contentViewsRes.error, 'content views');
-      if (revenueRes.error) handleSupabaseError(revenueRes.error, 'revenue');
-      if (usersRes.error) handleSupabaseError(usersRes.error, 'recent users');
-      if (contentRes.error) handleSupabaseError(contentRes.error, 'recent content');
 
       setDashboardStats({
         totalUsers: totalUsersRes.count || 0,
@@ -1142,6 +1191,7 @@ const Admin = () => {
       setRecentUsers(usersRes.data || []);
       setRecentContent(contentRes.data || []);
     } catch (error: any) {
+      console.error("Dashboard data error:", error);
       toast({ 
         title: "Failed to load dashboard data",
         description: error.message,
@@ -1198,10 +1248,6 @@ const Admin = () => {
         supabase.from('learning_paths').select('id, title, created_at')
       ]);
 
-      if (videosRes.error) handleSupabaseError(videosRes.error, 'fetch videos');
-      if (audioRes.error) handleSupabaseError(audioRes.error, 'fetch audio');
-      if (coursesRes.error) handleSupabaseError(coursesRes.error, 'fetch courses');
-
       const videos = videosRes.data?.map(item => ({
         ...item,
         type: 'video',
@@ -1223,52 +1269,10 @@ const Admin = () => {
         created_at: new Date(item.created_at).toISOString()
       })) || [];
 
-      const videoIds = videos.map(v => v.id);
-      const audioIds = audio.map(a => a.id);
-      const courseIds = courses.map(c => c.id);
-
-      const [
-        videoStatsRes,
-        audioStatsRes,
-        courseStatsRes
-      ] = await Promise.all([
-        supabase.rpc('get_video_view_counts'),
-        supabase.rpc('get_audio_play_counts'),
-        supabase.rpc('get_course_enrollment_counts')
-      ]);
-
-      if (videoStatsRes.error) handleSupabaseError(videoStatsRes.error, 'video stats');
-      if (audioStatsRes.error) handleSupabaseError(audioStatsRes.error, 'audio stats');
-      if (courseStatsRes.error) handleSupabaseError(courseStatsRes.error, 'course stats');
-
-      const videoStats = videoStatsRes.data?.reduce((acc, curr) => {
-        acc[curr.video_content_id] = curr.view_count;
-        return acc;
-      }, {} as Record<string, number>) || {};
-
-      const audioStats = audioStatsRes.data?.reduce((acc, curr) => {
-        acc[curr.track_id] = curr.play_count;
-        return acc;
-      }, {} as Record<string, number>) || {};
-
-      const courseStats = courseStatsRes.data?.reduce((acc, curr) => {
-        acc[curr.learning_path_id] = curr.enrollment_count;
-        return acc;
-      }, {} as Record<string, number>) || {};
-
       const combinedContent = [
-        ...videos.map(video => ({
-          ...video,
-          views: videoStats[video.id] || 0
-        })),
-        ...audio.map(track => ({
-          ...track,
-          plays: audioStats[track.id] || 0
-        })),
-        ...courses.map(course => ({
-          ...course,
-          enrollments: courseStats[course.id] || 0
-        }))
+        ...videos,
+        ...audio,
+        ...courses
       ];
 
       combinedContent.sort((a, b) => 
@@ -1290,12 +1294,12 @@ const Admin = () => {
   const fetchFeaturedItems = async () => {
     setItemsLoading(true);
     try {
-      // Use the new admin function
+      // Try admin function first
       const { data, error } = await supabase
         .rpc('get_featured_items_admin');
       
       if (error) {
-        console.error("Error fetching featured items:", error);
+        console.log("Falling back to regular select");
         // Fall back to regular select
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('featured_items')
@@ -1525,21 +1529,15 @@ const Admin = () => {
     }
     
     try {
-      // First delete from auth.users (requires admin permissions)
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (authError) {
-        console.error("Auth delete error:", authError);
-        // Try to delete just from profiles if auth delete fails
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', userId);
+      // Try to delete just from profiles first
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
 
-        if (profileError) {
-          handleSupabaseError(profileError, 'delete user profile');
-          return;
-        }
+      if (profileError) {
+        handleSupabaseError(profileError, 'delete user profile');
+        return;
       }
       
       fetchUsers();
@@ -1712,14 +1710,28 @@ const Admin = () => {
                 <p className="text-sm font-medium">{adminStatus?.display_name || 'Administrator'}</p>
                 <p className="text-xs text-muted-foreground">Last login: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleLogout}
-                className="hover:bg-destructive/10 hover:text-destructive"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/')}>
+                    <Home className="h-4 w-4 mr-2" />
+                    Go to Home
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveTab('admin-tools')}>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Admin Tools
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -1809,6 +1821,22 @@ const Admin = () => {
                   <span className="text-xs mt-1">{item.label}</span>
                 </TabsTrigger>
               ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-auto px-3 py-2">
+                    <MoreVertical className="h-4 w-4" />
+                    <span className="text-xs mt-1">More</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {NAV_ITEMS.slice(6).map((item) => (
+                    <DropdownMenuItem key={item.value} onClick={() => setActiveTab(item.value)}>
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TabsList>
           </Tabs>
         </div>
@@ -2625,4 +2653,42 @@ const Admin = () => {
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="bg-muted p-4 rounded-full mb-4">
                       {tab === 'schedule' && <Calendar className="h-8 w-8 text-gold" />}
-                      {
+                      {tab === 'notifications' && <Bell className="h-8 w-8 text-gold" />}
+                      {tab === 'reports' && <FileText className="h-8 w-8 text-gold" />}
+                      {tab === 'settings' && <Settings className="h-8 w-8 text-gold" />}
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2 capitalize">{tab.replace('-', ' ')}</h2>
+                    <p className="text-muted-foreground text-center max-w-md">
+                      This section is currently under development. Check back soon for updates!
+                    </p>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+        </main>
+      </div>
+      
+      {/* Mobile bottom navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-2 z-50">
+        <div className="flex justify-around">
+          {NAV_ITEMS.slice(0, 5).map((item) => (
+            <Button
+              key={item.value}
+              variant="ghost"
+              size="icon"
+              className={`rounded-full ${
+                activeTab === item.value ? 'bg-gold/10 text-gold' : ''
+              }`}
+              onClick={() => setActiveTab(item.value)}
+            >
+              <item.icon className="h-5 w-5" />
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Admin;
