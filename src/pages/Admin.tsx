@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useAdmin } from "@/context/AdminContext";
 import { useAISettings } from "@/context/AISettingsContext";
 import { 
   Users, 
@@ -892,12 +892,9 @@ const AdminToolsTab = () => {
 };
 
 const Admin = () => {
-  const { user, logout, isLoading: authLoading } = useAuth();
+  const { adminUser, logout } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [editingItem, setEditingItem] = useState<FeaturedItem | null>(null);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
@@ -939,124 +936,30 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Check admin status on mount and when user changes
+  // Load dashboard data when tab is active
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoading(true);
-      try {
-        // First check if we have a user
-        if (!user) {
-          console.log("No user found, redirecting to login");
-          setIsAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-
-        console.log("Checking admin status for user:", user.email);
-        
-        // Check admin status using our new function
-        const { data: status, error } = await supabase
-          .rpc('verify_admin_status');
-        
-        if (error) {
-          console.error("Admin status check error:", error);
-          toast({
-            title: "Admin Check Failed",
-            description: error.message,
-            variant: "destructive"
-          });
-          setIsAuthenticated(false);
-          return;
-        }
-        
-        console.log("Admin status result:", status);
-        setAdminStatus(status);
-        
-        if (status.has_admin_access) {
-          console.log("✅ User has admin access");
-          setIsAuthenticated(true);
-          // Store in session storage for persistence
-          sessionStorage.setItem('adminAuth', 'true');
-          sessionStorage.setItem('adminUser', JSON.stringify({
-            id: user.id,
-            email: user.email,
-            role: status.role
-          }));
-        } else {
-          console.log("❌ User does NOT have admin access");
-          setIsAuthenticated(false);
-          sessionStorage.removeItem('adminAuth');
-          sessionStorage.removeItem('adminUser');
-          
-          toast({
-            title: "Access Denied",
-            description: "You do not have admin privileges. Contact an administrator.",
-            variant: "destructive",
-            duration: 5000
-          });
-          
-          // Redirect to home after a delay
-          setTimeout(() => {
-            navigate('/');
-          }, 3000);
-        }
-      } catch (error: any) {
-        console.error("Error checking admin status:", error);
-        toast({
-          title: "Authentication Error",
-          description: error.message,
-          variant: "destructive"
-        });
-        setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, [user, navigate]);
-
-  // Also check session storage on mount
-  useEffect(() => {
-    const adminAuth = sessionStorage.getItem('adminAuth');
-    const adminUser = sessionStorage.getItem('adminUser');
-    
-    if (adminAuth === 'true' && adminUser) {
-      try {
-        const userData = JSON.parse(adminUser);
-        console.log("Found admin user in session:", userData);
-        // We still need to verify with the server
-      } catch (error) {
-        console.error("Error parsing admin user from session:", error);
-        sessionStorage.removeItem('adminAuth');
-        sessionStorage.removeItem('adminUser');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated && activeTab === 'dashboard') {
+    if (activeTab === 'dashboard') {
       fetchDashboardData();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [activeTab]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'users') {
+    if (activeTab === 'users') {
       fetchUsers();
     }
-  }, [isAuthenticated, activeTab, usersPage, usersSearch]);
+  }, [activeTab, usersPage, usersSearch]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'content') {
+    if (activeTab === 'content') {
       fetchContent();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [activeTab]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'featured') {
+    if (activeTab === 'featured') {
       fetchFeaturedItems();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [activeTab]);
 
   const fetchDashboardData = async () => {
     setDashboardLoading(true);
@@ -1280,35 +1183,7 @@ const Admin = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      // Clear session storage
-      sessionStorage.removeItem('adminAuth');
-      sessionStorage.removeItem('adminUser');
-      
-      // Log out from Supabase
-      if (user) {
-        await logout();
-      }
-      
-      // Reset state
-      setIsAuthenticated(false);
-      setAdminStatus(null);
-      
-      toast({
-        title: "Logged out",
-        description: "You have been logged out from the admin panel.",
-      });
-      
-      // Redirect to home
-      navigate('/');
-    } catch (error: any) {
-      console.error("Logout failed:", error);
-      toast({
-        title: "Logout Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    await logout();
   };
 
   const handleSaveFeaturedItem = async (item: FeaturedItem) => {
@@ -1559,91 +1434,6 @@ const Admin = () => {
     }
   };
 
-  // Loading state
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center space-y-4">
-          <Logo size="lg" />
-          <div className="space-y-2">
-            <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
-            <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Checking admin permissions...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated or not admin
-  if (!isAuthenticated || !adminStatus?.has_admin_access) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <Logo size="lg" />
-            </div>
-            <CardTitle className="text-2xl">Admin Access Required</CardTitle>
-            <CardDescription className="pt-2">
-              {adminStatus?.is_authenticated 
-                ? "Your account does not have administrator privileges."
-                : "You need to be logged in as an administrator."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Access Denied</AlertTitle>
-              <AlertDescription>
-                {adminStatus?.is_authenticated 
-                  ? `Logged in as ${adminStatus.email} (Role: ${adminStatus.role || 'Not set'})`
-                  : "Please log in with an admin account."}
-              </AlertDescription>
-            </Alert>
-            
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                To access the admin panel, your account must have:
-              </p>
-              <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                <li>Role set to "admin" in your profile</li>
-                <li>Or is_admin column set to TRUE</li>
-                <li>Proper RLS policies configured</li>
-              </ul>
-            </div>
-            
-            <div className="pt-4 space-y-3">
-              <Button 
-                onClick={() => navigate('/')}
-                variant="outline"
-                className="w-full"
-              >
-                Return to Home
-              </Button>
-              
-              {user && (
-                <Button 
-                  onClick={handleLogout}
-                  className="w-full"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout & Try Different Account
-                </Button>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col items-center text-xs text-muted-foreground border-t pt-4">
-            <p>Admin Panel • Saem's Tunes</p>
-            <p>Need help? Check Admin Tools tab for diagnostics.</p>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-
   // MAIN ADMIN PANEL
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -1658,11 +1448,11 @@ const Admin = () => {
                   ADMIN PANEL
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {adminStatus?.role || 'Admin'}
+                  {adminUser?.role || 'Admin'}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                {adminStatus?.email} • {adminStatus?.subscription_tier}
+                {adminUser?.email} • {adminUser?.subscription_tier || 'Professional'}
               </p>
             </div>
           </div>
@@ -1678,7 +1468,7 @@ const Admin = () => {
             
             <div className="flex items-center gap-2">
               <div className="text-right hidden md:block">
-                <p className="text-sm font-medium">{adminStatus?.display_name || 'Administrator'}</p>
+                <p className="text-sm font-medium">{adminUser?.display_name || 'Administrator'}</p>
                 <p className="text-xs text-muted-foreground">Last login: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
               </div>
               <Button 
@@ -1756,7 +1546,7 @@ const Admin = () => {
                   <div>
                     <h1 className="text-2xl font-bold">Admin Dashboard</h1>
                     <p className="text-muted-foreground">
-                      Welcome back, {adminStatus?.display_name || 'Admin'}! Here's what's happening.
+                      Welcome back, {adminUser?.display_name || 'Admin'}! Here's what's happening.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2039,15 +1829,15 @@ const Admin = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Admin Level</p>
-                        <p className="font-medium">{adminStatus?.role || 'Admin'}</p>
+                        <p className="font-medium">{adminUser?.role || 'Admin'}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium truncate">{adminStatus?.email}</p>
+                        <p className="font-medium truncate">{adminUser?.email}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Subscription</p>
-                        <p className="font-medium">{adminStatus?.subscription_tier || 'Professional'}</p>
+                        <p className="font-medium">{adminUser?.subscription_tier || 'Professional'}</p>
                       </div>
                     </div>
                   </CardContent>
