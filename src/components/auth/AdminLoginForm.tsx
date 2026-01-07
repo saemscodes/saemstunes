@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAdmin } from "@/context/AdminContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ShieldAlert } from "lucide-react";
@@ -37,7 +37,7 @@ const AdminLoginForm = ({ onClose = () => {} }: AdminLoginFormProps) => {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const captchaRef = useRef<HCaptcha>(null);
-  const { adminLogin } = useAuth();
+  const { login } = useAdmin();
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -61,7 +61,6 @@ const AdminLoginForm = ({ onClose = () => {} }: AdminLoginFormProps) => {
 
   // Check if we should show captcha based on failed attempts
   useEffect(() => {
-    // Always show CAPTCHA for admin login after first attempt
     const shouldShowCaptcha = loginAttempts >= 1;
     setShowCaptcha(shouldShowCaptcha);
   }, [loginAttempts]);
@@ -80,72 +79,63 @@ const AdminLoginForm = ({ onClose = () => {} }: AdminLoginFormProps) => {
       }
 
       // Attempt admin login with CAPTCHA
-      const result = await adminLogin(data.email, data.password, data.adminCode, captchaToken);
+      const result = await login(data.email, data.password, data.adminCode, captchaToken);
       
-      // Reset login attempts on success
-      setLoginAttempts(0);
-      sessionStorage.removeItem('adminLoginAttempts');
-      
-      // Clear CAPTCHA
-      if (captchaRef.current) {
-        captchaRef.current.resetCaptcha();
+      if (result.success) {
+        // Reset login attempts on success
+        setLoginAttempts(0);
+        sessionStorage.removeItem('adminLoginAttempts');
+        
+        // Clear CAPTCHA
+        if (captchaRef.current) {
+          captchaRef.current.resetCaptcha();
+        }
+        setCaptchaToken(null);
+        
+        // Navigate to admin dashboard
+        navigate("/admin");
+        onClose();
+        
+      } else {
+        // Handle login failure
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        sessionStorage.setItem('adminLoginAttempts', newAttempts.toString());
+        
+        // Show CAPTCHA after first failed attempt
+        if (newAttempts >= 1) {
+          setShowCaptcha(true);
+        }
+        
+        // Reset CAPTCHA on error
+        if (captchaRef.current) {
+          captchaRef.current.resetCaptcha();
+        }
+        setCaptchaToken(null);
+        
+        // Set error message
+        form.setError("root", { message: result.message });
+        
+        // Show toast notification
+        toast({
+          title: "❌ Admin Login Failed",
+          description: result.message,
+          variant: "destructive",
+          duration: 5000,
+        });
       }
-      setCaptchaToken(null);
-      
-      // Show success message
-      toast({
-        title: "✅ Admin Access Granted",
-        description: result.requiresAdminCode 
-          ? "You have successfully logged in as an administrator."
-          : "Fixed admin login successful.",
-      });
-      
-      // Navigate to admin dashboard
-      navigate("/admin");
-      onClose();
       
     } catch (error: any) {
-      console.error("Admin login failed:", error);
-      
-      // Increment login attempts
-      const newAttempts = loginAttempts + 1;
-      setLoginAttempts(newAttempts);
-      sessionStorage.setItem('adminLoginAttempts', newAttempts.toString());
-      
-      // Show CAPTCHA after first failed attempt
-      if (newAttempts >= 1) {
-        setShowCaptcha(true);
-      }
-      
-      // Reset CAPTCHA on error
-      if (captchaRef.current) {
-        captchaRef.current.resetCaptcha();
-      }
-      setCaptchaToken(null);
-      
-      // Set error message
-      let errorMessage = "Authentication failed. Please verify your credentials.";
-      
-      if (error.message.includes("CAPTCHA")) {
-        errorMessage = "CAPTCHA verification failed. Please try again.";
-      } else if (error.message.includes("admin privileges")) {
-        errorMessage = "Your account does not have administrator privileges.";
-      } else if (error.message.includes("Invalid admin code")) {
-        errorMessage = "Invalid admin verification code.";
-      } else if (error.message.includes("Invalid login credentials")) {
-        errorMessage = "Invalid email or password.";
-      }
-      
-      form.setError("root", { message: errorMessage });
-      
-      // Show toast notification
-      toast({
-        title: "❌ Admin Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 5000,
+      console.error("Admin login error:", error);
+      form.setError("root", { 
+        message: "An unexpected error occurred. Please try again." 
       });
       
+      toast({
+        title: "❌ Login Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
