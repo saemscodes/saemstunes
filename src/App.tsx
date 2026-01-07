@@ -17,6 +17,7 @@ import { AISettingsProvider, useAISettings } from '@/context/AISettingsContext';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute"; // IMPORT THE SEPARATE COMPONENT
 import SplashScreen from "@/components/ui/splash-screen";
 import GlobalMiniPlayer from "@/components/player/GlobalMiniPlayer";
 import IdleStateManager from "@/components/idle-state/IdleStateManager";
@@ -25,7 +26,7 @@ import SaemsTunesAI from "@/LLM/SaemsTunesAI";
 
 // Page imports
 import Admin from "@/pages/Admin";
-import AdminLogin from "@/pages/AdminLogin"; // ADD THIS IMPORT
+import AdminLogin from "@/pages/AdminLogin";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth"; 
 import VerificationWaiting from "./pages/VerificationWaiting";
@@ -70,69 +71,6 @@ import Profile from "./pages/Profile";
 import DebugPage from './pages/DebugPage'
 
 const queryClient = new QueryClient();
-
-// Add AdminProtectedRoute component
-const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading: authLoading } = useAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      setLoading(true);
-      try {
-        // First check session storage
-        const adminAuth = sessionStorage.getItem('adminAuth');
-        const adminUser = sessionStorage.getItem('adminUser');
-        
-        if (adminAuth === 'true' && adminUser) {
-          setIsAuthenticated(true);
-          setLoading(false);
-          return;
-        }
-        
-        // If no user at all, redirect to admin login
-        if (!user && !authLoading) {
-          navigate('/admin/login');
-          return;
-        }
-        
-        // User exists but not admin authenticated, redirect to admin login
-        navigate('/admin/login');
-      } catch (error) {
-        console.error("Admin status check error:", error);
-        navigate('/admin/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, [user, authLoading, navigate]);
-
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center space-y-4">
-          <div className="space-y-2">
-            <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
-            <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Verifying admin access...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null; // Will redirect in useEffect
-  }
-
-  return <>{children}</>;
-};
 
 const AIConditionalRenderer = () => {
   const { user, subscription } = useAuth();
