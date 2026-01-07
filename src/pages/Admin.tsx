@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAdmin } from "@/context/AdminContext";
+import { useAuth } from "@/context/AuthContext";
 import { useAISettings } from "@/context/AISettingsContext";
 import { 
   Users, 
@@ -18,7 +18,9 @@ import {
   Brain,
   Shield,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Home,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +52,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Dashboard", value: "dashboard" },
@@ -892,9 +895,12 @@ const AdminToolsTab = () => {
 };
 
 const Admin = () => {
-  const { adminUser, logout } = useAdmin();
+  const { user, logout, isLoading: authLoading, isFixedAdmin, fixedAdminLogout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [editingItem, setEditingItem] = useState<FeaturedItem | null>(null);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
@@ -936,30 +942,162 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Load dashboard data when tab is active
+  // Simplified admin status check - only verify if we have session storage
   useEffect(() => {
-    if (activeTab === 'dashboard') {
+    const checkAdminStatus = () => {
+      setLoading(true);
+      
+      // First check session storage
+      const adminAuth = sessionStorage.getItem('adminAuth');
+      const adminUser = sessionStorage.getItem('adminUser');
+      
+      if (adminAuth === 'true' && adminUser) {
+        try {
+          const userData = JSON.parse(adminUser);
+          console.log("✅ Admin access verified from session storage:", userData);
+          
+          setAdminStatus({
+            is_admin: true,
+            is_authenticated: true,
+            user_id: userData.id,
+            email: userData.email,
+            role: userData.role,
+            display_name: userData.display_name,
+            subscription_tier: userData.subscription_tier,
+            has_admin_access: true,
+            message: "Admin access granted via session"
+          });
+          
+          setIsAuthenticated(true);
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error("Error parsing admin user data:", error);
+        }
+      }
+      
+      // If no session storage, check auth context
+      if (authLoading) {
+        // Still loading auth, wait
+        return;
+      }
+      
+      // If we have a user (either from Supabase or fixed admin)
+      if (user || isFixedAdmin) {
+        console.log("User exists in context, checking Supabase RPC...");
+        
+        // For Supabase users, verify with RPC
+        if (!isFixedAdmin && user) {
+          supabase.rpc('verify_admin_status')
+            .then(({ data: status, error }) => {
+              if (error) {
+                console.error("RPC error, but continuing with session check:", error);
+                // If RPC fails but we have session, continue
+                if (adminAuth === 'true') {
+                  console.log("RPC failed but session exists, granting access");
+                  setIsAuthenticated(true);
+                  setLoading(false);
+                  return;
+                }
+              }
+              
+              if (status?.has_admin_access) {
+                console.log("✅ Supabase admin access verified:", status);
+                setAdminStatus(status);
+                setIsAuthenticated(true);
+                
+                // Update session storage
+                sessionStorage.setItem('adminAuth', 'true');
+                sessionStorage.setItem('fixedAdmin', 'false');
+                sessionStorage.setItem('adminUser', JSON.stringify({
+                  id: user.id,
+                  email: user.email,
+                  role: status.role,
+                  display_name: status.display_name,
+                  subscription_tier: status.subscription_tier
+                }));
+              } else {
+                console.log("❌ User does not have admin access");
+                setIsAuthenticated(false);
+                handleAccessDenied();
+              }
+            })
+            .catch((error) => {
+              console.error("Error in admin check:", error);
+              // If we have session storage, still allow access
+              if (adminAuth === 'true') {
+                console.log("Error but session exists, granting access");
+                setIsAuthenticated(true);
+              } else {
+                setIsAuthenticated(false);
+                handleAccessDenied();
+              }
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+        } else {
+          // Fixed admin or user without RPC check
+          console.log("Fixed admin or bypassing RPC check");
+          setIsAuthenticated(true);
+          setLoading(false);
+        }
+      } else {
+        // No user at all
+        console.log("❌ No user found, redirecting to admin login");
+        setIsAuthenticated(false);
+        setLoading(false);
+        navigate('/admin/login');
+      }
+    };
+
+    const handleAccessDenied = () => {
+      toast({
+        title: "Access Denied",
+        description: "You do not have admin privileges. Contact an administrator.",
+        variant: "destructive",
+        duration: 5000
+      });
+      
+      // Clear invalid session
+      sessionStorage.removeItem('adminAuth');
+      sessionStorage.removeItem('adminUser');
+      sessionStorage.removeItem('fixedAdmin');
+      
+      setTimeout(() => {
+        navigate('/');
+      }, 3000);
+    };
+
+    // Add a small delay to ensure session storage is set
+    const timeoutId = setTimeout(checkAdminStatus, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [user, authLoading, isFixedAdmin, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'dashboard') {
       fetchDashboardData();
     }
-  }, [activeTab]);
+  }, [isAuthenticated, activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'users') {
+    if (isAuthenticated && activeTab === 'users') {
       fetchUsers();
     }
-  }, [activeTab, usersPage, usersSearch]);
+  }, [isAuthenticated, activeTab, usersPage, usersSearch]);
 
   useEffect(() => {
-    if (activeTab === 'content') {
+    if (isAuthenticated && activeTab === 'content') {
       fetchContent();
     }
-  }, [activeTab]);
+  }, [isAuthenticated, activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'featured') {
+    if (isAuthenticated && activeTab === 'featured') {
       fetchFeaturedItems();
     }
-  }, [activeTab]);
+  }, [isAuthenticated, activeTab]);
 
   const fetchDashboardData = async () => {
     setDashboardLoading(true);
@@ -1183,7 +1321,38 @@ const Admin = () => {
   };
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      // Clear session storage
+      sessionStorage.removeItem('adminAuth');
+      sessionStorage.removeItem('adminUser');
+      sessionStorage.removeItem('fixedAdmin');
+      
+      // Log out based on admin type
+      if (isFixedAdmin) {
+        fixedAdminLogout();
+      } else if (user) {
+        await logout();
+      }
+      
+      // Reset state
+      setIsAuthenticated(false);
+      setAdminStatus(null);
+      
+      toast({
+        title: "Logged out",
+        description: "You have been logged out from the admin panel.",
+      });
+      
+      // Redirect to home
+      navigate('/');
+    } catch (error: any) {
+      console.error("Logout failed:", error);
+      toast({
+        title: "Logout Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSaveFeaturedItem = async (item: FeaturedItem) => {
@@ -1434,26 +1603,98 @@ const Admin = () => {
     }
   };
 
+  // Loading state
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="text-center space-y-4">
+          <Logo size="lg" />
+          <div className="space-y-2">
+            <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
+            <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Loading admin panel...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" />
+            </div>
+            <CardTitle className="text-2xl">Admin Access Required</CardTitle>
+            <CardDescription className="pt-2">
+              Please log in to access the admin panel.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Access Denied</AlertTitle>
+              <AlertDescription>
+                You need to be logged in as an administrator.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="pt-4 space-y-3">
+              <Button 
+                onClick={() => navigate('/admin/login')}
+                className="w-full bg-gold hover:bg-gold/90 text-white"
+              >
+                Go to Admin Login
+              </Button>
+              
+              <Button 
+                onClick={() => navigate('/')}
+                variant="outline"
+                className="w-full"
+              >
+                Return to Home
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col items-center text-xs text-muted-foreground border-t pt-4">
+            <p>Admin Panel • Saem's Tunes</p>
+            <p>Version 2.0.0 • Enhanced Security</p>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   // MAIN ADMIN PANEL
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <header className="bg-background border-b sticky top-0 z-50 shadow-sm">
         <div className="container flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
-            <Logo size="sm" />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  ADMIN PANEL
+            <div className="flex items-center gap-2">
+              <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Logo size="sm" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    ADMIN PANEL
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {isFixedAdmin ? 'Fixed Admin' : (adminStatus?.role || 'Admin')}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  {adminUser?.role || 'Admin'}
-                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {adminStatus?.email || 'Administrator'} • {adminStatus?.subscription_tier || 'Professional'}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {adminUser?.email} • {adminUser?.subscription_tier || 'Professional'}
-              </p>
             </div>
           </div>
           
@@ -1468,7 +1709,7 @@ const Admin = () => {
             
             <div className="flex items-center gap-2">
               <div className="text-right hidden md:block">
-                <p className="text-sm font-medium">{adminUser?.display_name || 'Administrator'}</p>
+                <p className="text-sm font-medium">{adminStatus?.display_name || 'Administrator'}</p>
                 <p className="text-xs text-muted-foreground">Last login: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
               </div>
               <Button 
@@ -1481,6 +1722,38 @@ const Admin = () => {
               </Button>
             </div>
           </div>
+        </div>
+        
+        {/* Breadcrumb */}
+        <div className="container pb-3">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="flex items-center gap-1">
+                    <Home className="h-3 w-3" />
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/admin" className="font-medium">
+                    Admin Dashboard
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              {activeTab !== 'dashboard' && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <span className="capitalize">{activeTab.replace('-', ' ')}</span>
+                  </BreadcrumbItem>
+                </>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
       </header>
       
@@ -1513,15 +1786,20 @@ const Admin = () => {
                 <CheckCircle className="h-3 w-3 inline mr-1" />
                 Admin Access Verified
               </p>
+              {isFixedAdmin && (
+                <p className="pt-1 text-amber-600 text-xs">
+                  ⚠️ Fixed Admin Mode
+                </p>
+              )}
             </div>
           </div>
         </aside>
         
         {/* Mobile Navigation */}
-        <div className="md:hidden w-full border-b bg-background sticky top-14 z-40">
+        <div className="md:hidden w-full border-b bg-background sticky top-0 z-40">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full overflow-x-auto justify-start py-1 h-auto px-2">
-              {NAV_ITEMS.map((item) => (
+              {NAV_ITEMS.slice(0, 6).map((item) => (
                 <TabsTrigger 
                   key={item.value} 
                   value={item.value} 
@@ -1546,7 +1824,7 @@ const Admin = () => {
                   <div>
                     <h1 className="text-2xl font-bold">Admin Dashboard</h1>
                     <p className="text-muted-foreground">
-                      Welcome back, {adminUser?.display_name || 'Admin'}! Here's what's happening.
+                      Welcome back, {adminStatus?.display_name || 'Admin'}! Here's what's happening.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1829,16 +2107,25 @@ const Admin = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Admin Level</p>
-                        <p className="font-medium">{adminUser?.role || 'Admin'}</p>
+                        <p className="font-medium">{isFixedAdmin ? 'Fixed Admin' : (adminStatus?.role || 'Admin')}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium truncate">{adminUser?.email}</p>
+                        <p className="font-medium truncate">{adminStatus?.email || 'Administrator'}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Subscription</p>
-                        <p className="font-medium">{adminUser?.subscription_tier || 'Professional'}</p>
+                        <p className="font-medium">{adminStatus?.subscription_tier || 'Professional'}</p>
                       </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Access Type:</strong> {isFixedAdmin ? 'Fixed Admin Credentials' : 'Supabase Admin'}
+                        <br />
+                        <strong>Session:</strong> Valid until browser close
+                        <br />
+                        <strong>Permissions:</strong> Full administrative access
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -2338,42 +2625,4 @@ const Admin = () => {
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="bg-muted p-4 rounded-full mb-4">
                       {tab === 'schedule' && <Calendar className="h-8 w-8 text-gold" />}
-                      {tab === 'notifications' && <Bell className="h-8 w-8 text-gold" />}
-                      {tab === 'reports' && <FileText className="h-8 w-8 text-gold" />}
-                      {tab === 'settings' && <Settings className="h-8 w-8 text-gold" />}
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 capitalize">{tab.replace('-', ' ')}</h2>
-                    <p className="text-muted-foreground text-center max-w-md">
-                      This section is currently under development. Check back soon for updates!
-                    </p>
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </div>
-        </main>
-      </div>
-      
-      {/* Mobile bottom navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-2 z-50">
-        <div className="flex justify-around">
-          {NAV_ITEMS.slice(0, 5).map((item) => (
-            <Button
-              key={item.value}
-              variant="ghost"
-              size="icon"
-              className={`rounded-full ${
-                activeTab === item.value ? 'bg-gold/10 text-gold' : ''
-              }`}
-              onClick={() => setActiveTab(item.value)}
-            >
-              <item.icon className="h-5 w-5" />
-            </Button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Admin;
+                      {
