@@ -20,8 +20,7 @@ import {
   AlertCircle,
   CheckCircle,
   Home,
-  ChevronRight,
-  MoreVertical
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +54,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate, Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Dashboard", value: "dashboard" },
@@ -900,8 +898,6 @@ const Admin = () => {
   const { user, logout, isLoading: authLoading, isFixedAdmin, fixedAdminLogout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [editingItem, setEditingItem] = useState<FeaturedItem | null>(null);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
@@ -944,20 +940,15 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Check admin status on mount
+  // Load admin status from session storage on mount
   useEffect(() => {
-    const checkAdminStatus = () => {
-      setLoading(true);
-      
-      // Check session storage first
+    const loadAdminStatus = () => {
       const adminAuth = sessionStorage.getItem('adminAuth');
       const adminUser = sessionStorage.getItem('adminUser');
       
       if (adminAuth === 'true' && adminUser) {
         try {
           const userData = JSON.parse(adminUser);
-          console.log("✅ Admin access verified from session storage");
-          
           setAdminStatus({
             is_admin: true,
             is_authenticated: true,
@@ -969,192 +960,68 @@ const Admin = () => {
             has_admin_access: true,
             message: "Admin access granted via session"
           });
-          
-          setIsAuthenticated(true);
-          setLoading(false);
-          return;
         } catch (error) {
           console.error("Error parsing admin user data:", error);
         }
-      }
-      
-      // If no session storage but we're in auth loading state
-      if (authLoading) {
-        console.log("Auth still loading, waiting...");
-        return;
-      }
-      
-      // If we have a user (from Supabase or fixed admin)
-      if (user || isFixedAdmin) {
-        console.log("User exists in context, checking admin status...");
-        
-        // For fixed admin, we're already authenticated
-        if (isFixedAdmin) {
-          setAdminStatus({
-            is_admin: true,
-            is_authenticated: true,
-            email: 'admin@saemstunes.com',
-            role: 'admin',
-            display_name: 'Fixed Admin',
-            subscription_tier: 'professional',
-            has_admin_access: true,
-            message: "Fixed admin access"
-          });
-          setIsAuthenticated(true);
-          setLoading(false);
-          return;
-        }
-        
-        // For Supabase users, verify with RPC
-        if (user && !isFixedAdmin) {
-          console.log("Verifying Supabase admin status...");
-          
-          // Use a timeout to prevent hanging
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Admin verification timeout")), 10000)
-          );
-          
-          const verificationPromise = supabase.rpc('verify_admin_status');
-          
-          Promise.race([verificationPromise, timeoutPromise])
-            .then((result: any) => {
-              const status = result.data;
-              if (status?.has_admin_access) {
-                console.log("✅ Supabase admin access verified");
-                setAdminStatus(status);
-                setIsAuthenticated(true);
-                
-                // Update session storage
-                sessionStorage.setItem('adminAuth', 'true');
-                sessionStorage.setItem('fixedAdmin', 'false');
-                sessionStorage.setItem('adminUser', JSON.stringify({
-                  id: user.id,
-                  email: user.email,
-                  role: status.role,
-                  display_name: status.display_name,
-                  subscription_tier: status.subscription_tier
-                }));
-              } else {
-                console.log("❌ User does not have admin access");
-                handleAccessDenied("You do not have admin privileges");
-              }
-            })
-            .catch((error) => {
-              console.error("Admin verification error:", error);
-              
-              // Fallback: Check if user has admin role in profile
-              supabase
-                .from('profiles')
-                .select('role, is_admin')
-                .eq('id', user.id)
-                .single()
-                .then(({ data: profile, error: profileError }) => {
-                  if (profileError) {
-                    console.error("Profile check error:", profileError);
-                    handleAccessDenied("Unable to verify admin status");
-                    return;
-                  }
-                  
-                  if (profile?.role === 'admin' || profile?.is_admin === true) {
-                    console.log("✅ Admin access confirmed via profile check");
-                    setIsAuthenticated(true);
-                    
-                    // Update session storage
-                    sessionStorage.setItem('adminAuth', 'true');
-                    sessionStorage.setItem('fixedAdmin', 'false');
-                    sessionStorage.setItem('adminUser', JSON.stringify({
-                      id: user.id,
-                      email: user.email,
-                      role: profile.role,
-                      display_name: user.name,
-                      subscription_tier: 'professional'
-                    }));
-                    
-                    setAdminStatus({
-                      is_admin: true,
-                      is_authenticated: true,
-                      user_id: user.id,
-                      email: user.email,
-                      role: profile.role,
-                      display_name: user.name,
-                      subscription_tier: 'professional',
-                      has_admin_access: true,
-                      message: "Admin access granted via profile check"
-                    });
-                  } else {
-                    handleAccessDenied("Your profile does not have admin role");
-                  }
-                });
-            })
-            .finally(() => {
-              setLoading(false);
-            });
-        } else {
-          // No user at all
-          console.log("❌ No user found");
-          setIsAuthenticated(false);
-          setLoading(false);
-          navigate('/admin/login');
-        }
-      } else {
-        // No user and not fixed admin
-        console.log("❌ No authenticated user");
-        setIsAuthenticated(false);
-        setLoading(false);
-        navigate('/admin/login');
+      } else if (isFixedAdmin) {
+        // For fixed admin users
+        setAdminStatus({
+          is_admin: true,
+          is_authenticated: true,
+          user_id: 'fixed-admin-id',
+          email: 'admin@saemstunes.com',
+          role: 'admin',
+          display_name: 'Fixed Admin',
+          subscription_tier: 'professional',
+          has_admin_access: true,
+          message: "Fixed admin access"
+        });
+      } else if (user) {
+        // For Supabase users
+        setAdminStatus({
+          is_admin: user.role === 'admin',
+          is_authenticated: true,
+          user_id: user.id,
+          email: user.email,
+          role: user.role,
+          display_name: user.name,
+          subscription_tier: user.subscriptionTier || 'free',
+          has_admin_access: user.role === 'admin',
+          message: "Supabase admin user"
+        });
       }
     };
 
-    const handleAccessDenied = (message: string) => {
-      console.error("Access denied:", message);
-      toast({
-        title: "Access Denied",
-        description: message,
-        variant: "destructive",
-        duration: 5000
-      });
-      
-      // Clear invalid session
-      sessionStorage.removeItem('adminAuth');
-      sessionStorage.removeItem('adminUser');
-      sessionStorage.removeItem('fixedAdmin');
-      
-      setTimeout(() => {
-        navigate('/admin/login');
-      }, 3000);
-    };
-
-    // Add a small delay to ensure session storage is set
-    const timeoutId = setTimeout(checkAdminStatus, 500);
-    
-    return () => clearTimeout(timeoutId);
-  }, [user, authLoading, isFixedAdmin, navigate]);
+    loadAdminStatus();
+  }, [user, isFixedAdmin]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'dashboard') {
+    if (adminStatus && adminStatus.has_admin_access && activeTab === 'dashboard') {
       fetchDashboardData();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [adminStatus, activeTab]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'users') {
+    if (adminStatus && adminStatus.has_admin_access && activeTab === 'users') {
       fetchUsers();
     }
-  }, [isAuthenticated, activeTab, usersPage, usersSearch]);
+  }, [adminStatus, activeTab, usersPage, usersSearch]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'content') {
+    if (adminStatus && adminStatus.has_admin_access && activeTab === 'content') {
       fetchContent();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [adminStatus, activeTab]);
 
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'featured') {
+    if (adminStatus && adminStatus.has_admin_access && activeTab === 'featured') {
       fetchFeaturedItems();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [adminStatus, activeTab]);
 
   const fetchDashboardData = async () => {
+    if (!adminStatus?.has_admin_access) return;
+    
     setDashboardLoading(true);
     try {
       const [
@@ -1170,16 +1037,22 @@ const Admin = () => {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'active')
           .gt('valid_until', new Date().toISOString()),
-        supabase.rpc('get_total_content_views').catch(() => ({ data: [{ total_views: 0 }], error: null })),
-        supabase.rpc('get_current_month_revenue').catch(() => ({ data: [{ total_revenue: 0 }], error: null })),
+        supabase.rpc('get_total_content_views'),
+        supabase.rpc('get_current_month_revenue'),
         supabase
           .from('profiles')
           .select('id, first_name, last_name, email, role, created_at, is_admin, display_name')
           .order('created_at', { ascending: false })
-          .limit(4)
-          .catch(() => ({ data: [], error: null })),
-        supabase.rpc('get_recent_content', { limit_count: 4 }).catch(() => ({ data: [], error: null }))
+          .limit(4),
+        supabase.rpc('get_recent_content', { limit_count: 4 })
       ]);
+
+      if (totalUsersRes.error) handleSupabaseError(totalUsersRes.error, 'total users');
+      if (activeSubscriptionsRes.error) handleSupabaseError(activeSubscriptionsRes.error, 'active subscriptions');
+      if (contentViewsRes.error) handleSupabaseError(contentViewsRes.error, 'content views');
+      if (revenueRes.error) handleSupabaseError(revenueRes.error, 'revenue');
+      if (usersRes.error) handleSupabaseError(usersRes.error, 'recent users');
+      if (contentRes.error) handleSupabaseError(contentRes.error, 'recent content');
 
       setDashboardStats({
         totalUsers: totalUsersRes.count || 0,
@@ -1191,7 +1064,6 @@ const Admin = () => {
       setRecentUsers(usersRes.data || []);
       setRecentContent(contentRes.data || []);
     } catch (error: any) {
-      console.error("Dashboard data error:", error);
       toast({ 
         title: "Failed to load dashboard data",
         description: error.message,
@@ -1203,6 +1075,8 @@ const Admin = () => {
   };
 
   const fetchUsers = async () => {
+    if (!adminStatus?.has_admin_access) return;
+    
     setUsersLoading(true);
     try {
       let query = supabase
@@ -1236,6 +1110,8 @@ const Admin = () => {
   };
 
   const fetchContent = async () => {
+    if (!adminStatus?.has_admin_access) return;
+    
     setContentLoading(true);
     try {
       const [
@@ -1247,6 +1123,10 @@ const Admin = () => {
         supabase.from('tracks').select('id, title, created_at'),
         supabase.from('learning_paths').select('id, title, created_at')
       ]);
+
+      if (videosRes.error) handleSupabaseError(videosRes.error, 'fetch videos');
+      if (audioRes.error) handleSupabaseError(audioRes.error, 'fetch audio');
+      if (coursesRes.error) handleSupabaseError(coursesRes.error, 'fetch courses');
 
       const videos = videosRes.data?.map(item => ({
         ...item,
@@ -1269,10 +1149,52 @@ const Admin = () => {
         created_at: new Date(item.created_at).toISOString()
       })) || [];
 
+      const videoIds = videos.map(v => v.id);
+      const audioIds = audio.map(a => a.id);
+      const courseIds = courses.map(c => c.id);
+
+      const [
+        videoStatsRes,
+        audioStatsRes,
+        courseStatsRes
+      ] = await Promise.all([
+        supabase.rpc('get_video_view_counts'),
+        supabase.rpc('get_audio_play_counts'),
+        supabase.rpc('get_course_enrollment_counts')
+      ]);
+
+      if (videoStatsRes.error) handleSupabaseError(videoStatsRes.error, 'video stats');
+      if (audioStatsRes.error) handleSupabaseError(audioStatsRes.error, 'audio stats');
+      if (courseStatsRes.error) handleSupabaseError(courseStatsRes.error, 'course stats');
+
+      const videoStats = videoStatsRes.data?.reduce((acc, curr) => {
+        acc[curr.video_content_id] = curr.view_count;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      const audioStats = audioStatsRes.data?.reduce((acc, curr) => {
+        acc[curr.track_id] = curr.play_count;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      const courseStats = courseStatsRes.data?.reduce((acc, curr) => {
+        acc[curr.learning_path_id] = curr.enrollment_count;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
       const combinedContent = [
-        ...videos,
-        ...audio,
-        ...courses
+        ...videos.map(video => ({
+          ...video,
+          views: videoStats[video.id] || 0
+        })),
+        ...audio.map(track => ({
+          ...track,
+          plays: audioStats[track.id] || 0
+        })),
+        ...courses.map(course => ({
+          ...course,
+          enrollments: courseStats[course.id] || 0
+        }))
       ];
 
       combinedContent.sort((a, b) => 
@@ -1292,14 +1214,16 @@ const Admin = () => {
   };
 
   const fetchFeaturedItems = async () => {
+    if (!adminStatus?.has_admin_access) return;
+    
     setItemsLoading(true);
     try {
-      // Try admin function first
+      // Use the new admin function
       const { data, error } = await supabase
         .rpc('get_featured_items_admin');
       
       if (error) {
-        console.log("Falling back to regular select");
+        console.error("Error fetching featured items:", error);
         // Fall back to regular select
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('featured_items')
@@ -1339,7 +1263,6 @@ const Admin = () => {
       }
       
       // Reset state
-      setIsAuthenticated(false);
       setAdminStatus(null);
       
       toast({
@@ -1529,15 +1452,21 @@ const Admin = () => {
     }
     
     try {
-      // Try to delete just from profiles first
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
+      // First delete from auth.users (requires admin permissions)
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authError) {
+        console.error("Auth delete error:", authError);
+        // Try to delete just from profiles if auth delete fails
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
 
-      if (profileError) {
-        handleSupabaseError(profileError, 'delete user profile');
-        return;
+        if (profileError) {
+          handleSupabaseError(profileError, 'delete user profile');
+          return;
+        }
       }
       
       fetchUsers();
@@ -1602,7 +1531,7 @@ const Admin = () => {
   };
 
   // Loading state
-  if (loading || authLoading) {
+  if (authLoading || !adminStatus) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
@@ -1619,8 +1548,8 @@ const Admin = () => {
     );
   }
 
-  // Not authenticated
-  if (!isAuthenticated) {
+  // Not authenticated or not admin
+  if (!adminStatus.has_admin_access) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="w-full max-w-md">
@@ -1630,7 +1559,9 @@ const Admin = () => {
             </div>
             <CardTitle className="text-2xl">Admin Access Required</CardTitle>
             <CardDescription className="pt-2">
-              Please log in to access the admin panel.
+              {adminStatus.is_authenticated 
+                ? "Your account does not have administrator privileges."
+                : "You need to be logged in as an administrator."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1638,18 +1569,24 @@ const Admin = () => {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Access Denied</AlertTitle>
               <AlertDescription>
-                You need to be logged in as an administrator.
+                {adminStatus.is_authenticated 
+                  ? `Logged in as ${adminStatus.email} (Role: ${adminStatus.role || 'Not set'})`
+                  : "Please log in with an admin account."}
               </AlertDescription>
             </Alert>
             
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                To access the admin panel, your account must have:
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                <li>Role set to "admin" in your profile</li>
+                <li>Or is_admin column set to TRUE</li>
+                <li>Proper RLS policies configured</li>
+              </ul>
+            </div>
+            
             <div className="pt-4 space-y-3">
-              <Button 
-                onClick={() => navigate('/admin/login')}
-                className="w-full bg-gold hover:bg-gold/90 text-white"
-              >
-                Go to Admin Login
-              </Button>
-              
               <Button 
                 onClick={() => navigate('/')}
                 variant="outline"
@@ -1657,11 +1594,21 @@ const Admin = () => {
               >
                 Return to Home
               </Button>
+              
+              {user && (
+                <Button 
+                  onClick={handleLogout}
+                  className="w-full"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout & Try Different Account
+                </Button>
+              )}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col items-center text-xs text-muted-foreground border-t pt-4">
             <p>Admin Panel • Saem's Tunes</p>
-            <p>Version 2.0.0 • Enhanced Security</p>
+            <p>Need help? Check Admin Tools tab for diagnostics.</p>
           </CardFooter>
         </Card>
       </div>
@@ -1710,28 +1657,14 @@ const Admin = () => {
                 <p className="text-sm font-medium">{adminStatus?.display_name || 'Administrator'}</p>
                 <p className="text-xs text-muted-foreground">Last login: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
               </div>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate('/')}>
-                    <Home className="h-4 w-4 mr-2" />
-                    Go to Home
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveTab('admin-tools')}>
-                    <Shield className="h-4 w-4 mr-2" />
-                    Admin Tools
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleLogout}
+                className="hover:bg-destructive/10 hover:text-destructive"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           </div>
         </div>
@@ -1821,22 +1754,6 @@ const Admin = () => {
                   <span className="text-xs mt-1">{item.label}</span>
                 </TabsTrigger>
               ))}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-auto px-3 py-2">
-                    <MoreVertical className="h-4 w-4" />
-                    <span className="text-xs mt-1">More</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {NAV_ITEMS.slice(6).map((item) => (
-                    <DropdownMenuItem key={item.value} onClick={() => setActiveTab(item.value)}>
-                      <item.icon className="h-4 w-4 mr-2" />
-                      {item.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
             </TabsList>
           </Tabs>
         </div>
