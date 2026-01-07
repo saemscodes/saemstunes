@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AdminProvider, useAdmin } from "@/context/AdminContext";
 import { SubscriptionProvider } from "@/context/SubscriptionContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { AudioPlayerProvider } from "@/context/AudioPlayerContext";
@@ -17,7 +18,7 @@ import { AISettingsProvider, useAISettings } from '@/context/AISettingsContext';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute"; // IMPORT THE SEPARATE COMPONENT
+import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import SplashScreen from "@/components/ui/splash-screen";
 import GlobalMiniPlayer from "@/components/player/GlobalMiniPlayer";
 import IdleStateManager from "@/components/idle-state/IdleStateManager";
@@ -67,7 +68,6 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import MusicShowcase from "./pages/MusicShowcase";
 import Profile from "./pages/Profile";
-
 import DebugPage from './pages/DebugPage'
 
 const queryClient = new QueryClient();
@@ -136,112 +136,114 @@ const App = () => {
                       <SplashScreen loading={loading} />
                       <FeaturedItemsProvider>
                         <AISettingsProvider>
-                          <AIConditionalRenderer />
-                          <BrowserRouter>
-                            <IdleStateManager idleTime={60000} />
-                            <Routes>
-                              <Route path="/" element={<Index />} />
-                              
-                              {/* Admin Routes */}
-                              <Route path="/admin/login" element={<AdminLogin />} />
-                              <Route path="/admin" element={
-                                <AdminProtectedRoute>
-                                  <Admin />
-                                </AdminProtectedRoute>
-                              } />
-                              
-                              {/* Auth Routes */}
-                              <Route path="/login" element={<Auth />} />
-                              <Route path="/signup" element={<Auth />} />
-                              <Route path="/auth" element={<Auth />} />
-                              <Route path="/verification-waiting" element={<VerificationWaiting />} />
-                              <Route path="/auth/callback" element={<AuthCallback />} />
-                              
-                              {/* Public Content Routes */}
-                              <Route path="/videos" element={<Videos />} />
-                              <Route path="/videos/:id" element={<VideoDetail />} />
-                              <Route path="/resources" element={<Resources />} />
-                              <Route path="/resources/:id" element={<ResourceDetail />} />
-                              <Route path="/search" element={<Search />} />
-                              <Route path="/discover" element={<Discover />} />
-                              <Route path="/library" element={<Library />} />
-                              <Route path="/community" element={<Community />} />
-                              <Route path="/tracks" element={<Tracks />} />
-                              <Route path="/track/:slug" element={<AudioPlayer />} />
-                              <Route path="/artist/:slug" element={<ArtistProfile />} />
-                              <Route path="/course/:slug" element={<LearningHub />} />
-                              <Route path="/lesson/:slug" element={<LearningModulePage />} />
-                              <Route path="/module/:slug" element={<LearningModulePage />} />
-                              <Route path="/music-showcase" element={<Navigate to="/tracks" replace />} />
-                              <Route path="/player" element={<Player />} />
-                              <Route path="/learning-hub" element={<LearningHub />} />
-                              <Route path="/learning-hub/:id" element={<LearningModulePage />} />
-                              <Route path="/learning-module/:id" element={<LearningModulePage />} />
-                              <Route path="/artist/:slug" element={<ArtistProfile />} />
-                              <Route path="/follow-us" element={<FollowUs />} />
-                              <Route path="/contact-us" element={<ContactUs />} />
-                              <Route path="/support-us" element={<SupportUs />} />
-                              <Route path="/services" element={<Services />} />
-                              <Route path="/payment" element={<Payment />} />
-                              <Route path="/payment-success" element={<PaymentSuccess />} />
-                              <Route path="/subscriptions" element={<Subscriptions />} />
-                              <Route path="/music-tools" element={<MusicTools />} />
-                              <Route path="/artists" element={<Artists />} />
-                              <Route path="/learning-hub/:moduleId" element={<LearningModulePage />} />
-                              <Route path="/coming-soon" element={<ComingSoon />} />
-                              <Route path="/tracks/:slug" element={<AudioPlayer />} />
-                              <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
-                              <Route path="/terms" element={<Terms />} />
-                              <Route path="/privacy" element={<Privacy />} />
-                              
-                              {/* Debug Route */}
-                              <Route path="/debug" element={<DebugPage />} />
-                              
-                              {/* Protected User Routes */}
-                              <Route path="/notifications" element={
-                                <ProtectedRoute>
-                                  <Notifications />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/settings" element={
-                                <ProtectedRoute>
-                                  <Settings />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/profile" element={
-                                <ProtectedRoute>
-                                  <Profile />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/bookings" element={
-                                <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
-                                  <Bookings />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/book/:id" element={
-                                <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
-                                  <BookTutor />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/book-tutor" element={
-                                <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
-                                  <BookTutor />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/user-details" element={
-                                <ProtectedRoute>
-                                  <UserDetails />
-                                </ProtectedRoute>
-                              } />
-                              
-                              {/* Error Routes */}
-                              <Route path="/unauthorized" element={<Unauthorized />} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                            <GlobalMiniPlayer />
-                            <SpeedInsights />
-                            <Analytics />
-                          </BrowserRouter>
+                          <AdminProvider>
+                            <AIConditionalRenderer />
+                            <BrowserRouter>
+                              <IdleStateManager idleTime={60000} />
+                              <Routes>
+                                <Route path="/" element={<Index />} />
+                                
+                                {/* Admin Routes */}
+                                <Route path="/admin/login" element={<AdminLogin />} />
+                                <Route path="/admin" element={
+                                  <AdminProtectedRoute>
+                                    <Admin />
+                                  </AdminProtectedRoute>
+                                } />
+                                
+                                {/* Auth Routes */}
+                                <Route path="/login" element={<Auth />} />
+                                <Route path="/signup" element={<Auth />} />
+                                <Route path="/auth" element={<Auth />} />
+                                <Route path="/verification-waiting" element={<VerificationWaiting />} />
+                                <Route path="/auth/callback" element={<AuthCallback />} />
+                                
+                                {/* Public Content Routes */}
+                                <Route path="/videos" element={<Videos />} />
+                                <Route path="/videos/:id" element={<VideoDetail />} />
+                                <Route path="/resources" element={<Resources />} />
+                                <Route path="/resources/:id" element={<ResourceDetail />} />
+                                <Route path="/search" element={<Search />} />
+                                <Route path="/discover" element={<Discover />} />
+                                <Route path="/library" element={<Library />} />
+                                <Route path="/community" element={<Community />} />
+                                <Route path="/tracks" element={<Tracks />} />
+                                <Route path="/track/:slug" element={<AudioPlayer />} />
+                                <Route path="/artist/:slug" element={<ArtistProfile />} />
+                                <Route path="/course/:slug" element={<LearningHub />} />
+                                <Route path="/lesson/:slug" element={<LearningModulePage />} />
+                                <Route path="/module/:slug" element={<LearningModulePage />} />
+                                <Route path="/music-showcase" element={<Navigate to="/tracks" replace />} />
+                                <Route path="/player" element={<Player />} />
+                                <Route path="/learning-hub" element={<LearningHub />} />
+                                <Route path="/learning-hub/:id" element={<LearningModulePage />} />
+                                <Route path="/learning-module/:id" element={<LearningModulePage />} />
+                                <Route path="/artist/:slug" element={<ArtistProfile />} />
+                                <Route path="/follow-us" element={<FollowUs />} />
+                                <Route path="/contact-us" element={<ContactUs />} />
+                                <Route path="/support-us" element={<SupportUs />} />
+                                <Route path="/services" element={<Services />} />
+                                <Route path="/payment" element={<Payment />} />
+                                <Route path="/payment-success" element={<PaymentSuccess />} />
+                                <Route path="/subscriptions" element={<Subscriptions />} />
+                                <Route path="/music-tools" element={<MusicTools />} />
+                                <Route path="/artists" element={<Artists />} />
+                                <Route path="/learning-hub/:moduleId" element={<LearningModulePage />} />
+                                <Route path="/coming-soon" element={<ComingSoon />} />
+                                <Route path="/tracks/:slug" element={<AudioPlayer />} />
+                                <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
+                                <Route path="/terms" element={<Terms />} />
+                                <Route path="/privacy" element={<Privacy />} />
+                                
+                                {/* Debug Route */}
+                                <Route path="/debug" element={<DebugPage />} />
+                                
+                                {/* Protected User Routes */}
+                                <Route path="/notifications" element={
+                                  <ProtectedRoute>
+                                    <Notifications />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/settings" element={
+                                  <ProtectedRoute>
+                                    <Settings />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/profile" element={
+                                  <ProtectedRoute>
+                                    <Profile />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/bookings" element={
+                                  <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
+                                    <Bookings />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/book/:id" element={
+                                  <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
+                                    <BookTutor />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/book-tutor" element={
+                                  <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
+                                    <BookTutor />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/user-details" element={
+                                  <ProtectedRoute>
+                                    <UserDetails />
+                                  </ProtectedRoute>
+                                } />
+                                
+                                {/* Error Routes */}
+                                <Route path="/unauthorized" element={<Unauthorized />} />
+                                <Route path="*" element={<NotFound />} />
+                              </Routes>
+                              <GlobalMiniPlayer />
+                              <SpeedInsights />
+                              <Analytics />
+                            </BrowserRouter>
+                          </AdminProvider>
                         </AISettingsProvider>
                       </FeaturedItemsProvider>
                     </TooltipProvider>
