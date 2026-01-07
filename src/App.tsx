@@ -123,6 +123,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
+     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
           <SubscriptionProvider>
@@ -138,8 +139,7 @@ const App = () => {
                         <AISettingsProvider>
                           <AdminProvider>
                             <AIConditionalRenderer />
-                            <BrowserRouter>
-                              <IdleStateManager idleTime={60000} />
+                            <IdleStateManager idleTime={60000} />
                               <Routes>
                                 <Route path="/" element={<Index />} />
                                 
@@ -242,7 +242,6 @@ const App = () => {
                               <GlobalMiniPlayer />
                               <SpeedInsights />
                               <Analytics />
-                            </BrowserRouter>
                           </AdminProvider>
                         </AISettingsProvider>
                       </FeaturedItemsProvider>
@@ -254,6 +253,7 @@ const App = () => {
           </SubscriptionProvider>
         </AuthProvider>
       </ThemeProvider>   
+    </BrowserRouter>
     </QueryClientProvider>
   );
 };
