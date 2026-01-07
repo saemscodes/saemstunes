@@ -44,6 +44,8 @@ interface AuthContextProps {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   signInWithOAuth: (provider: 'google' | 'facebook') => Promise<void>;
   verifyAdminWithSupabase: () => Promise<{ has_admin_access: boolean; role?: string; email?: string }>;
+  isFixedAdmin: boolean;
+  fixedAdminLogout: () => void;
 }
 
 interface AuthProviderProps {
@@ -71,6 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [isFixedAdmin, setIsFixedAdmin] = useState(false);
   const { toast } = useToast();
 
   const fetchProfile = async (userId: string) => {
@@ -96,50 +99,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyAdminWithSupabase = useCallback(async () => {
     try {
+      console.log("Calling verify_admin_status RPC...");
       const { data: status, error } = await supabase
         .rpc('verify_admin_status');
       
       if (error) {
-        console.error("Admin status check error:", error);
-        return { has_admin_access: false, error: error.message };
+        console.error("Admin status check RPC error:", error);
+        return { 
+          has_admin_access: false, 
+          error: error.message,
+          isAuthenticated: false
+        };
       }
       
+      console.log("verify_admin_status result:", status);
       return {
         has_admin_access: status.has_admin_access || false,
         role: status.role,
-        email: status.email
+        email: status.email,
+        display_name: status.display_name,
+        subscription_tier: status.subscription_tier,
+        isAuthenticated: status.is_authenticated,
+        user_id: status.user_id,
+        is_admin: status.is_admin
       };
     } catch (error: any) {
       console.error("Error checking admin status:", error);
-      return { has_admin_access: false, error: error.message };
+      return { 
+        has_admin_access: false, 
+        error: error.message,
+        isAuthenticated: false
+      };
     }
   }, []);
 
   useEffect(() => {
     const loadSession = async () => {
       setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      setSession(session);
-      if (session?.user) {
-        // Fetch the user's profile
-        const userProfile = await fetchProfile(session.user.id);
-        
-        // Create extended user with values from profile
-        const extendedUser: ExtendedUser = {
-          ...session.user,
-          role: (userProfile?.role as UserRole) || 'user',
-          name: userProfile?.display_name || session.user.user_metadata?.full_name || session.user.email || 'User',
-          avatar: userProfile?.avatar_url || session.user.user_metadata?.avatar_url,
-          subscribed: userProfile?.subscription_tier !== 'free',
-          subscriptionTier: (userProfile?.subscription_tier as SubscriptionTier) || 'free'
-        };
-        setUser(extendedUser);
-      } else {
-        setUser(null);
-        setProfile(null);
+        setSession(session);
+        if (session?.user) {
+          // Fetch the user's profile
+          const userProfile = await fetchProfile(session.user.id);
+          
+          // Create extended user with values from profile
+          const extendedUser: ExtendedUser = {
+            ...session.user,
+            role: (userProfile?.role as UserRole) || 'user',
+            name: userProfile?.display_name || session.user.user_metadata?.full_name || session.user.email || 'User',
+            avatar: userProfile?.avatar_url || session.user.user_metadata?.avatar_url,
+            subscribed: userProfile?.subscription_tier !== 'free',
+            subscriptionTier: (userProfile?.subscription_tier as SubscriptionTier) || 'free'
+          };
+          setUser(extendedUser);
+          setIsFixedAdmin(false);
+        } else {
+          setUser(null);
+          setProfile(null);
+          
+          // Check if we have fixed admin in session storage
+          const fixedAdmin = sessionStorage.getItem('fixedAdmin');
+          if (fixedAdmin === 'true') {
+            setIsFixedAdmin(true);
+            const adminData = sessionStorage.getItem('adminUser');
+            if (adminData) {
+              try {
+                const parsed = JSON.parse(adminData);
+                const fixedAdminUser: ExtendedUser = {
+                  id: parsed.id || 'fixed-admin-id',
+                  email: parsed.email || 'admin@saemstunes.com',
+                  role: 'admin' as UserRole,
+                  name: parsed.display_name || 'Fixed Admin',
+                  avatar: undefined,
+                  subscribed: true,
+                  subscriptionTier: 'professional' as SubscriptionTier,
+                  user_metadata: { role: 'admin' },
+                  app_metadata: {},
+                  aud: 'authenticated',
+                  created_at: new Date().toISOString(),
+                  confirmed_at: new Date().toISOString(),
+                  last_sign_in_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                } as any;
+                setUser(fixedAdminUser);
+              } catch (e) {
+                console.error("Error parsing fixed admin data:", e);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading session:", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     loadSession();
@@ -160,6 +215,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             subscriptionTier: (userProfile?.subscription_tier as SubscriptionTier) || 'free'
           };
           setUser(extendedUser);
+          setIsFixedAdmin(false);
         } else {
           setUser(null);
           setProfile(null);
@@ -222,9 +278,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) throw error;
       
       // After successful login, fetch user profile
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await fetchProfile(user.id);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        await fetchProfile(currentUser.id);
       }
     } catch (error: any) {
       throw error;
@@ -244,38 +300,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Step 2: Check for fixed admin credentials
       if (email === FIXED_ADMIN_CREDENTIALS.username && password === FIXED_ADMIN_CREDENTIALS.password) {
-        // Fixed admin login - bypass Supabase auth
-        const fixedAdminSession = {
-          user: {
-            id: 'fixed-admin-id',
-            email: 'admin@saemstunes.com',
-            user_metadata: { role: 'admin' }
-          }
-        };
-        setSession(fixedAdminSession as any);
+        console.log("Fixed admin login detected");
         
-        const extendedUser: ExtendedUser = {
-          ...fixedAdminSession.user,
-          role: 'admin',
+        // Create fixed admin user object
+        const fixedAdminUser = {
+          id: 'fixed-admin-id',
+          email: 'admin@saemstunes.com',
+          role: 'admin' as UserRole,
           name: 'Fixed Admin',
           avatar: undefined,
           subscribed: true,
-          subscriptionTier: 'professional'
+          subscriptionTier: 'professional' as SubscriptionTier
         };
-        setUser(extendedUser);
         
         // Store in session storage
         sessionStorage.setItem('adminAuth', 'true');
+        sessionStorage.setItem('fixedAdmin', 'true');
         sessionStorage.setItem('adminUser', JSON.stringify({
           id: 'fixed-admin-id',
           email: 'admin@saemstunes.com',
-          role: 'admin'
+          role: 'admin',
+          display_name: 'Fixed Admin',
+          subscription_tier: 'professional'
         }));
+        
+        // Set user in context
+        setUser(fixedAdminUser as ExtendedUser);
+        setIsFixedAdmin(true);
         
         return { isAdmin: true, requiresAdminCode: false };
       }
 
       // Step 3: Regular admin login via Supabase with CAPTCHA
+      console.log("Attempting Supabase admin login...");
       const { error, data } = await supabase.auth.signInWithPassword({ 
         email, 
         password,
@@ -290,6 +347,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw error;
       }
 
+      console.log("Supabase login successful, verifying admin status...");
+
       // Step 4: Verify admin status with Supabase RPC
       const adminStatus = await verifyAdminWithSupabase();
       
@@ -299,18 +358,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error("User does not have admin privileges");
       }
 
-      // Step 5: Fetch profile and set session
+      console.log("Admin status verified, fetching profile...");
+
+      // Step 5: Fetch profile and update state
       if (data.user) {
         await fetchProfile(data.user.id);
       }
       
       // Store in session storage
       sessionStorage.setItem('adminAuth', 'true');
+      sessionStorage.setItem('fixedAdmin', 'false');
       sessionStorage.setItem('adminUser', JSON.stringify({
         id: data.user?.id,
         email: data.user?.email,
-        role: adminStatus.role
+        role: adminStatus.role,
+        display_name: adminStatus.display_name,
+        subscription_tier: adminStatus.subscription_tier
       }));
+      
+      setIsFixedAdmin(false);
       
       return { isAdmin: true, requiresAdminCode: true };
       
@@ -349,8 +415,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear session storage
       sessionStorage.removeItem('adminAuth');
       sessionStorage.removeItem('adminUser');
+      sessionStorage.removeItem('fixedAdmin');
       sessionStorage.removeItem('loginAttempts');
+      sessionStorage.removeItem('adminLoginAttempts');
+      
       await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      setIsFixedAdmin(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -362,8 +434,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const fixedAdminLogout = () => {
+    sessionStorage.removeItem('adminAuth');
+    sessionStorage.removeItem('adminUser');
+    sessionStorage.removeItem('fixedAdmin');
+    setUser(null);
+    setProfile(null);
+    setIsFixedAdmin(false);
+    toast({
+      title: "Logged out",
+      description: "Fixed admin session ended.",
+    });
+  };
+
   const logout = async () => {
-    await signOut();
+    if (isFixedAdmin) {
+      fixedAdminLogout();
+    } else {
+      await signOut();
+    }
   };
 
   const signUp = async (email: string, password?: string) => {
@@ -461,6 +550,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateProfile,
     signInWithOAuth,
     verifyAdminWithSupabase,
+    isFixedAdmin,
+    fixedAdminLogout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
