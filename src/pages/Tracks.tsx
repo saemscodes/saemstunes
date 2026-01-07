@@ -1,5 +1,4 @@
-import { supabase } from '@/lib/supabase/production-client';
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from '@/lib/supabase/singleton';
 import { Button } from "@/components/ui/button";
@@ -23,8 +22,7 @@ import { PlaylistActions } from "@/components/playlists/PlaylistActions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import EnhancedAnimatedList from "@/components/tracks/EnhancedAnimatedList";
 import TiltedCard from "@/components/tracks/TiltedCard";
-import { getImageUrl } from "@/lib/urlUtils";
-import { getAudioUrl, getStorageUrl, convertTrackToAudioTrack, generateTrackUrl } from "@/lib/audioUtils";
+import { convertTrackToAudioTrack } from "@/lib/audioUtils";
 
 interface Track {
   id: string;
@@ -92,38 +90,36 @@ const Tracks = () => {
   const [uploading, setUploading] = useState(false);
   
   const navigate = useNavigate();
+  const channelRef = useRef<any>(null);
+  const isFetchingRef = useRef(false);
+  const subscriptionRef = useRef(false);
 
-  useEffect(() => {
-    fetchTracks();
-    fetchFeaturedTrack();
-    fetchPlaylists();
-    
-    const channel = supabase
-      .channel('tracks-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tracks'
-      }, () => {
-        fetchTracks();
-        fetchFeaturedTrack();
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'playlists'
-      }, () => {
-        fetchPlaylists();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  // Get image URL utility
+  const getImageUrl = useCallback((path: string | null | undefined): string => {
+    if (!path) return '/default-cover.jpg';
+    if (path.startsWith('http')) return path;
+    return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
   }, []);
 
+  // Get audio URL utility
+  const getAudioUrl = useCallback((track: Track): string => {
+    if (track.alternate_audio_path) {
+      return track.alternate_audio_path.startsWith('http') 
+        ? track.alternate_audio_path 
+        : supabase.storage.from('tracks').getPublicUrl(track.alternate_audio_path).data.publicUrl;
+    }
+    
+    if (track.audio_path.startsWith('http')) {
+      return track.audio_path;
+    }
+    
+    return supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl;
+  }, []);
+
+  // Fetch playlists
   const fetchPlaylists = useCallback(async () => {
     if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('playlists')
@@ -131,19 +127,21 @@ const Tracks = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      if (data) setPlaylists(data);
+      if (error) {
+        console.error('Error fetching playlists:', error);
+        return;
+      }
+      
+      if (data) {
+        setPlaylists(data);
+      }
     } catch (error) {
       console.error('Error fetching playlists:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch playlists. Please try again.',
-        variant: 'destructive',
-      });
     }
-  }, [user, toast]);
+  }, [user]);
 
-  const fetchFeaturedTrack = async () => {
+  // Fetch featured track with proper error handling
+  const fetchFeaturedTrack = useCallback(async () => {
     try {
       const { data: trackData, error: trackError } = await supabase
         .from('tracks')
@@ -157,59 +155,79 @@ const Tracks = () => {
           created_at,
           artist,
           youtube_url,
-          slug
+          slug,
+          user_id
         `)
         .eq('approved', true)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (trackError) throw trackError;
-
-      if (trackData) {
-        const [playCountResult, likeCountResult] = await Promise.all([
-          supabase
-            .from('track_plays')
-            .select('*', { count: 'exact', head: true })
-            .eq('track_id', trackData.id),
-          supabase
-            .from('likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('track_id', trackData.id)
-        ]);
-
-        const playCount = playCountResult.count || 0;
-        const likeCount = likeCountResult.count || 0;
-
-        const audioUrl = getAudioUrl(trackData) || '';
-        const coverUrl = getImageUrl(trackData.cover_path);
-
-        setFeaturedTrack({
-          id: trackData.id,
-          slug: trackData.slug,
-          imageSrc: coverUrl,
-          title: trackData.title,
-          artist: trackData.artist || "Unknown Artist",
-          plays: playCount,
-          likes: likeCount,
-          audioSrc: audioUrl,
-          description: trackData.description,
-          youtube_url: trackData.youtube_url
-        });
+      if (trackError) {
+        console.error('Error fetching featured track:', trackError);
+        setFeaturedTrack(null);
+        return;
       }
+
+      if (!trackData) {
+        setFeaturedTrack(null);
+        return;
+      }
+
+      // Check if user can access this track
+      const canAccess = canAccessContent(
+        trackData.access_level as AccessLevel, 
+        user, 
+        user?.subscriptionTier
+      );
+
+      if (!canAccess) {
+        setFeaturedTrack(null);
+        return;
+      }
+
+      // Fetch counts in parallel
+      const [playCountResult, likeCountResult] = await Promise.all([
+        supabase
+          .from('track_plays')
+          .select('id', { count: 'exact', head: true })
+          .eq('track_id', trackData.id),
+        supabase
+          .from('likes')
+          .select('id', { count: 'exact', head: true })
+          .eq('track_id', trackData.id)
+      ]);
+
+      const playCount = playCountResult.count || 0;
+      const likeCount = likeCountResult.count || 0;
+
+      const audioUrl = getAudioUrl(trackData);
+      const coverUrl = getImageUrl(trackData.cover_path);
+
+      setFeaturedTrack({
+        id: trackData.id,
+        slug: trackData.slug || trackData.id,
+        imageSrc: coverUrl,
+        title: trackData.title,
+        artist: trackData.artist || "Unknown Artist",
+        plays: playCount,
+        likes: likeCount,
+        audioSrc: audioUrl,
+        description: trackData.description,
+        youtube_url: trackData.youtube_url
+      });
     } catch (error) {
-      console.error('Error fetching featured track:', error);
+      console.error('Error in fetchFeaturedTrack:', error);
       setFeaturedTrack(null);
     }
-  };
+  }, [user, getAudioUrl, getImageUrl]);
 
-  const getImageUrl = useCallback((path: string | null | undefined): string => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
-  }, []);
-
-  const fetchTracks = async () => {
+  // Fetch all tracks with proper filtering
+  const fetchTracks = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    
+    isFetchingRef.current = true;
+    
     try {
       const { data, error } = await supabase
         .from('tracks')
@@ -232,11 +250,9 @@ const Tracks = () => {
           primary_color,
           secondary_color,
           background_gradient,
-          slug,
-          profiles:user_id (
-            avatar_url
-          )
+          slug
         `)
+        .eq('approved', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -244,12 +260,12 @@ const Tracks = () => {
         throw error;
       }
       
-      const accessibleTracks = (data || []).filter((track: any) => 
+      // Filter tracks based on user access
+      const accessibleTracks = (data || []).filter((track: Track) => 
         canAccessContent(track.access_level as AccessLevel, user, user?.subscriptionTier)
       );
       
-      setTracks(accessibleTracks as any);
-      setLoading(false);
+      setTracks(accessibleTracks);
     } catch (error) {
       console.error('Error fetching tracks:', error);
       toast({
@@ -257,24 +273,175 @@ const Tracks = () => {
         description: "Failed to load tracks",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }
+  }, [user, toast]);
+
+  // Initialize data fetching
+  const initializeData = useCallback(async () => {
+    setLoading(true);
+    
+    try {
+      await Promise.all([
+        fetchTracks(),
+        fetchFeaturedTrack(),
+        fetchPlaylists()
+      ]);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
       setLoading(false);
     }
-  };
+  }, [fetchTracks, fetchFeaturedTrack, fetchPlaylists]);
 
-  const trackPlay = async (trackId: string) => {
-    if (!trackId) return;
+  // Setup real-time subscriptions
+  const setupSubscriptions = useCallback(() => {
+    if (subscriptionRef.current || channelRef.current) return;
+    
+    subscriptionRef.current = true;
+    
+    // Create a single channel for all subscriptions
+    const channel = supabase
+      .channel('tracks-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tracks',
+          filter: `approved=eq.true`
+        },
+        async (payload) => {
+          // Debounce updates - only process every 2 seconds
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          if (payload.eventType === 'INSERT') {
+            const newTrack = payload.new as Track;
+            // Check if user can access the new track
+            const canAccess = canAccessContent(
+              newTrack.access_level as AccessLevel,
+              user,
+              user?.subscriptionTier
+            );
+            
+            if (canAccess) {
+              setTracks(prev => {
+                const exists = prev.some(t => t.id === newTrack.id);
+                if (exists) return prev;
+                return [newTrack, ...prev];
+              });
+              
+              // Update featured track if needed
+              if (!featuredTrack) {
+                fetchFeaturedTrack();
+              }
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTrack = payload.new as Track;
+            const oldTrack = payload.old as Track;
+            
+            // Check if access level changed
+            if (updatedTrack.access_level !== oldTrack.access_level) {
+              const canAccess = canAccessContent(
+                updatedTrack.access_level as AccessLevel,
+                user,
+                user?.subscriptionTier
+              );
+              
+              if (canAccess) {
+                setTracks(prev => prev.map(t => 
+                  t.id === updatedTrack.id ? updatedTrack : t
+                ));
+              } else {
+                setTracks(prev => prev.filter(t => t.id !== updatedTrack.id));
+              }
+            } else {
+              setTracks(prev => prev.map(t => 
+                t.id === updatedTrack.id ? updatedTrack : t
+              ));
+            }
+            
+            // Update featured track if it's the featured one
+            if (featuredTrack?.id === updatedTrack.id) {
+              fetchFeaturedTrack();
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedTrack = payload.old as Track;
+            setTracks(prev => prev.filter(t => t.id !== deletedTrack.id));
+            
+            // Update featured track if it was deleted
+            if (featuredTrack?.id === deletedTrack.id) {
+              fetchFeaturedTrack();
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'playlists',
+          filter: user ? `user_id=eq.${user.id}` : undefined
+        },
+        () => {
+          // Debounce playlist updates
+          setTimeout(fetchPlaylists, 1000);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to tracks changes');
+        }
+      });
+    
+    channelRef.current = channel;
+  }, [user, featuredTrack, fetchFeaturedTrack, fetchPlaylists]);
+
+  // Effect for initial data loading
+  useEffect(() => {
+    initializeData();
+    
+    // Cleanup function
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      subscriptionRef.current = false;
+    };
+  }, [initializeData]);
+
+  // Effect for setting up subscriptions after initial load
+  useEffect(() => {
+    if (!loading && !channelRef.current) {
+      // Small delay before setting up subscriptions to avoid race conditions
+      const timeoutId = setTimeout(() => {
+        setupSubscriptions();
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [loading, setupSubscriptions]);
+
+  // Track play function
+  const trackPlay = useCallback(async (trackId: string) => {
+    if (!trackId || !user) return;
     
     try {
       await supabase.from('track_plays').insert({
         track_id: trackId,
-        user_id: user?.id || null
+        user_id: user.id
       });
     } catch (error) {
       console.error('Error tracking play:', error);
     }
-  };
+  }, [user]);
 
-  const handlePlayNow = () => {
+  // Handle play now for featured track
+  const handlePlayNow = useCallback(() => {
     if (!featuredTrack) return;
     
     if (featuredTrack.id) {
@@ -285,15 +452,21 @@ const Tracks = () => {
       ? `/tracks/${featuredTrack.slug}` 
       : `/tracks/${featuredTrack.id}`
     );
-  };
+  }, [featuredTrack, navigate, trackPlay]);
 
-  const handleTrackSelect = (track: Track) => {
+  // Handle track selection
+  const handleTrackSelect = useCallback((track: Track) => {
+    if (track.id) {
+      trackPlay(track.id);
+    }
+    
     navigate(track.slug 
       ? `/tracks/${track.slug}` 
       : `/tracks/${track.id}`
     );
-  };
+  }, [navigate, trackPlay]);
 
+  // Handle upload
   const handleUpload = async () => {
     if (!user) {
       toast({
@@ -382,16 +555,18 @@ const Tracks = () => {
           cover_path: coverPath,
           access_level: accessLevel,
           user_id: user.id,
-          youtube_url: youtubeUrl || null
+          youtube_url: youtubeUrl || null,
+          approved: false // Uploads need approval
         });
 
       if (dbError) throw dbError;
 
       toast({
         title: "Upload Successful!",
-        description: "Your track has been uploaded successfully.",
+        description: "Your track has been uploaded and is pending approval.",
       });
 
+      // Reset form
       setTitle('');
       setDescription('');
       setAudioFile(null);
@@ -400,8 +575,11 @@ const Tracks = () => {
       setAccessLevel('free');
       setShowUpload(false);
       
-      fetchTracks();
-      fetchFeaturedTrack();
+      // Refresh data
+      setTimeout(() => {
+        fetchTracks();
+        fetchFeaturedTrack();
+      }, 1000);
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -416,36 +594,38 @@ const Tracks = () => {
     }
   };
 
+  // Filter tracks based on search
   const filteredTracks = tracks.filter(track =>
     track.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (track.artist && track.artist.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Extract unique artists
   const artists = Array.from(
     new Set(tracks.map(track => track.artist).filter(Boolean))
   );
 
-  const coverTracks = tracks.filter(track => 
-    track.cover_path && track.approved && track.youtube_url
-  ).map(track => ({
-    id: track.id,
-    image: getImageUrl(track.cover_path), 
-    title: track.title,
-    subtitle: track.description?.substring(0, 30) + (track.description && track.description.length > 30 ? '...' : ''),
-    handle: track.artist || '@unknown',
-    borderColor: track.primary_color || '#5A270F',
-    gradient: track.background_gradient || 'linear-gradient(145deg, #5A270F, #000)',
-    audioUrl: track.audio_path ? 
-      supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl : '',
-    duration: track.duration ? 
-      `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '0:00',
-    previewUrl: track.preview_url || '',
-    videoUrl: track.video_url || '',
-    youtubeUrl: track.youtube_url || '',
-    primaryColor: track.primary_color || '#5A270F',
-    secondaryColor: track.secondary_color || '#8B4513',
-    backgroundGradient: track.background_gradient || 'linear-gradient(145deg, #5A270F 0%, #8B4513 50%, #000 100%)',
-  }));
+  // Prepare cover tracks for display
+  const coverTracks = tracks
+    .filter(track => track.cover_path && track.approved && track.youtube_url)
+    .map(track => ({
+      id: track.id,
+      image: getImageUrl(track.cover_path), 
+      title: track.title,
+      subtitle: track.description?.substring(0, 30) + (track.description && track.description.length > 30 ? '...' : ''),
+      handle: track.artist || '@unknown',
+      borderColor: track.primary_color || '#5A270F',
+      gradient: track.background_gradient || 'linear-gradient(145deg, #5A270F, #000)',
+      audioUrl: getAudioUrl(track),
+      duration: track.duration ? 
+        `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '0:00',
+      previewUrl: track.preview_url || '',
+      videoUrl: track.video_url || '',
+      youtubeUrl: track.youtube_url || '',
+      primaryColor: track.primary_color || '#5A270F',
+      secondaryColor: track.secondary_color || '#8B4513',
+      backgroundGradient: track.background_gradient || 'linear-gradient(145deg, #5A270F 0%, #8B4513 50%, #000 100%)',
+    }));
 
   if (loading) {
     return (
@@ -563,7 +743,7 @@ const Tracks = () => {
                   <div className="flex gap-2">
                     <Button 
                       onClick={handleUpload} 
-          disabled={uploading || !title.trim() || !audioFile}
+                      disabled={uploading || !title.trim() || !audioFile}
                       className="bg-gold hover:bg-gold/90"
                     >
                       {uploading ? (
@@ -607,26 +787,24 @@ const Tracks = () => {
                     </div>
                     
                     <div className="grid md:grid-cols-2 gap-6 lg:gap-8 items-center">
-                    <div className="flex justify-center relative order-2 md:order-1">
-                      <div className="hover:z-[9999] relative transition-all duration-300 w-full max-w-sm">
-                        <TiltedCard
-                          imageSrc={featuredTrack.imageSrc}
-                          altText="Featured Track Cover"
-                          captionText={featuredTrack.title}
-                          containerHeight="300px"
-                          containerWidth="300px"
-                          rotateAmplitude={12}
-                          scaleOnHover={1.2}
-                          showMobileWarning={false}
-                          showTooltip={true}
-                          displayOverlayContent={true}
-                          overlayContent={<p className="text-white font-bold text-lg">{featuredTrack.title}</p>}
-                          onClick={handlePlayNow}
+                      <div className="flex justify-center relative order-2 md:order-1">
+                        <div className="hover:z-[9999] relative transition-all duration-300 w-full max-w-sm">
+                          <TiltedCard
+                            imageSrc={featuredTrack.imageSrc}
+                            altText="Featured Track Cover"
+                            captionText={featuredTrack.title}
+                            containerHeight="300px"
+                            containerWidth="300px"
+                            rotateAmplitude={12}
+                            scaleOnHover={1.2}
+                            showMobileWarning={false}
+                            showTooltip={true}
+                            displayOverlayContent={true}
+                            overlayContent={<p className="text-white font-bold text-lg">{featuredTrack.title}</p>}
+                            onClick={handlePlayNow}
                           />
+                        </div>
                       </div>
-                    </div>
-
-                
                       
                       <div className="space-y-4 order-1 md:order-2 text-center md:text-left">
                         <h3 className="text-xl font-semibold">{featuredTrack.title}</h3>
@@ -638,7 +816,11 @@ const Tracks = () => {
                           <div className="text-center">
                             <div className="flex items-center gap-2 justify-center">
                               <Play className="h-4 w-4" />
-                              <CountUp to={featuredTrack.plays} separator="," className="text-2xl font-bold text-gold" />
+                              <CountUp 
+                                to={featuredTrack.plays} 
+                                separator="," 
+                                className="text-2xl font-bold text-gold" 
+                              />
                             </div>
                             <p className="text-sm text-muted-foreground">Plays</p>
                           </div>
@@ -646,7 +828,11 @@ const Tracks = () => {
                           <div className="text-center">
                             <div className="flex items-center gap-2 justify-center">
                               <Heart className="h-4 w-4" />
-                              <CountUp to={featuredTrack.likes} separator="," className="text-2xl font-bold text-gold" />
+                              <CountUp 
+                                to={featuredTrack.likes} 
+                                separator="," 
+                                className="text-2xl font-bold text-gold" 
+                              />
                             </div>
                             <p className="text-sm text-muted-foreground">Likes</p>
                           </div>
@@ -686,7 +872,10 @@ const Tracks = () => {
                       <ScrollArea className="h-[400px] w-full">
                         <EnhancedAnimatedList 
                           tracks={filteredTracks.slice(0, 10).map(convertTrackToAudioTrack)} 
-                          onTrackSelect={(track) => handleTrackSelect(filteredTracks.find(t => t.id === track.id)!)}
+                          onTrackSelect={(track) => {
+                            const foundTrack = filteredTracks.find(t => t.id === track.id);
+                            if (foundTrack) handleTrackSelect(foundTrack);
+                          }}
                         />
                       </ScrollArea>
                     </CardContent>
@@ -804,7 +993,10 @@ const Tracks = () => {
                       <ScrollArea className="h-[500px] w-full">
                         <EnhancedAnimatedList 
                           tracks={filteredTracks.map(convertTrackToAudioTrack)} 
-                          onTrackSelect={(track) => handleTrackSelect(filteredTracks.find(t => t.id === track.id)!)}
+                          onTrackSelect={(track) => {
+                            const foundTrack = filteredTracks.find(t => t.id === track.id);
+                            if (foundTrack) handleTrackSelect(foundTrack);
+                          }}
                         />
                       </ScrollArea>
                     </CardContent>
@@ -827,6 +1019,12 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
   
   const audioUrl = track.audio_path ? 
     supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl : '';
+  
+  const getImageUrl = useCallback((path: string | null | undefined): string => {
+    if (!path) return '/default-cover.jpg';
+    if (path.startsWith('http')) return path;
+    return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
+  }, []);
   
   const coverUrl = getImageUrl(track.cover_path);
   
@@ -1022,7 +1220,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
         <div className="flex items-start gap-4 mb-4">
           <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center">
             {track.cover_path ? (
-              <ResponsiveImage 
+              <img 
                 src={coverUrl} 
                 alt="Artist" 
                 width={48}
@@ -1047,15 +1245,15 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
           </div>
           
           {coverUrl && (
-      <ResponsiveImage 
-        src={coverUrl} 
-        alt="Cover" 
-        width={64}
-        height={64}
-        className="h-16 w-16 rounded object-cover"
-        />
-      )}
-     </div>     
+            <img 
+              src={coverUrl} 
+              alt="Cover" 
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded object-cover"
+            />
+          )}
+        </div>
 
         {audioUrl && (
           <div className="mb-4">
