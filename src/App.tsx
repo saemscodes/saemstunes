@@ -25,6 +25,7 @@ import SaemsTunesAI from "@/LLM/SaemsTunesAI";
 
 // Page imports
 import Admin from "@/pages/Admin";
+import AdminLogin from "@/pages/AdminLogin"; // ADD THIS IMPORT
 import Index from "./pages/Index";
 import Auth from "./pages/Auth"; 
 import VerificationWaiting from "./pages/VerificationWaiting";
@@ -69,6 +70,69 @@ import Profile from "./pages/Profile";
 import DebugPage from './pages/DebugPage'
 
 const queryClient = new QueryClient();
+
+// Add AdminProtectedRoute component
+const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading: authLoading } = useAuth();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      setLoading(true);
+      try {
+        // First check session storage
+        const adminAuth = sessionStorage.getItem('adminAuth');
+        const adminUser = sessionStorage.getItem('adminUser');
+        
+        if (adminAuth === 'true' && adminUser) {
+          setIsAuthenticated(true);
+          setLoading(false);
+          return;
+        }
+        
+        // If no user at all, redirect to admin login
+        if (!user && !authLoading) {
+          navigate('/admin/login');
+          return;
+        }
+        
+        // User exists but not admin authenticated, redirect to admin login
+        navigate('/admin/login');
+      } catch (error) {
+        console.error("Admin status check error:", error);
+        navigate('/admin/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user, authLoading, navigate]);
+
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="text-center space-y-4">
+          <div className="space-y-2">
+            <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
+            <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Verifying admin access...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
+
+  return <>{children}</>;
+};
 
 const AIConditionalRenderer = () => {
   const { user, subscription } = useAuth();
@@ -139,16 +203,23 @@ const App = () => {
                             <IdleStateManager idleTime={60000} />
                             <Routes>
                               <Route path="/" element={<Index />} />
-                              <Route path="/admin" element={<Admin />} />
+                              
+                              {/* Admin Routes */}
+                              <Route path="/admin/login" element={<AdminLogin />} />
+                              <Route path="/admin" element={
+                                <AdminProtectedRoute>
+                                  <Admin />
+                                </AdminProtectedRoute>
+                              } />
+                              
+                              {/* Auth Routes */}
                               <Route path="/login" element={<Auth />} />
                               <Route path="/signup" element={<Auth />} />
                               <Route path="/auth" element={<Auth />} />
                               <Route path="/verification-waiting" element={<VerificationWaiting />} />
-                              <Route path="/debug" element={<DebugPage />} />
-                              <Route path="/terms" element={<Terms />} />
-                              <Route path="/privacy" element={<Privacy />} />
-                              <Route path="/unauthorized" element={<Unauthorized />} />
                               <Route path="/auth/callback" element={<AuthCallback />} />
+                              
+                              {/* Public Content Routes */}
                               <Route path="/videos" element={<Videos />} />
                               <Route path="/videos/:id" element={<VideoDetail />} />
                               <Route path="/resources" element={<Resources />} />
@@ -169,16 +240,9 @@ const App = () => {
                               <Route path="/learning-hub/:id" element={<LearningModulePage />} />
                               <Route path="/learning-module/:id" element={<LearningModulePage />} />
                               <Route path="/artist/:slug" element={<ArtistProfile />} />
-                              <Route path="/notifications" element={<Notifications />} />
                               <Route path="/follow-us" element={<FollowUs />} />
                               <Route path="/contact-us" element={<ContactUs />} />
                               <Route path="/support-us" element={<SupportUs />} />
-                              <Route path="/settings" element={<Settings />} />
-                              <Route path="/profile" element={
-                                <ProtectedRoute>
-                                  <Profile />
-                                </ProtectedRoute>
-                              } />
                               <Route path="/services" element={<Services />} />
                               <Route path="/payment" element={<Payment />} />
                               <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -186,6 +250,31 @@ const App = () => {
                               <Route path="/music-tools" element={<MusicTools />} />
                               <Route path="/artists" element={<Artists />} />
                               <Route path="/learning-hub/:moduleId" element={<LearningModulePage />} />
+                              <Route path="/coming-soon" element={<ComingSoon />} />
+                              <Route path="/tracks/:slug" element={<AudioPlayer />} />
+                              <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
+                              <Route path="/terms" element={<Terms />} />
+                              <Route path="/privacy" element={<Privacy />} />
+                              
+                              {/* Debug Route */}
+                              <Route path="/debug" element={<DebugPage />} />
+                              
+                              {/* Protected User Routes */}
+                              <Route path="/notifications" element={
+                                <ProtectedRoute>
+                                  <Notifications />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/settings" element={
+                                <ProtectedRoute>
+                                  <Settings />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/profile" element={
+                                <ProtectedRoute>
+                                  <Profile />
+                                </ProtectedRoute>
+                              } />
                               <Route path="/bookings" element={
                                 <ProtectedRoute requiredRoles={["student", "adult_learner", "parent"]}>
                                   <Bookings />
@@ -201,19 +290,14 @@ const App = () => {
                                   <BookTutor />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/auth" element={
-                                <ProtectedRoute>
-                                  <Auth />
-                                </ProtectedRoute>
-                              } />
                               <Route path="/user-details" element={
                                 <ProtectedRoute>
                                   <UserDetails />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/coming-soon" element={<ComingSoon />} />
-                              <Route path="/tracks/:slug" element={<AudioPlayer />} />
-                              <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
+                              
+                              {/* Error Routes */}
+                              <Route path="/unauthorized" element={<Unauthorized />} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                             <GlobalMiniPlayer />
