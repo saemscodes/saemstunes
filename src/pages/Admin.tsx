@@ -895,9 +895,10 @@ const AdminToolsTab = () => {
 };
 
 const Admin = () => {
-  const { user, logout, isLoading: authLoading, isFixedAdmin, fixedAdminLogout } = useAuth();
+  const { user, logout, isLoading: authLoading, isFixedAdmin } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [loading, setLoading] = useState(true);
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [editingItem, setEditingItem] = useState<FeaturedItem | null>(null);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
@@ -940,88 +941,271 @@ const Admin = () => {
 
   const totalContentCount = filteredContent.length;
 
-  // Load admin status from session storage on mount
+  // Simplified admin check - only check session storage and context
   useEffect(() => {
-    const loadAdminStatus = () => {
+    const checkAdminAccess = async () => {
+      setLoading(true);
+      
+      // Check session storage first for quick access
       const adminAuth = sessionStorage.getItem('adminAuth');
       const adminUser = sessionStorage.getItem('adminUser');
+      const fixedAdmin = sessionStorage.getItem('fixedAdmin');
       
+      console.log("Admin check - session storage:", { 
+        adminAuth, 
+        hasAdminUser: !!adminUser, 
+        fixedAdmin,
+        hasUser: !!user,
+        isFixedAdmin
+      });
+
+      // If we have admin auth in session storage and user context matches, we're good
       if (adminAuth === 'true' && adminUser) {
         try {
-          const userData = JSON.parse(adminUser);
-          setAdminStatus({
-            is_admin: true,
-            is_authenticated: true,
-            user_id: userData.id,
-            email: userData.email,
-            role: userData.role,
-            display_name: userData.display_name,
-            subscription_tier: userData.subscription_tier,
-            has_admin_access: true,
-            message: "Admin access granted via session"
-          });
-        } catch (error) {
-          console.error("Error parsing admin user data:", error);
+          const parsedAdmin = JSON.parse(adminUser);
+          console.log("Parsed admin user from session:", parsedAdmin);
+          
+          // Check if this is a fixed admin or Supabase admin
+          if (fixedAdmin === 'true') {
+            console.log("Fixed admin session detected");
+            setAdminStatus({
+              has_admin_access: true,
+              is_authenticated: true,
+              is_admin: true,
+              email: parsedAdmin.email || 'admin@saemstunes.com',
+              role: 'admin',
+              display_name: parsedAdmin.display_name || 'Fixed Admin',
+              subscription_tier: parsedAdmin.subscription_tier || 'professional',
+              user_id: parsedAdmin.id
+            });
+            setLoading(false);
+            return;
+          }
+          
+          // For Supabase admins, verify with backend if user exists
+          if (user) {
+            console.log("Supabase user exists, verifying admin status...");
+            try {
+              const { data: status, error } = await supabase
+                .rpc('verify_admin_status');
+              
+              if (error) {
+                console.error("RPC error, but session says admin:", error);
+                // Still allow access based on session
+                setAdminStatus({
+                  has_admin_access: true,
+                  is_authenticated: true,
+                  is_admin: true,
+                  email: user.email || parsedAdmin.email,
+                  role: parsedAdmin.role || 'admin',
+                  display_name: user.name || parsedAdmin.display_name,
+                  subscription_tier: parsedAdmin.subscription_tier || 'professional',
+                  user_id: user.id
+                });
+              } else {
+                console.log("Admin status from RPC:", status);
+                setAdminStatus(status);
+              }
+            } catch (rpcError) {
+              console.error("RPC failed, using session data:", rpcError);
+              setAdminStatus({
+                has_admin_access: true,
+                is_authenticated: true,
+                is_admin: true,
+                email: user.email || parsedAdmin.email,
+                role: parsedAdmin.role || 'admin',
+                display_name: user.name || parsedAdmin.display_name,
+                subscription_tier: parsedAdmin.subscription_tier || 'professional',
+                user_id: user.id
+              });
+            }
+          } else {
+            // No user in context but session says admin (shouldn't happen, but handle)
+            console.warn("No user in context but session says admin");
+            setAdminStatus({
+              has_admin_access: true,
+              is_authenticated: false,
+              is_admin: true,
+              email: parsedAdmin.email,
+              role: parsedAdmin.role || 'admin',
+              display_name: parsedAdmin.display_name,
+              subscription_tier: parsedAdmin.subscription_tier || 'professional',
+              user_id: parsedAdmin.id
+            });
+          }
+          
+          setLoading(false);
+          return;
+        } catch (parseError) {
+          console.error("Error parsing admin user from session:", parseError);
+          // Clear invalid session data
+          sessionStorage.removeItem('adminAuth');
+          sessionStorage.removeItem('adminUser');
+          sessionStorage.removeItem('fixedAdmin');
         }
-      } else if (isFixedAdmin) {
-        // For fixed admin users
+      }
+      
+      // If we get here, no valid admin session found
+      console.log("No valid admin session found, checking for direct admin access...");
+      
+      // For fixed admin in context
+      if (isFixedAdmin) {
+        console.log("Fixed admin detected via context");
         setAdminStatus({
-          is_admin: true,
+          has_admin_access: true,
           is_authenticated: true,
-          user_id: 'fixed-admin-id',
+          is_admin: true,
           email: 'admin@saemstunes.com',
           role: 'admin',
           display_name: 'Fixed Admin',
           subscription_tier: 'professional',
-          has_admin_access: true,
-          message: "Fixed admin access"
+          user_id: 'fixed-admin-id'
         });
-      } else if (user) {
-        // For Supabase users
-        setAdminStatus({
-          is_admin: user.role === 'admin',
-          is_authenticated: true,
-          user_id: user.id,
-          email: user.email,
-          role: user.role,
-          display_name: user.name,
-          subscription_tier: user.subscriptionTier || 'free',
-          has_admin_access: user.role === 'admin',
-          message: "Supabase admin user"
-        });
+        setLoading(false);
+        return;
       }
+      
+      // For Supabase users, check if they're admin
+      if (user) {
+        console.log("Checking Supabase user for admin access...");
+        try {
+          const { data: status, error } = await supabase
+            .rpc('verify_admin_status');
+          
+          if (error) {
+            console.error("Admin status check error:", error);
+            // Fallback: check profile directly
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('role, is_admin, subscription_tier, display_name')
+              .eq('id', user.id)
+              .single();
+            
+            if (profileError) {
+              console.error("Profile check error:", profileError);
+              toast({
+                title: "Admin access verification failed",
+                description: "Could not verify your admin permissions.",
+                variant: "destructive"
+              });
+              navigate('/admin/login');
+              return;
+            }
+            
+            const isAdmin = profile.role === 'admin' || profile.is_admin === true;
+            
+            if (!isAdmin) {
+              toast({
+                title: "Access Denied",
+                description: "Your account does not have admin privileges.",
+                variant: "destructive"
+              });
+              navigate('/admin/login');
+              return;
+            }
+            
+            // User is admin, set status
+            setAdminStatus({
+              has_admin_access: true,
+              is_authenticated: true,
+              is_admin: true,
+              email: user.email || '',
+              role: profile.role || 'admin',
+              display_name: profile.display_name || user.name || 'Admin',
+              subscription_tier: profile.subscription_tier || 'professional',
+              user_id: user.id
+            });
+            
+            // Store in session for future
+            sessionStorage.setItem('adminAuth', 'true');
+            sessionStorage.setItem('fixedAdmin', 'false');
+            sessionStorage.setItem('adminUser', JSON.stringify({
+              id: user.id,
+              email: user.email,
+              role: profile.role || 'admin',
+              display_name: profile.display_name || user.name,
+              subscription_tier: profile.subscription_tier || 'professional'
+            }));
+          } else {
+            console.log("Admin status from RPC:", status);
+            
+            if (!status.has_admin_access) {
+              toast({
+                title: "Access Denied",
+                description: "You do not have admin privileges.",
+                variant: "destructive",
+                duration: 3000
+              });
+              navigate('/admin/login');
+              return;
+            }
+            
+            setAdminStatus(status);
+            
+            // Store in session for future
+            sessionStorage.setItem('adminAuth', 'true');
+            sessionStorage.setItem('fixedAdmin', 'false');
+            sessionStorage.setItem('adminUser', JSON.stringify({
+              id: status.user_id || user.id,
+              email: status.email || user.email,
+              role: status.role || 'admin',
+              display_name: status.display_name || user.name,
+              subscription_tier: status.subscription_tier || 'professional'
+            }));
+          }
+        } catch (error: any) {
+          console.error("Error checking admin access:", error);
+          toast({
+            title: "Verification Error",
+            description: "Failed to verify admin permissions. Please try logging in again.",
+            variant: "destructive"
+          });
+          navigate('/admin/login');
+          return;
+        }
+      } else {
+        // No user at all, redirect to login
+        console.log("No user found, redirecting to login");
+        navigate('/admin/login');
+        return;
+      }
+      
+      setLoading(false);
     };
 
-    loadAdminStatus();
-  }, [user, isFixedAdmin]);
+    // Small delay to ensure auth context is loaded
+    const timer = setTimeout(() => {
+      checkAdminAccess();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [user, isFixedAdmin, navigate]);
 
   useEffect(() => {
-    if (adminStatus && adminStatus.has_admin_access && activeTab === 'dashboard') {
+    if (adminStatus?.has_admin_access && activeTab === 'dashboard') {
       fetchDashboardData();
     }
   }, [adminStatus, activeTab]);
 
   useEffect(() => {
-    if (adminStatus && adminStatus.has_admin_access && activeTab === 'users') {
+    if (adminStatus?.has_admin_access && activeTab === 'users') {
       fetchUsers();
     }
   }, [adminStatus, activeTab, usersPage, usersSearch]);
 
   useEffect(() => {
-    if (adminStatus && adminStatus.has_admin_access && activeTab === 'content') {
+    if (adminStatus?.has_admin_access && activeTab === 'content') {
       fetchContent();
     }
   }, [adminStatus, activeTab]);
 
   useEffect(() => {
-    if (adminStatus && adminStatus.has_admin_access && activeTab === 'featured') {
+    if (adminStatus?.has_admin_access && activeTab === 'featured') {
       fetchFeaturedItems();
     }
   }, [adminStatus, activeTab]);
 
   const fetchDashboardData = async () => {
-    if (!adminStatus?.has_admin_access) return;
-    
     setDashboardLoading(true);
     try {
       const [
@@ -1075,8 +1259,6 @@ const Admin = () => {
   };
 
   const fetchUsers = async () => {
-    if (!adminStatus?.has_admin_access) return;
-    
     setUsersLoading(true);
     try {
       let query = supabase
@@ -1110,8 +1292,6 @@ const Admin = () => {
   };
 
   const fetchContent = async () => {
-    if (!adminStatus?.has_admin_access) return;
-    
     setContentLoading(true);
     try {
       const [
@@ -1214,8 +1394,6 @@ const Admin = () => {
   };
 
   const fetchFeaturedItems = async () => {
-    if (!adminStatus?.has_admin_access) return;
-    
     setItemsLoading(true);
     try {
       // Use the new admin function
@@ -1255,15 +1433,10 @@ const Admin = () => {
       sessionStorage.removeItem('adminUser');
       sessionStorage.removeItem('fixedAdmin');
       
-      // Log out based on admin type
-      if (isFixedAdmin) {
-        fixedAdminLogout();
-      } else if (user) {
+      // Log out from Supabase
+      if (user && !isFixedAdmin) {
         await logout();
       }
-      
-      // Reset state
-      setAdminStatus(null);
       
       toast({
         title: "Logged out",
@@ -1531,7 +1704,7 @@ const Admin = () => {
   };
 
   // Loading state
-  if (authLoading || !adminStatus) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
@@ -1540,16 +1713,25 @@ const Admin = () => {
             <div className="h-4 w-48 bg-muted rounded animate-pulse mx-auto"></div>
             <div className="h-3 w-32 bg-muted rounded animate-pulse mx-auto"></div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Loading admin panel...
-          </p>
+          <div className="flex flex-col items-center space-y-3">
+            <div className="relative">
+              <RefreshCw className="h-8 w-8 animate-spin text-gold" />
+              <Shield className="h-4 w-4 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gold/80" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Verifying admin permissions...
+            </p>
+            <div className="h-1 w-48 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-gold animate-pulse" style={{ width: '70%' }}></div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   // Not authenticated or not admin
-  if (!adminStatus.has_admin_access) {
+  if (!adminStatus?.has_admin_access) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="w-full max-w-md">
@@ -1559,7 +1741,7 @@ const Admin = () => {
             </div>
             <CardTitle className="text-2xl">Admin Access Required</CardTitle>
             <CardDescription className="pt-2">
-              {adminStatus.is_authenticated 
+              {adminStatus?.is_authenticated 
                 ? "Your account does not have administrator privileges."
                 : "You need to be logged in as an administrator."}
             </CardDescription>
@@ -1569,7 +1751,7 @@ const Admin = () => {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Access Denied</AlertTitle>
               <AlertDescription>
-                {adminStatus.is_authenticated 
+                {adminStatus?.is_authenticated 
                   ? `Logged in as ${adminStatus.email} (Role: ${adminStatus.role || 'Not set'})`
                   : "Please log in with an admin account."}
               </AlertDescription>
@@ -1592,18 +1774,17 @@ const Admin = () => {
                 variant="outline"
                 className="w-full"
               >
+                <Home className="h-4 w-4 mr-2" />
                 Return to Home
               </Button>
               
-              {user && (
-                <Button 
-                  onClick={handleLogout}
-                  className="w-full"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout & Try Different Account
-                </Button>
-              )}
+              <Button 
+                onClick={handleLogout}
+                className="w-full"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout & Try Different Account
+              </Button>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col items-center text-xs text-muted-foreground border-t pt-4">
@@ -1621,25 +1802,31 @@ const Admin = () => {
       <header className="bg-background border-b sticky top-0 z-50 shadow-sm">
         <div className="container flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <Logo size="sm" />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
-                    <Shield className="h-3 w-3" />
-                    ADMIN PANEL
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {isFixedAdmin ? 'Fixed Admin' : (adminStatus?.role || 'Admin')}
-                  </Badge>
+            <div 
+              className="cursor-pointer" 
+              onClick={() => navigate('/')}
+              title="Go to Home"
+            >
+              <Logo size="sm" />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <div className="bg-gold/10 text-gold px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  ADMIN PANEL
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {adminStatus?.email || 'Administrator'} • {adminStatus?.subscription_tier || 'Professional'}
-                </p>
+                <Badge variant="outline" className="text-xs">
+                  {adminStatus?.role || 'Admin'}
+                </Badge>
+                {isFixedAdmin && (
+                  <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                    Fixed Admin
+                  </Badge>
+                )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                {adminStatus?.email} • {adminStatus?.subscription_tier}
+              </p>
             </div>
           </div>
           
@@ -1667,38 +1854,6 @@ const Admin = () => {
               </Button>
             </div>
           </div>
-        </div>
-        
-        {/* Breadcrumb */}
-        <div className="container pb-3">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="flex items-center gap-1">
-                    <Home className="h-3 w-3" />
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/admin" className="font-medium">
-                    Admin Dashboard
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              {activeTab !== 'dashboard' && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <span className="capitalize">{activeTab.replace('-', ' ')}</span>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
         </div>
       </header>
       
@@ -1732,7 +1887,7 @@ const Admin = () => {
                 Admin Access Verified
               </p>
               {isFixedAdmin && (
-                <p className="pt-1 text-amber-600 text-xs">
+                <p className="pt-1 text-yellow-600">
                   ⚠️ Fixed Admin Mode
                 </p>
               )}
@@ -1741,10 +1896,10 @@ const Admin = () => {
         </aside>
         
         {/* Mobile Navigation */}
-        <div className="md:hidden w-full border-b bg-background sticky top-0 z-40">
+        <div className="md:hidden w-full border-b bg-background sticky top-14 z-40">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full overflow-x-auto justify-start py-1 h-auto px-2">
-              {NAV_ITEMS.slice(0, 6).map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <TabsTrigger 
                   key={item.value} 
                   value={item.value} 
@@ -2052,26 +2207,26 @@ const Admin = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Admin Level</p>
-                        <p className="font-medium">{isFixedAdmin ? 'Fixed Admin' : (adminStatus?.role || 'Admin')}</p>
+                        <p className="font-medium">{adminStatus?.role || 'Admin'}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium truncate">{adminStatus?.email || 'Administrator'}</p>
+                        <p className="font-medium truncate">{adminStatus?.email}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Subscription</p>
                         <p className="font-medium">{adminStatus?.subscription_tier || 'Professional'}</p>
                       </div>
                     </div>
-                    <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Access Type:</strong> {isFixedAdmin ? 'Fixed Admin Credentials' : 'Supabase Admin'}
-                        <br />
-                        <strong>Session:</strong> Valid until browser close
-                        <br />
-                        <strong>Permissions:</strong> Full administrative access
-                      </p>
-                    </div>
+                    {isFixedAdmin && (
+                      <Alert className="mt-4 bg-yellow-500/10 border-yellow-500/30">
+                        <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        <AlertTitle className="text-yellow-500">Fixed Admin Mode</AlertTitle>
+                        <AlertDescription className="text-yellow-600">
+                          You are logged in as a fixed administrator. Some features may be limited.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
