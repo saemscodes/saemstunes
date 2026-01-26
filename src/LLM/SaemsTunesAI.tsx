@@ -147,9 +147,8 @@ const SaemsTunesAI: React.FC<Props> = ({
       const config = modelConfigs[selectedModel as keyof typeof modelConfigs] || modelConfigs['microsoft/Phi-3.5-mini-instruct']
       
       const result = await askAI(question, { 
-        modelProfile: selectedModel,
         userId: userId,
-        ...config
+        conversationId: conversationId || undefined
       })
       
       const aiMessage: Message = {
@@ -432,7 +431,7 @@ const SaemsTunesAI: React.FC<Props> = ({
           {error && (
             <div className="error-banner">
               <span>Connection issue: {error}</span>
-              <button onClick={() => setError(null)}>×</button>
+              <button onClick={() => {}}>×</button>
             </div>
           )}
         </div>
