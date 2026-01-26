@@ -77,7 +77,7 @@ serve(async (req) => {
             .from('subscriptions')
             .upsert({
               user_id: order.user_id,
-              type: order.item_id as any, // assuming item_id matches subscription type
+              type: order.item_id as string,
               status: 'active',
               valid_until: validUntil.toISOString(),
               order_id: orderId
@@ -123,10 +123,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
-    console.error('Webhook error:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Webhook error:', err);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

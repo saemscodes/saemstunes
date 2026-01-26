@@ -80,13 +80,16 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       
-      if (status.has_admin_access) {
+      // Handle array or single object response
+      const statusData = Array.isArray(status) ? status[0] : status;
+      
+      if (statusData?.has_admin_access) {
         const user = {
-          id: status.user_id,
-          email: status.email,
-          role: status.role,
-          display_name: status.display_name,
-          subscription_tier: status.subscription_tier
+          id: statusData.user_id,
+          email: statusData.email,
+          role: statusData.role,
+          display_name: statusData.display_name,
+          subscription_tier: statusData.subscription_tier
         };
         
         setAdminUser(user);
@@ -153,7 +156,10 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       const { data: adminStatus, error: statusError } = await supabase
         .rpc('verify_admin_status');
       
-      if (statusError || !adminStatus?.has_admin_access) {
+      // Handle array or single object response
+      const statusData = Array.isArray(adminStatus) ? adminStatus[0] : adminStatus;
+      
+      if (statusError || !statusData?.has_admin_access) {
         // Sign out if not an admin
         await supabase.auth.signOut();
         return { success: false, message: "User does not have admin privileges" };
@@ -162,9 +168,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       const user = {
         id: data.user?.id || '',
         email: data.user?.email || email,
-        role: adminStatus.role || 'admin',
-        display_name: adminStatus.display_name,
-        subscription_tier: adminStatus.subscription_tier
+        role: statusData.role || 'admin',
+        display_name: statusData.display_name,
+        subscription_tier: statusData.subscription_tier
       };
       
       setAdminUser(user);

@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Helper logging function for enhanced debugging
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-PAYMENT-SESSION] ${step}${detailsStr}`);
 };
@@ -359,13 +359,14 @@ serve(async (req) => {
       }
     });
 
-  } catch (error) {
-    logStep('Payment session creation error', error);
-    console.error('Error stack:', error.stack);
+  } catch (error: unknown) {
+    const err = error as Error;
+    logStep('Payment session creation error', err);
+    console.error('Error stack:', err.stack);
     
     return new Response(JSON.stringify({
-      error: error.message,
-      type: error.constructor.name
+      error: err.message,
+      type: err.constructor.name
     }), {
       status: 500,
       headers: {

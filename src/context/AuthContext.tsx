@@ -129,15 +129,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       console.log("verify_admin_status result:", status);
+      // Handle array or single object response
+      const statusData = Array.isArray(status) ? status[0] : status;
       return {
-        has_admin_access: status.has_admin_access || false,
-        role: status.role || 'user',
-        email: status.email,
-        display_name: status.display_name,
-        subscription_tier: status.subscription_tier,
-        is_authenticated: status.is_authenticated,
-        user_id: status.user_id,
-        is_admin: status.is_admin
+        has_admin_access: statusData?.has_admin_access || false,
+        role: statusData?.role || 'user',
+        email: statusData?.email,
+        display_name: statusData?.display_name,
+        subscription_tier: statusData?.subscription_tier,
+        is_authenticated: statusData?.is_authenticated,
+        user_id: statusData?.user_id,
+        is_admin: statusData?.is_admin
       };
     } catch (error: any) {
       console.error("Error checking admin status:", error);
@@ -381,7 +383,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Update context state
         setUser(fixedAdminUser as ExtendedUser);
-        setProfile(adminData as UserProfile);
+        setProfile({
+          ...adminData,
+          onboarding_complete: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as unknown as UserProfile);
         setIsFixedAdmin(true);
         
         toast({

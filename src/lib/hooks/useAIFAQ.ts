@@ -180,10 +180,10 @@ export const useAIFAQ = () => {
       // Platform statistics with enhanced error handling
       try {
         const [tracksCount, artistsCount, profilesCount, coursesCount] = await Promise.all([
-          querySupabase(() => supabase.from('tracks').select('*', { count: 'exact', head: true }), 'tracks count'),
-          querySupabase(() => supabase.from('artists').select('*', { count: 'exact', head: true }), 'artists count'),
-          querySupabase(() => supabase.from('profiles').select('*', { count: 'exact', head: true }), 'profiles count'),
-          querySupabase(() => supabase.from('courses').select('*', { count: 'exact', head: true }), 'courses count')
+          supabase.from('tracks').select('*', { count: 'exact', head: true }),
+          supabase.from('artists').select('*', { count: 'exact', head: true }),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('courses').select('*', { count: 'exact', head: true })
         ])
 
         contextParts.push(
@@ -197,14 +197,11 @@ export const useAIFAQ = () => {
       // Track-related queries
       if (questionLower.includes('song') || questionLower.includes('music') || questionLower.includes('track') || questionLower.includes('listen')) {
         try {
-          const { data: tracks } = await querySupabase(
-            () => supabase
-              .from('tracks')
-              .select('title, artist, genre, play_count, duration')
-              .order('play_count', { ascending: false })
-              .limit(5),
-            'popular tracks'
-          )
+          const { data: tracks } = await supabase
+            .from('tracks')
+            .select('title, artist, genre, play_count, duration')
+            .order('play_count', { ascending: false })
+            .limit(5) as any
 
           if (tracks && tracks.length > 0) {
             const popularTracks = tracks.map(t => `${t.title} by ${t.artist} (${t.play_count} plays)`).join(', ')
@@ -218,17 +215,14 @@ export const useAIFAQ = () => {
       // Artist-related queries
       if (questionLower.includes('artist') || questionLower.includes('band') || questionLower.includes('musician') || questionLower.includes('creator')) {
         try {
-          const { data: artists } = await querySupabase(
-            () => supabase
-              .from('artists')
-              .select('name, genre, follower_count, is_verified')
-              .order('follower_count', { ascending: false })
-              .limit(5),
-            'popular artists'
-          )
+          const { data: artists } = await supabase
+            .from('artists')
+            .select('name, genre, follower_count, verified_status')
+            .order('follower_count', { ascending: false })
+            .limit(5) as any
 
           if (artists && artists.length > 0) {
-            const topArtists = artists.map(a => `${a.name}${a.is_verified ? ' (verified)' : ''} - ${a.follower_count} followers`).join(', ')
+            const topArtists = artists.map((a: any) => `${a.name}${a.verified_status ? ' (verified)' : ''} - ${a.follower_count} followers`).join(', ')
             contextParts.push(`Featured artists: ${topArtists}`)
           }
         } catch (artistError) {
@@ -239,17 +233,14 @@ export const useAIFAQ = () => {
       // Course-related queries
       if (questionLower.includes('course') || questionLower.includes('learn') || questionLower.includes('education') || questionLower.includes('lesson')) {
         try {
-          const { data: courses } = await querySupabase(
-            () => supabase
-              .from('courses')
-              .select('title, instructor, level, student_count, rating')
-              .order('student_count', { ascending: false })
-              .limit(3),
-            'recent courses'
-          )
+          const { data: courses } = await supabase
+            .from('courses')
+            .select('title, level, enrollment_count, average_rating')
+            .order('enrollment_count', { ascending: false })
+            .limit(3) as any
 
           if (courses && courses.length > 0) {
-            const popularCourses = courses.map(c => `${c.title} by ${c.instructor} (${c.student_count} students)`).join(', ')
+            const popularCourses = courses.map((c: any) => `${c.title} (${c.enrollment_count || 0} students)`).join(', ')
             contextParts.push(`Popular courses: ${popularCourses}`)
           }
         } catch (courseError) {
@@ -260,17 +251,14 @@ export const useAIFAQ = () => {
       // Playlist-related queries
       if (questionLower.includes('playlist') || questionLower.includes('collection') || questionLower.includes('library')) {
         try {
-          const { data: playlists } = await querySupabase(
-            () => supabase
-              .from('playlists')
-              .select('title, description, track_count, is_public')
-              .order('created_at', { ascending: false })
-              .limit(3),
-            'featured playlists'
-          )
+          const { data: playlists } = await supabase
+            .from('playlists')
+            .select('name, description')
+            .order('created_at', { ascending: false })
+            .limit(3) as any
 
           if (playlists && playlists.length > 0) {
-            const recentPlaylists = playlists.map(p => `${p.title} (${p.track_count} tracks)`).join(', ')
+            const recentPlaylists = playlists.map((p: any) => `${p.name}`).join(', ')
             contextParts.push(`Recent playlists: ${recentPlaylists}`)
           }
         } catch (playlistError) {
@@ -281,27 +269,11 @@ export const useAIFAQ = () => {
       // User-specific context
       if (userId && userId !== 'anonymous') {
         try {
-          const { data: userPreferences } = await querySupabase(
-            () => supabase
-              .from('user_preferences')
-              .select('favorite_genres')
-              .eq('user_id', userId)
-              .single(),
-            'user preferences'
-          )
-
-          if (userPreferences?.favorite_genres) {
-            contextParts.push(`User prefers: ${userPreferences.favorite_genres.slice(0, 3).join(', ')} music`)
-          }
-
-          const { data: userProfile } = await querySupabase(
-            () => supabase
-              .from('profiles')
-              .select('subscription_tier')
-              .eq('id', userId)
-              .single(),
-            'user profile'
-          )
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('subscription_tier')
+            .eq('id', userId)
+            .single() as any
 
           if (userProfile?.subscription_tier === 'premium') {
             contextParts.push('User has premium subscription')
@@ -350,7 +322,7 @@ export const useAIFAQ = () => {
     }
 
     try {
-      const startTime = performance.now()
+      const startTime = Date.now()
       
       // Get comprehensive context
       const context = await getMusicContext(question, options.userId)
@@ -401,7 +373,7 @@ export const useAIFAQ = () => {
       }
 
       const result = await response.json()
-      const processingTime = performance.now() - startTime
+      const processingTime = Date.now() - startTime
 
       // Update conversation ID if this is a new conversation
       if (!conversationId) {
@@ -426,7 +398,7 @@ export const useAIFAQ = () => {
           averageResponseTime,
           totalRequests,
           lastResponseTime: processingTime,
-          lastModelUsed: payload.model_profile,
+          lastModelUsed: 'default-model',
           usedHuggingFace: usedEndpoint.includes('huggingface'),
           cacheHitRate
         }
@@ -438,22 +410,18 @@ export const useAIFAQ = () => {
         timestamp: Date.now()
       })
 
-      // Log interaction to Supabase
+      // Log interaction to Supabase (fire and forget, ignore errors)
       try {
-        await querySupabase(
-          () => supabase
-            .from('ai_interactions')
-            .insert({
-              user_id: options.userId || 'anonymous',
-              conversation_id: payload.conversation_id,
-              query: question,
-              response: aiResponse.response,
-              processing_time: processingTime,
-              model_used: aiResponse.modelUsed,
-              context_used: { context: context, source: usedEndpoint }
-            }),
-          'ai interaction log'
-        )
+        await supabase
+          .from('ai_interactions')
+          .insert({
+            conversation_id: payload.conversation_id,
+            input_text: question,
+            output_text: aiResponse.response,
+            processing_time_ms: processingTime,
+            model_used: aiResponse.modelUsed,
+            context_used: { context: context, source: usedEndpoint }
+          } as any)
       } catch (logError) {
         console.warn('Failed to log AI interaction:', logError)
       }
@@ -491,19 +459,16 @@ export const useAIFAQ = () => {
   }, [])
 
   // Submit feedback for response quality
-  const submitFeedback = useCallback(async (convId: string, helpful: boolean, comments: string = '') => {
+  const submitFeedback = useCallback(async (convId: string, helpful: boolean, _comments: string = '') => {
     try {
-      await querySupabase(
-        () => supabase
-          .from('ai_interactions')
-          .update({ feedback: helpful })
-          .eq('conversation_id', convId),
-        'feedback submission'
-      )
+      await supabase
+        .from('ai_interactions')
+        .update({ was_helpful: helpful } as any)
+        .eq('conversation_id', convId)
     } catch (err) {
       console.error('Feedback submission error:', err)
     }
-  }, [querySupabase])
+  }, [])
 
   // Clear conversation and cache
   const clearConversation = useCallback(() => {

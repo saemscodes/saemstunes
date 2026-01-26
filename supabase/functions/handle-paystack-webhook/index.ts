@@ -1,12 +1,32 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createHash } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-paystack-signature',
 };
+
+// Helper function to create HMAC SHA512 hash
+async function createHmacSha512(key: string, data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(data);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-512" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,9 +44,8 @@ serve(async (req) => {
     const body = await req.text();
 
     // Verify webhook signature
-    const hash = createHash("sha512");
-    hash.update(Deno.env.get('PAYSTACK_SECRET_KEY_TEST') + body);
-    const expectedSignature = hash.toString("hex");
+    const secretKey = Deno.env.get('PAYSTACK_SECRET_KEY_TEST') || '';
+    const expectedSignature = await createHmacSha512(secretKey, body);
 
     if (signature !== expectedSignature) {
       console.error('Invalid webhook signature');
@@ -75,7 +94,7 @@ serve(async (req) => {
             .from('subscriptions')
             .upsert({
               user_id: order.user_id,
-              type: order.item_id as any,
+              type: order.item_id as string,
               status: 'active',
               valid_until: validUntil.toISOString(),
               order_id: orderId
@@ -111,10 +130,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
-    console.error('Webhook error:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Webhook error:', err);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

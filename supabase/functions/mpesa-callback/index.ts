@@ -8,10 +8,22 @@ const corsHeaders = {
 };
 
 // Helper logging function for enhanced debugging
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[MPESA-CALLBACK] ${step}${detailsStr}`);
 };
+
+interface TransactionData {
+  amount?: number;
+  mpesaReceiptNumber?: string;
+  transactionDate?: string;
+  phoneNumber?: string;
+}
+
+interface CallbackItem {
+  Name: string;
+  Value: string | number;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -91,22 +103,22 @@ serve(async (req) => {
       // Payment successful
       logStep("Payment successful");
 
-      let transactionData = {};
+      const transactionData: TransactionData = {};
       if (CallbackMetadata && CallbackMetadata.Item) {
         // Extract transaction details
-        CallbackMetadata.Item.forEach((item: any) => {
+        CallbackMetadata.Item.forEach((item: CallbackItem) => {
           switch (item.Name) {
             case 'Amount':
-              transactionData.amount = item.Value;
+              transactionData.amount = item.Value as number;
               break;
             case 'MpesaReceiptNumber':
-              transactionData.mpesaReceiptNumber = item.Value;
+              transactionData.mpesaReceiptNumber = item.Value as string;
               break;
             case 'TransactionDate':
-              transactionData.transactionDate = item.Value;
+              transactionData.transactionDate = item.Value as string;
               break;
             case 'PhoneNumber':
-              transactionData.phoneNumber = item.Value;
+              transactionData.phoneNumber = item.Value as string;
               break;
           }
         });
@@ -208,9 +220,10 @@ serve(async (req) => {
       }
     });
 
-  } catch (error) {
-    logStep("Callback processing error", error);
-    console.error('Error stack:', error.stack);
+  } catch (error: unknown) {
+    const err = error as Error;
+    logStep("Callback processing error", err);
+    console.error('Error stack:', err.stack);
 
     return new Response(JSON.stringify({
       ResultCode: 1,
