@@ -31,7 +31,7 @@ interface Track {
   audio_path: string;
   alternate_audio_path?: string;
   cover_path?: string;
-  access_level: AccessLevel;
+  access_level: string; // Changed from AccessLevel to string to match DB response
   user_id: string;
   approved: boolean;
   created_at: string;
@@ -174,9 +174,10 @@ const Tracks = () => {
         return;
       }
 
-      // Check if user can access this track
+      // Check if user can access this track - access_level might be missing, default to 'free'
+      const trackAccessLevel = (trackData as any).access_level || 'free';
       const canAccess = canAccessContent(
-        trackData.access_level as AccessLevel, 
+        trackAccessLevel as AccessLevel, 
         user, 
         user?.subscriptionTier
       );
@@ -201,7 +202,14 @@ const Tracks = () => {
       const playCount = playCountResult.count || 0;
       const likeCount = likeCountResult.count || 0;
 
-      const audioUrl = getAudioUrl(trackData);
+      // Create a Track-compatible object for getAudioUrl
+      const trackWithDefaults = {
+        ...trackData,
+        access_level: trackAccessLevel,
+        approved: true
+      } as Track;
+
+      const audioUrl = getAudioUrl(trackWithDefaults);
       const coverUrl = getImageUrl(trackData.cover_path);
 
       setFeaturedTrack({
@@ -260,10 +268,15 @@ const Tracks = () => {
         throw error;
       }
       
-      // Filter tracks based on user access
-      const accessibleTracks = (data || []).filter((track: Track) => 
-        canAccessContent(track.access_level as AccessLevel, user, user?.subscriptionTier)
-      );
+      // Filter tracks based on user access - handle missing access_level
+      const accessibleTracks = (data || []).filter((track: any) => {
+        const accessLevel = track.access_level || 'free';
+        return canAccessContent(accessLevel as AccessLevel, user, user?.subscriptionTier);
+      }).map((track: any) => ({
+        ...track,
+        access_level: track.access_level || 'free',
+        approved: track.approved ?? true
+      })) as Track[];
       
       setTracks(accessibleTracks);
     } catch (error) {
@@ -769,16 +782,16 @@ const Tracks = () => {
               </Card>
             )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full overflow-x-auto">
-              <TabsList className="grid w-full grid-cols-5 min-w-[300px]">
-                <TabsTrigger value="showcase">Showcase</TabsTrigger>
-                <TabsTrigger value="covers">Covers</TabsTrigger>
-                <TabsTrigger value="playlists">Playlists</TabsTrigger>
-                <TabsTrigger value="artists">Artists</TabsTrigger>
-                <TabsTrigger value="community">Community</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full overflow-hidden">
+              <TabsList className="grid w-full grid-cols-5 mb-4">
+                <TabsTrigger value="showcase" className="text-xs sm:text-sm">Showcase</TabsTrigger>
+                <TabsTrigger value="covers" className="text-xs sm:text-sm">Covers</TabsTrigger>
+                <TabsTrigger value="playlists" className="text-xs sm:text-sm">Playlists</TabsTrigger>
+                <TabsTrigger value="artists" className="text-xs sm:text-sm">Artists</TabsTrigger>
+                <TabsTrigger value="community" className="text-xs sm:text-sm">Community</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="showcase" className="space-y-8">
+              <TabsContent value="showcase" className="space-y-8 w-full max-w-full overflow-hidden">
                 {featuredTrack ? (
                   <section>
                     <div className="flex items-center gap-2 mb-6">
@@ -858,25 +871,27 @@ const Tracks = () => {
                   </section>
                 )}
 
-                <section>
+                <section className="w-full overflow-hidden">
                   <div className="flex items-center gap-2 mb-6">
                     <TrendingUp className="h-6 w-6 text-gold" />
                     <h2 className="text-2xl font-bold">Suggested For You</h2>
                   </div>
                   
-                  <Card className="w-full max-w-full overflow-hidden">
-                    <CardHeader>
+                  <Card className="w-full overflow-hidden">
+                    <CardHeader className="pb-2">
                       <CardTitle>Recommended Tracks</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0 sm:p-6 sm:pt-0">
                       <ScrollArea className="h-[400px] w-full">
-                        <EnhancedAnimatedList 
-                          tracks={filteredTracks.slice(0, 10).map(convertTrackToAudioTrack)} 
-                          onTrackSelect={(track) => {
-                            const foundTrack = filteredTracks.find(t => t.id === track.id);
-                            if (foundTrack) handleTrackSelect(foundTrack);
-                          }}
-                        />
+                        <div className="w-full overflow-hidden px-4 sm:px-0">
+                          <EnhancedAnimatedList 
+                            tracks={filteredTracks.slice(0, 10).map(convertTrackToAudioTrack)} 
+                            onTrackSelect={(track) => {
+                              const foundTrack = filteredTracks.find(t => t.id === track.id);
+                              if (foundTrack) handleTrackSelect(foundTrack);
+                            }}
+                          />
+                        </div>
                       </ScrollArea>
                     </CardContent>
                   </Card>

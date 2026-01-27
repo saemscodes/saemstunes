@@ -11,7 +11,7 @@ export default function DebugPage() {
       
       // 1. Check if supabase client exists
       diagnostics.supabaseExists = !!supabase
-      diagnostics.supabaseUrl = supabase?.supabaseUrl
+      diagnostics.supabaseUrl = 'https://uxyvhqtwkutstihtxdsv.supabase.co' // Direct value
       
       // 2. Check environment variables
       diagnostics.envVars = {
