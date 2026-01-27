@@ -630,7 +630,12 @@ const AdminToolsTab = () => {
         .rpc('verify_admin_status');
       
       if (statusError) throw statusError;
-      setAdminStatus(statusData);
+      
+      // Handle array or single object response
+      const status = Array.isArray(statusData) ? statusData[0] : statusData;
+      if (status) {
+        setAdminStatus(status as AdminStatus);
+      }
       
       // Test 2: Test admin access
       const { data: testData, error: testError } = await supabase
@@ -663,15 +668,20 @@ const AdminToolsTab = () => {
       
       if (error) throw error;
       
-      setAdminStatus(data);
+      // Handle array or single object response
+      const status = Array.isArray(data) ? data[0] : data;
       
-      toast({
-        title: data.has_admin_access ? "✅ Admin Access Verified" : "❌ Not Admin",
-        description: data.has_admin_access 
-          ? `Logged in as ${data.email} (${data.role})`
-          : "You don't have admin access",
-        variant: data.has_admin_access ? "default" : "destructive"
-      });
+      if (status) {
+        setAdminStatus(status as AdminStatus);
+        
+        toast({
+          title: status.has_admin_access ? "✅ Admin Access Verified" : "❌ Not Admin",
+          description: status.has_admin_access 
+            ? `Logged in as ${status.email} (${status.role})`
+            : "You don't have admin access",
+          variant: status.has_admin_access ? "default" : "destructive"
+        });
+      }
     } catch (error: any) {
       console.error("Verification error:", error);
       toast({
@@ -1004,7 +1014,11 @@ const Admin = () => {
                 });
               } else {
                 console.log("Admin status from RPC:", status);
-                setAdminStatus(status);
+                // Handle array or single object response
+                const adminData = Array.isArray(status) ? status[0] : status;
+                if (adminData) {
+                  setAdminStatus(adminData as AdminStatus);
+                }
               }
             } catch (rpcError) {
               console.error("RPC failed, using session data:", rpcError);
@@ -1129,7 +1143,10 @@ const Admin = () => {
           } else {
             console.log("Admin status from RPC:", status);
             
-            if (!status.has_admin_access) {
+            // Handle array or single object response
+            const adminData = Array.isArray(status) ? status[0] : status;
+            
+            if (!adminData || !adminData.has_admin_access) {
               toast({
                 title: "Access Denied",
                 description: "You do not have admin privileges.",
@@ -1140,17 +1157,17 @@ const Admin = () => {
               return;
             }
             
-            setAdminStatus(status);
+            setAdminStatus(adminData as AdminStatus);
             
             // Store in session for future
             sessionStorage.setItem('adminAuth', 'true');
             sessionStorage.setItem('fixedAdmin', 'false');
             sessionStorage.setItem('adminUser', JSON.stringify({
-              id: status.user_id || user.id,
-              email: status.email || user.email,
-              role: status.role || 'admin',
-              display_name: status.display_name || user.name,
-              subscription_tier: status.subscription_tier || 'professional'
+              id: adminData.user_id || user.id,
+              email: adminData.email || user.email,
+              role: adminData.role || 'admin',
+              display_name: adminData.display_name || user.name,
+              subscription_tier: adminData.subscription_tier || 'professional'
             }));
           }
         } catch (error: any) {
@@ -1245,7 +1262,12 @@ const Admin = () => {
         revenue: revenueRes.data?.[0]?.total_revenue || 0
       });
       
-      setRecentUsers(usersRes.data || []);
+      // Map users data to include subscription_tier with default value
+      const mappedUsers = (usersRes.data || []).map((u: any) => ({
+        ...u,
+        subscription_tier: u.subscription_tier || 'free'
+      }));
+      setRecentUsers(mappedUsers);
       setRecentContent(contentRes.data || []);
     } catch (error: any) {
       toast({ 

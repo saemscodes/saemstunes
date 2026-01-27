@@ -127,17 +127,23 @@ const Subscriptions = () => {
 
     if (data) {
       const plan = mockSubscriptionPlans.find(p => p.id.toString() === data.type) || {
-        id: data.type,
-        name: data.type.charAt(0).toUpperCase() + data.type.slice(1),
+        id: data.type as string,
+        name: (data.type as string).charAt(0).toUpperCase() + (data.type as string).slice(1),
         price: 0,
-        interval: 'month',
+        interval: 'month' as const,
         credits: 0
       };
       
       setUserSubscription({
         ...data,
-        plan
-      });
+        plan: {
+          id: String(plan.id),
+          name: plan.name,
+          price: plan.price,
+          interval: plan.interval as string,
+          credits: plan.credits
+        }
+      } as any);
     }
   };
 
@@ -315,15 +321,15 @@ const Subscriptions = () => {
 
       const { error: subError } = await supabase
         .from('subscriptions')
-        .insert({
+        .insert([{
           user_id: user.id,
-          type: planId as 'free' | 'basic' | 'premium' | 'enterprise',
-          status: 'active',
+          type: planId as 'free' | 'basic' | 'premium' | 'professional',
+          status: 'active' as const,
           valid_from: new Date().toISOString(),
           valid_until: validUntil.toISOString(),
           payment_id: payment.id,
           payment_method_id: defaultPaymentMethod.id,
-        });
+        }]);
 
       if (subError) throw subError;
 
@@ -548,8 +554,8 @@ const Subscriptions = () => {
                       key={plan.id}
                       plan={plan}
                       variant={index === 1 ? "default" : "outline"}
-                      isCurrentPlan={userSubscription?.plan.id === plan.id}
-                      onSubscribe={() => handleSubscribe(plan.id)}
+                      isCurrentPlan={userSubscription?.plan.id === String(plan.id)}
+                      onSubscribe={() => handleSubscribe(String(plan.id))}
                       isLoading={isProcessing}
                       className={cn(
                         index === 1 && "ring-2 ring-gold ring-offset-2"
