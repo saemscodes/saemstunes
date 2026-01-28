@@ -1095,7 +1095,9 @@ export type Database = {
           estimated_time: string | null
           extended_category: string | null
           id: string
+          instructor_avatar: string | null
           instructor_id: string | null
+          instructor_name: string | null
           lessons: number | null
           level: string | null
           music_elements: string[] | null
@@ -1122,7 +1124,9 @@ export type Database = {
           estimated_time?: string | null
           extended_category?: string | null
           id?: string
+          instructor_avatar?: string | null
           instructor_id?: string | null
+          instructor_name?: string | null
           lessons?: number | null
           level?: string | null
           music_elements?: string[] | null
@@ -1149,7 +1153,9 @@ export type Database = {
           estimated_time?: string | null
           extended_category?: string | null
           id?: string
+          instructor_avatar?: string | null
           instructor_id?: string | null
+          instructor_name?: string | null
           lessons?: number | null
           level?: string | null
           music_elements?: string[] | null
