@@ -1,0 +1,73 @@
+name: Auto Version and Tag
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Install deps
+        run: npm ci
+      
+      - name: Calculate bump
+        id: calc
+        run: |
+          node scripts/calc-bump.js | tee out.txt
+          NEW_VERSION=$(grep -oP '"newVer":\s*"\K[0-9]+\.[0-9]+\.[0-9]+' out.txt | head -1 || echo "")
+          BUMP_KIND=$(grep -oP '"bumpKind":\s*"\K(major|minor|patch)' out.txt | head -1 || echo "patch")
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "kind=$BUMP_KIND" >> $GITHUB_OUTPUT
+      
+      - name: Bump, tag and push
+        if: steps.calc.outputs.new != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW="${{ steps.calc.outputs.new }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Update package.json
+          npm version $NEW --no-git-tag-version
+          
+          # Update version.json
+          cat > public/version.json << EOF
+          {
+            "version": "$NEW",
+            "build": "$(git rev-parse --short HEAD)",
+            "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          git add package.json package-lock.json public/version.json || true
+          git commit -m "chore(release): $NEW [ci skip]" || echo "No changes"
+          git tag -a "v$NEW" -m "release v$NEW"
+          
+          git push origin HEAD
+          git push origin "v$NEW"
+      
+      - name: Create GitHub Release
+        if: steps.calc.outputs.new != ''
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.calc.outputs.new }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
