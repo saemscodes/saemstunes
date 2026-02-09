@@ -1,186 +1,116 @@
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
-export interface PaymentRequest {
-  orderType: 'subscription' | 'service' | 'product';
-  itemId: string;
-  itemName: string;
-  amount: number;
-  currency?: string;
-  paymentMethod: 'paystack' | 'remitly' | 'mpesa';
-  successUrl?: string;
-  cancelUrl?: string;
-  userPhone?: string; // Required for M-Pesa
-}
-
-export interface PaymentSession {
-  orderId: string;
-  sessionData: {
-    sessionId: string;
-    url?: string;
-    provider: string;
-    checkoutRequestId?: string;
-    merchantRequestId?: string;
-  };
-}
+type PurchaseEntity = 'course' | 'module' | 'class' | 'lesson';
 
 export const usePayment = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const supabaseCustom = supabase as unknown as SupabaseClient;
 
-  const createPaymentSession = async (
-    request: PaymentRequest
-  ): Promise<PaymentSession | null> => {
-    setIsLoading(true);
+  // Check if user has access to a specific entity
+  const checkAccess = async (entityType: PurchaseEntity, entityId: string) => {
+    if (!user) return false;
 
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    // 1. Check direct purchase
+    const { data: purchase } = await supabaseCustom
+      .from("custom_purchases")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .contains(
+        entityType === 'course' ? 'selected_courses' :
+          entityType === 'module' ? 'selected_modules' :
+            entityType === 'class' ? 'selected_classes' : 'selected_lessons',
+        [entityId]
+      )
+      .maybeSingle();
 
-      if (!user) {
-        toast({
-          title: 'Authentication Required',
-          description:
-            'Please sign in to proceed with payment. You need an account to purchase subscriptions and book classes.',
-          variant: 'destructive',
-          duration: 6000,
-        });
-        return null;
-      }
+    if (purchase) return true;
 
-      if (request.paymentMethod === 'mpesa' && !request.userPhone) {
-        toast({
-          title: 'Phone Number Required',
-          description:
-            'Please provide your M-Pesa phone number to proceed with payment.',
-          variant: 'destructive',
-        });
-        return null;
-      }
+    // 2. Access via subscription (handled in AuthContext usually, but here as backup)
+    // Add logic here if needed
 
-      const { data, error } = await supabase.functions.invoke(
-        'create-payment-session',
-        {
-          body: {
-            amount: request.amount,
-            currency: request.currency || 'USD',
-            item_name: request.itemName,
-            item_id: request.itemId,
-            order_type: request.orderType,
-            payment_method: request.paymentMethod,
-            success_url: request.successUrl,
-            cancel_url: request.cancelUrl,
-            user_phone: request.userPhone,
-          },
-        }
-      );
-
-      if (error) {
-        if (
-          error.message?.includes('Authentication required') ||
-          error.message?.includes('requiresAuth')
-        ) {
-          toast({
-            title: 'Sign In Required',
-            description:
-              'Please sign in to your account to purchase subscriptions or book classes.',
-            variant: 'destructive',
-            duration: 8000,
-          });
-          return null;
-        }
-
-        throw error;
-      }
-
-      if (data?.success) {
-        if (request.paymentMethod === 'mpesa') {
-          toast({
-            title: 'M-Pesa Payment Initiated',
-            description:
-              'Please check your phone for the M-Pesa payment prompt and enter your PIN to complete the payment.',
-            duration: 8000,
-          });
-        }
-
-        return {
-          orderId: data.orderId,
-          sessionData: data.sessionData,
-        };
-      }
-
-      throw new Error('Failed to create payment session');
-    } catch (error: any) {
-      console.error('Payment session creation failed:', error);
-
-      if (error.message?.includes('Phone number required')) {
-        toast({
-          title: 'Phone Number Required',
-          description:
-            'Please provide your M-Pesa phone number in the format 254XXXXXXXXX to proceed with payment.',
-          variant: 'destructive',
-        });
-      } else if (
-        error.message?.includes('Authentication required') ||
-        error.message?.includes('sign in')
-      ) {
-        toast({
-          title: 'Sign In Required',
-          description:
-            'Please sign in to your account to purchase subscriptions or book classes.',
-          variant: 'destructive',
-          duration: 6000,
-        });
-      } else {
-        toast({
-          title: 'Payment Error',
-          description:
-            error.message ||
-            'Failed to initialize payment. Please try again.',
-          variant: 'destructive',
-        });
-      }
-
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
+    return false;
   };
 
-  const redirectToPayment = (sessionData: PaymentSession['sessionData']) => {
-    if (sessionData.url) {
-      window.open(sessionData.url, '_blank');
-    } else if (sessionData.provider === 'mpesa') {
-      toast({
-        title: 'M-Pesa Payment Initiated',
-        description:
-          'Please check your phone for the M-Pesa payment prompt. Enter your PIN to complete the payment.',
-        duration: 10000,
-      });
-    } else if (sessionData.provider === 'remitly') {
-      toast({
-        title: 'Remitly Transfer',
-        description:
-          'Redirecting to Remitly for international transfer to M-Pesa...',
-      });
-    }
-  };
+  // Create intent
+  const initiatePurchase = useMutation({
+    mutationFn: async ({
+      items,
+      totalAmount,
+      currency = 'KES'
+    }: {
+      items: { type: PurchaseEntity, id: string }[],
+      totalAmount: number,
+      currency?: string
+    }) => {
+      if (!user) throw new Error("Authentication required");
 
-  const processPayment = async (request: PaymentRequest) => {
-    const session = await createPaymentSession(request);
-    if (session) {
-      redirectToPayment(session.sessionData);
-      return session;
+      const courses = items.filter(i => i.type === 'course').map(i => i.id);
+      const modules = items.filter(i => i.type === 'module').map(i => i.id);
+      const classes = items.filter(i => i.type === 'class').map(i => i.id);
+      const lessons = items.filter(i => i.type === 'lesson').map(i => i.id);
+
+      const { data, error } = await supabaseCustom
+        .from("custom_purchases")
+        .insert({
+          user_id: user.id,
+          selected_courses: courses,
+          selected_modules: modules,
+          selected_classes: classes,
+          selected_lessons: lessons,
+          total_items: items.length,
+          base_price: totalAmount,
+          final_price: totalAmount,
+          currency,
+          payment_status: 'pending',
+          payment_method: 'mpesa' // Default
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.info("Purchase initiated. Please complete the payment.");
+    },
+    onError: (error) => {
+      toast.error(`Purchase failed: ${error.message}`);
     }
-    return null;
-  };
+  });
+
+  // Confirm purchase (typically called after STK Push or manual verification)
+  const confirmPurchase = useMutation({
+    mutationFn: async (purchaseId: string) => {
+      const { data, error } = await supabaseCustom
+        .from("custom_purchases")
+        .update({
+          payment_status: 'completed',
+          access_granted_at: new Date().toISOString(),
+          transaction_id: `txn_${Math.random().toString(36).substring(7)}`
+        })
+        .eq("id", purchaseId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Purchase confirmed! Content unlocked.");
+      queryClient.invalidateQueries({ queryKey: ["learning-content"] });
+    }
+  });
 
   return {
-    isLoading,
-    createPaymentSession,
-    redirectToPayment,
-    processPayment,
+    initiatePurchase,
+    confirmPurchase,
+    checkAccess
   };
 };

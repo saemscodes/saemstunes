@@ -1,25 +1,35 @@
-
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { UserRole } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
+type SubscriptionTier = 'free' | 'basic' | 'premium' | 'professional';
+
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRoles?: UserRole[];
+  requiredTier?: SubscriptionTier;
   redirectPath?: string;
   allowWalletAuth?: boolean;
 }
 
-const ProtectedRoute = ({ 
-  children, 
+const tierHierarchy: Record<SubscriptionTier, number> = {
+  'free': 0,
+  'basic': 1,
+  'premium': 2,
+  'professional': 3
+};
+
+const ProtectedRoute = ({
+  children,
   requiredRoles,
+  requiredTier = 'free',
   redirectPath = "/auth",
   allowWalletAuth = true
 }: ProtectedRouteProps) => {
-  const { user, isLoading } = useAuth();
+  const { user, subscription, isLoading } = useAuth();
   const { isConnected } = useWallet();
   const location = useLocation();
 
@@ -36,7 +46,13 @@ const ProtectedRoute = ({
   const isAuthenticated = user || (allowWalletAuth && isConnected);
 
   if (!isAuthenticated) {
-    return <Navigate to={redirectPath} state={{ from: location }} replace />;
+    return <Navigate to={`${redirectPath}?next=${encodeURIComponent(location.pathname)}`} state={{ from: location }} replace />;
+  }
+
+  // Check subscription tier
+  const userTier = (subscription?.tier as SubscriptionTier) || 'free';
+  if (tierHierarchy[userTier] < tierHierarchy[requiredTier]) {
+    return <Navigate to="/subscriptions" state={{ from: location, requiredTier }} replace />;
   }
 
   // Role-based access control (only applies to traditional auth users)

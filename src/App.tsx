@@ -29,7 +29,7 @@ import SaemsTunesAI from "@/LLM/SaemsTunesAI";
 import Admin from "@/pages/Admin";
 import AdminLogin from "@/pages/AdminLogin";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth"; 
+import Auth from "./pages/Auth";
 import VerificationWaiting from "./pages/VerificationWaiting";
 import Videos from "./pages/Videos";
 import VideoDetail from "./pages/VideoDetail";
@@ -112,37 +112,37 @@ const AIConditionalRenderer = () => {
 
 const App = () => {
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
     }, 2000);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <SubscriptionProvider>
-            <WalletProvider>
-              <MediaStateProvider>
-                <AudioPlayerProvider>
-                  <PlaylistProvider>
-                    <TooltipProvider>
-                      <Toaster />
-                      <Sonner />
-                      <SplashScreen loading={loading} />
-                      <FeaturedItemsProvider>
-                        <AISettingsProvider>
-                          <AdminProvider>
-                            <AIConditionalRenderer />
-                            <IdleStateManager idleTime={60000} />
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <SubscriptionProvider>
+              <WalletProvider>
+                <MediaStateProvider>
+                  <AudioPlayerProvider>
+                    <PlaylistProvider>
+                      <TooltipProvider>
+                        <Toaster />
+                        <Sonner />
+                        <SplashScreen loading={loading} />
+                        <FeaturedItemsProvider>
+                          <AISettingsProvider>
+                            <AdminProvider>
+                              <AIConditionalRenderer />
+                              <IdleStateManager idleTime={60000} />
                               <Routes>
                                 <Route path="/" element={<Index />} />
-                                
+
                                 {/* Admin Routes */}
                                 <Route path="/admin/login" element={<AdminLogin />} />
                                 <Route path="/admin" element={
@@ -150,14 +150,14 @@ const App = () => {
                                     <Admin />
                                   </AdminProtectedRoute>
                                 } />
-                                
+
                                 {/* Auth Routes */}
                                 <Route path="/login" element={<Auth />} />
                                 <Route path="/signup" element={<Auth />} />
                                 <Route path="/auth" element={<Auth />} />
                                 <Route path="/verification-waiting" element={<VerificationWaiting />} />
                                 <Route path="/auth/callback" element={<AuthCallback />} />
-                                
+
                                 {/* Public Content Routes */}
                                 <Route path="/videos" element={<Videos />} />
                                 <Route path="/videos/:id" element={<VideoDetail />} />
@@ -194,10 +194,10 @@ const App = () => {
                                 <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />
                                 <Route path="/terms" element={<Terms />} />
                                 <Route path="/privacy" element={<Privacy />} />
-                                
+
                                 {/* Debug Route */}
                                 <Route path="/debug" element={<DebugPage />} />
-                                
+
                                 {/* Protected User Routes */}
                                 <Route path="/notifications" element={
                                   <ProtectedRoute>
@@ -234,26 +234,30 @@ const App = () => {
                                     <UserDetails />
                                   </ProtectedRoute>
                                 } />
-                                
+
                                 {/* Error Routes */}
                                 <Route path="/unauthorized" element={<Unauthorized />} />
                                 <Route path="*" element={<NotFound />} />
                               </Routes>
                               <GlobalMiniPlayer />
-                              <SpeedInsights />
-                              <Analytics />
-                          </AdminProvider>
-                        </AISettingsProvider>
-                      </FeaturedItemsProvider>
-                    </TooltipProvider>
-                  </PlaylistProvider>
-                </AudioPlayerProvider>
-              </MediaStateProvider>
-            </WalletProvider>
-          </SubscriptionProvider>
-        </AuthProvider>
-      </ThemeProvider>   
-    </BrowserRouter>
+                              {window.location.hostname === 'saemstunes.com' && (
+                                <>
+                                  <SpeedInsights />
+                                  <Analytics />
+                                </>
+                              )}
+                            </AdminProvider>
+                          </AISettingsProvider>
+                        </FeaturedItemsProvider>
+                      </TooltipProvider>
+                    </PlaylistProvider>
+                  </AudioPlayerProvider>
+                </MediaStateProvider>
+              </WalletProvider>
+            </SubscriptionProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };
