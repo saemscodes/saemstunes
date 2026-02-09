@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import MainLayout from "@/components/layout/MainLayout";
-import { 
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
+import {
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { 
-  BookOpen, Play, Trophy, CheckCircle, ChevronRight, Music, 
+import {
+  BookOpen, Play, Trophy, CheckCircle, ChevronRight, Music,
   Pin, History, Settings, Video, Users, Star, Download, Share2, Menu
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -69,7 +69,7 @@ const generateTestimonials = (category = "music") => [
   },
   {
     name: 'David K.',
-    location: 'Lagos, Nigeria', 
+    location: 'Lagos, Nigeria',
     message: 'I went from beginner to performing in just 3 months.',
     avatar: '/testimonials/david-k.jpg',
     verified: true
@@ -99,12 +99,12 @@ const LearningHub = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const folderRefs = useRef<(HTMLDivElement | null)[]>([]);
-  
+
   // Animation states
   const [titleAnimated, setTitleAnimated] = useState(false);
-  const prefersReducedMotion = typeof window !== 'undefined' && 
+  const prefersReducedMotion = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  
+
   const titleAnimation = useSpring({
     from: { opacity: 0, transform: "translateY(20px)" },
     to: { opacity: 1, transform: "translateY(0)" },
@@ -118,7 +118,7 @@ const LearningHub = () => {
       setTitleAnimated(true);
       sessionStorage.setItem("titleAnimated", "true");
     }
-    
+
     // Folder stagger animation
     gsap.from(folderRefs.current.filter(Boolean), {
       y: 20,
@@ -135,7 +135,7 @@ const LearningHub = () => {
     const requiredLevel = course?.accessLevel || 'free';
     const userLevel = user?.accessLevel || 'free';
     const hasAccess = ACCESS_LEVELS[userLevel].level >= ACCESS_LEVELS[requiredLevel].level;
-    
+
     if (!user) {
       return {
         status: 'locked',
@@ -162,7 +162,7 @@ const LearningHub = () => {
         }
       };
     }
-    
+
     if (!hasAccess) {
       return {
         status: 'upgrade_required',
@@ -185,14 +185,14 @@ const LearningHub = () => {
         }
       };
     }
-    
+
     return {
       status: 'granted',
       action: course.progress > 0 ? 'continue' : 'start',
       messaging: {
         primary: course.progress > 0 ? 'Continue Your Journey' : 'Start Learning',
-        secondary: course.progress > 0 ? 
-          `You're ${course.progress}% through this course` : 
+        secondary: course.progress > 0 ?
+          `You're ${course.progress}% through this course` :
           'Begin your musical transformation today'
       }
     };
@@ -203,7 +203,7 @@ const LearningHub = () => {
     const mediaUrl = course?.preview?.url || null;
     const mediaType = course?.preview?.type || 'video';
     const duration = accessStatus?.preview?.strategy?.duration || course?.preview?.duration || 60;
-    
+
     return {
       id: course.id,
       title: course.title,
@@ -214,7 +214,7 @@ const LearningHub = () => {
         duration,
         poster: course.previewImage || null,
         chapters: course.preview?.chapters || [],
-        transcript: course.preview?.transcript ? 
+        transcript: course.preview?.transcript ?
           course.preview.transcript.slice(0, 200) + '...' : null
       },
       valueProps: [
@@ -239,11 +239,11 @@ const LearningHub = () => {
 
   // Content Interaction Handler
   const handleContentInteraction = useCallback((
-    course: any, 
+    course: any,
     interactionType: 'preview' | 'enroll'
   ) => {
     const accessStatus = getEnhancedAccessStatus(course);
-    
+
     // Track event
     console.log('Tracking: content_interaction', {
       courseId: course.id,
@@ -251,14 +251,14 @@ const LearningHub = () => {
       interactionType,
       userLevel: user?.accessLevel || 'anonymous'
     });
-    
+
     switch (accessStatus.status) {
       case 'locked':
       case 'upgrade_required':
         setPreviewData(createPreviewExperience(course));
         setShowPreview(true);
         break;
-        
+
       case 'granted':
         if (interactionType === 'preview') {
           setPreviewData(createPreviewExperience(course));
@@ -289,9 +289,9 @@ const LearningHub = () => {
           duration: 32,
           level: "beginner",
           accessLevel: "free",
-          instructor: { 
-            id: "sarah-k", 
-            name: "Sarah K.", 
+          instructor: {
+            id: "sarah-k",
+            name: "Sarah K.",
             avatar: "/instructors/sarah.jpg",
             responseTime: "within 6 hours",
             rating: 4.9
@@ -318,9 +318,9 @@ const LearningHub = () => {
           duration: 45,
           level: "intermediate",
           accessLevel: "pro",
-          instructor: { 
-            id: "mike-t", 
-            name: "Mike T.", 
+          instructor: {
+            id: "mike-t",
+            name: "Mike T.",
             avatar: "/instructors/mike.jpg",
             responseTime: "within 12 hours",
             rating: 4.7
@@ -352,9 +352,9 @@ const LearningHub = () => {
           duration: 38,
           level: "intermediate",
           accessLevel: "subscriber",
-          instructor: { 
-            id: "david-m", 
-            name: "David M.", 
+          instructor: {
+            id: "david-m",
+            name: "David M.",
             avatar: "/instructors/david.jpg",
             responseTime: "within 24 hours",
             rating: 4.5
@@ -422,7 +422,7 @@ const LearningHub = () => {
   const handleFolderToggle = useCallback((folderId: string) => {
     setExpandedFolder(prev => prev === folderId ? null : folderId);
     const folderContent = document.getElementById(`folder-content-${folderId}`);
-    
+
     if (folderContent) {
       gsap.to(folderContent, {
         height: "auto",
@@ -444,7 +444,7 @@ const LearningHub = () => {
   // Flowing menu items
   const flowingMenuItems = useCallback((course: any) => {
     const access = getEnhancedAccessStatus(course);
-    
+
     return [
       {
         label: "Preview",
@@ -459,13 +459,13 @@ const LearningHub = () => {
         disabled: !user
       },
       {
-        label: access.status === "granted" 
-          ? (course.progress > 0 ? "Continue" : "Enroll") 
+        label: access.status === "granted"
+          ? (course.progress > 0 ? "Continue" : "Enroll")
           : (access.status === "locked" ? "Signup to Access" : "Upgrade Required"),
-        icon: access.status === "granted" 
-          ? (course.progress > 0 ? <Play className="h-4 w-4" /> : <Star className="h-4 w-4" />) 
+        icon: access.status === "granted"
+          ? (course.progress > 0 ? <Play className="h-4 w-4" /> : <Star className="h-4 w-4" />)
           : <CheckCircle className="h-4 w-4" />,
-        action: () => access.status === "granted" 
+        action: () => access.status === "granted"
           ? handleContentInteraction(course, 'enroll')
           : handleContentInteraction(course, 'preview'),
         disabled: access.status !== "granted"
@@ -491,57 +491,56 @@ const LearningHub = () => {
 
   return (
     <MainLayout>
-      <DarkVeil 
-        isVisible={showPreview} 
+      <DarkVeil
+        isVisible={showPreview}
         onClick={() => setShowPreview(false)}
         hueShift={120}
         noiseIntensity={0.02}
         speed={0.3}
       />
-      
+
       {showPreview && previewData && (
-        <PreviewModal 
-          content={previewData} 
+        <PreviewModal
+          content={previewData}
           onClose={() => setShowPreview(false)}
           onSignup={() => navigate(`/auth?next=/learning-hub/${previewData.id}`)}
           onUpgrade={() => navigate("/pricing")}
         />
       )}
 
-      <div className="hub-shell grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-6 min-h-screen">
-        <header className="col-span-full pt-6 px-4">
+      <div className="hub-shell grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-8 min-h-screen p-4 md:p-8 lg:p-10 max-w-[1600px] mx-auto">
+        <header className="col-span-full pt-4 px-2 mb-4">
           <animated.div style={titleAnimation} className="mb-4">
-            <SplitText 
-              text="Let's Learn!" 
-              className="text-4xl font-serif font-bold text-gold" 
+            <SplitText
+              text="Let's Learn!"
+              className="text-4xl font-serif font-bold text-gold"
               duration={0.8}
               stagger={0.03}
               from={{ opacity: 0, y: 20 }}
               to={{ opacity: 1, y: 0 }}
             />
           </animated.div>
-          
-          <PillNav 
-            items={pillNavItems} 
+
+          <PillNav
+            items={pillNavItems}
             activeId={activeTab}
             onSelect={setActiveTab}
             className="mb-6"
           />
         </header>
 
-        <aside 
+        <aside
           ref={dockRef}
-          className={`left-dock bg-cream/90 backdrop-blur-sm rounded-xl p-4 transition-all duration-300 ${
-            mobileDockOpen 
-              ? 'fixed inset-0 z-50 bg-cream p-6 overflow-y-auto' 
+          className={`left-dock bg-cream/90 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-gold/10 transition-all duration-300 ${mobileDockOpen
+              ? 'fixed inset-0 z-50 bg-cream p-8 overflow-y-auto'
               : 'hidden lg:block'
-          }`}
+            }`}
         >
           {mobileDockOpen && (
             <div className="flex justify-between items-center mb-6 lg:hidden">
               <h2 className="text-xl font-bold text-gold">Your Learning Dock</h2>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setMobileDockOpen(false)}
               >
@@ -549,7 +548,7 @@ const LearningHub = () => {
               </Button>
             </div>
           )}
-          
+
           <div className="dock-content space-y-6">
             <motion.section
               initial={{ opacity: 0, y: 20 }}
@@ -567,7 +566,7 @@ const LearningHub = () => {
                     <Card key={course.id} className="relative group transition-transform hover:-translate-y-0.5">
                       <CardContent className="p-3">
                         <div className="flex items-center">
-                          <CircularText 
+                          <CircularText
                             value={course.progress}
                             size={40}
                             strokeWidth={3}
@@ -583,7 +582,7 @@ const LearningHub = () => {
                           </div>
                         </div>
                       </CardContent>
-                      <Button 
+                      <Button
                         variant="ghost"
                         size="sm"
                         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -619,7 +618,7 @@ const LearningHub = () => {
                         </div>
                       </div>
                     </CardContent>
-                    <Button 
+                    <Button
                       variant="ghost"
                       size="sm"
                       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -684,11 +683,11 @@ const LearningHub = () => {
           </div>
         </aside>
 
-        <main className="center-studio px-4 pb-6">
-          <div className="folder-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <main className="center-studio px-2 pb-12">
+          <div className="folder-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {learningCategories.map((category, index) => (
-              <div 
-                key={category.id} 
+              <div
+                key={category.id}
                 ref={el => folderRefs.current[index] = el}
               >
                 <Folder
@@ -700,38 +699,38 @@ const LearningHub = () => {
                   isExpanded={expandedFolder === category.id}
                   onToggle={() => handleFolderToggle(category.id)}
                 >
-                  <div 
+                  <div
                     id={`folder-content-${category.id}`}
                     className="course-grid grid grid-cols-1 gap-4 mt-4"
                   >
                     {category.courses.map(course => {
                       const access = getEnhancedAccessStatus(course);
-                      
+
                       return (
-                        <Card 
-                          key={course.id} 
+                        <Card
+                          key={course.id}
                           className="course-card relative overflow-hidden group transition-all hover:shadow-lg"
                         >
-                          <FlowingMenu 
+                          <FlowingMenu
                             items={flowingMenuItems(course)}
                             trigger="hover"
                             className="absolute top-3 right-3 z-10"
                             mobileBehavior="long-press"
                           />
-                          
+
                           <CardHeader className="pb-3">
                             <div className="aspect-video bg-muted rounded-md relative overflow-hidden">
                               <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-full" />
                               {access.status !== "granted" && (
                                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                  <Button 
+                                  <Button
                                     variant="default"
                                     size="sm"
                                     className="bg-gold text-white hover:bg-gold/90"
                                     onClick={() => handleContentInteraction(course, 'preview')}
                                   >
-                                    {access.status === "locked" 
-                                      ? "Unlock Preview" 
+                                    {access.status === "locked"
+                                      ? "Unlock Preview"
                                       : "Upgrade to Access"}
                                   </Button>
                                 </div>
@@ -747,11 +746,11 @@ const LearningHub = () => {
                             </CardTitle>
                             <CardDescription className="truncate">{course.description}</CardDescription>
                           </CardHeader>
-                          
+
                           <CardContent>
                             <div className="flex justify-between items-center">
                               <div className="flex items-center space-x-2">
-                                <CircularText 
+                                <CircularText
                                   value={course.progress}
                                   size={32}
                                   strokeWidth={3}
@@ -773,17 +772,16 @@ const LearningHub = () => {
                               </span>
                             </div>
                           </CardContent>
-                          
+
                           <CardFooter>
-                            <Button 
-                              className={`w-full transition-all ${
-                                access.status === "granted" 
-                                  ? "bg-gold hover:bg-gold-dark text-white hover:shadow-gold/30" 
+                            <Button
+                              className={`w-full transition-all ${access.status === "granted"
+                                  ? "bg-gold hover:bg-gold-dark text-white hover:shadow-gold/30"
                                   : "hover:bg-muted"
-                              }`}
+                                }`}
                               variant={access.status === "granted" ? "default" : "outline"}
-                              onClick={() => 
-                                access.status === "granted" 
+                              onClick={() =>
+                                access.status === "granted"
                                   ? handleContentInteraction(course, 'enroll')
                                   : handleContentInteraction(course, 'preview')
                               }
@@ -813,7 +811,7 @@ const LearningHub = () => {
               {achievements.map((achievement) => (
                 <div key={achievement.id} className="flex items-center">
                   <div className="mr-3 relative flex-shrink-0">
-                    <CircularText 
+                    <CircularText
                       value={achievement.unlocked ? 100 : achievement.progress}
                       size={48}
                       strokeWidth={4}
@@ -823,9 +821,8 @@ const LearningHub = () => {
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
                       {React.cloneElement(achievement.icon, {
-                        className: `h-5 w-5 ${
-                          achievement.unlocked ? "text-gold" : "text-muted-foreground"
-                        }`
+                        className: `h-5 w-5 ${achievement.unlocked ? "text-gold" : "text-muted-foreground"
+                          }`
                       })}
                     </div>
                   </div>
@@ -878,7 +875,7 @@ const LearningHub = () => {
       </div>
 
       <div className="fixed bottom-4 left-4 lg:hidden z-40">
-        <Button 
+        <Button
           variant="default"
           size="icon"
           className="shadow-lg shadow-gold/30"
@@ -894,7 +891,7 @@ const LearningHub = () => {
             <TabsTrigger value="courses">Courses</TabsTrigger>
             <TabsTrigger value="achievements">Achievements</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="achievements" className="pt-4">
             <h3 className="font-medium mb-4 flex items-center text-gold-dark">
               <Trophy className="h-5 w-5 mr-2 text-gold" />
@@ -904,7 +901,7 @@ const LearningHub = () => {
               {achievements.map((achievement) => (
                 <Card key={achievement.id} className="flex items-center p-3">
                   <div className="mr-3 relative flex-shrink-0">
-                    <CircularText 
+                    <CircularText
                       value={achievement.unlocked ? 100 : achievement.progress}
                       size={48}
                       strokeWidth={4}
@@ -914,9 +911,8 @@ const LearningHub = () => {
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
                       {React.cloneElement(achievement.icon, {
-                        className: `h-5 w-5 ${
-                          achievement.unlocked ? "text-gold" : "text-muted-foreground"
-                        }`
+                        className: `h-5 w-5 ${achievement.unlocked ? "text-gold" : "text-muted-foreground"
+                          }`
                       })}
                     </div>
                   </div>

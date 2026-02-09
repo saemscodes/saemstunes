@@ -30,9 +30,6 @@ export const getSupabaseClient = () => {
         }
       }
     )
-    if (typeof window !== 'undefined') {
-      console.log('🔧 Created canonical singleton Supabase client')
-    }
   }
   return globalWithSupabase.__supabase_singleton
 }

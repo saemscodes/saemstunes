@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { 
-  Search, 
-  User, 
-  Music, 
-  MapPin, 
-  Users, 
-  Heart, 
+import {
+  Search,
+  User,
+  Music,
+  MapPin,
+  Users,
+  Heart,
   Play,
   Star,
   Verified,
@@ -87,12 +87,12 @@ const Artists: React.FC = () => {
             isFollowing: false,
             slug: artist.slug,
             createdAt: artist.created_at,
-            socialLinks: typeof artist.social_links === 'object' && artist.social_links !== null 
+            socialLinks: typeof artist.social_links === 'object' && artist.social_links !== null
               ? artist.social_links as { instagram?: string; spotify?: string; youtube?: string; }
               : {}
           }));
           setArtists(mappedArtists);
-          
+
           // Calculate new artists this month
           const now = new Date();
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -100,7 +100,7 @@ const Artists: React.FC = () => {
             const createdAt = new Date(artist.created_at);
             return createdAt >= startOfMonth;
           }).length;
-          
+
           setNewThisMonth(newArtistsCount);
         }
       } catch (err) {
@@ -117,7 +117,7 @@ const Artists: React.FC = () => {
   const genres = [
     'all',
     'Gospel',
-    'Christian Contemporary', 
+    'Christian Contemporary',
     'Worship',
     'Afrobeats Gospel',
     'Traditional Gospel',
@@ -134,8 +134,8 @@ const Artists: React.FC = () => {
   const filteredArtists = artists
     .filter(artist => {
       const matchesSearch = artist.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           artist.genre.some(g => g.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           artist.location.toLowerCase().includes(searchTerm.toLowerCase());
+        artist.genre.some(g => g.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        artist.location.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesGenre = selectedGenre === 'all' || artist.genre.includes(selectedGenre);
       return matchesSearch && matchesGenre;
     })
@@ -203,7 +203,7 @@ const Artists: React.FC = () => {
 
   const ArtistCard = ({ artist }: { artist: Artist }) => {
     const isFollowing = followedArtists.has(artist.id);
-    
+
     return (
       <motion.div
         variants={itemVariants}
@@ -214,13 +214,13 @@ const Artists: React.FC = () => {
           <CardContent className="p-0">
             <Link to={`/artist/${artist.slug}`} className="block">
               <div className="relative">
-                <img 
-                  src={artist.profileImage} 
+                <img
+                  src={artist.profileImage}
                   alt={artist.name}
                   className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                
+
                 <div className="absolute bottom-4 left-4 right-4">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="font-bold text-white text-lg truncate">{artist.name}</h3>
@@ -235,7 +235,7 @@ const Artists: React.FC = () => {
                 </div>
               </div>
             </Link>
-            
+
             <div className="p-4">
               <Link to={`/artist/${artist.slug}`} className="block">
                 <div className="flex flex-wrap gap-1 mb-3">
@@ -270,11 +270,10 @@ const Artists: React.FC = () => {
               <div className="flex gap-2">
                 <Button
                   onClick={(e) => handleFollow(artist.id, e)}
-                  className={`flex-1 ${
-                    isFollowing 
-                      ? 'bg-muted text-muted-foreground hover:bg-muted/80' 
+                  className={`flex-1 ${isFollowing
+                      ? 'bg-muted text-muted-foreground hover:bg-muted/80'
                       : 'bg-gold hover:bg-gold-dark text-white'
-                  }`}
+                    }`}
                 >
                   {isFollowing ? (
                     <>
@@ -301,14 +300,14 @@ const Artists: React.FC = () => {
 
   return (
     <MainLayout>
-      <motion.div 
+      <motion.div
         className="min-h-screen bg-gradient-to-br from-background via-background to-gold/5 w-full max-w-full"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <div className="container px-3 sm:px-6 lg:px-8 py-6 w-full max-w-full">
-          <motion.div 
+        <div className="container px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full overflow-hidden">
+          <motion.div
             className="text-center mb-8"
             variants={itemVariants}
           >
@@ -320,7 +319,7 @@ const Artists: React.FC = () => {
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="mb-8 space-y-4"
             variants={itemVariants}
           >
@@ -334,7 +333,7 @@ const Artists: React.FC = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <Select value={selectedGenre} onValueChange={setSelectedGenre}>
                   <SelectTrigger className="w-48">
@@ -397,7 +396,7 @@ const Artists: React.FC = () => {
           </motion.div>
 
           {loading && (
-            <motion.div 
+            <motion.div
               className="text-center py-16"
               variants={itemVariants}
             >
@@ -405,9 +404,9 @@ const Artists: React.FC = () => {
               <p>Loading artists...</p>
             </motion.div>
           )}
-          
+
           {error && !loading && (
-            <motion.div 
+            <motion.div
               className="text-center py-16"
               variants={itemVariants}
             >
@@ -416,7 +415,7 @@ const Artists: React.FC = () => {
               <p className="text-muted-foreground mb-6">
                 {error}
               </p>
-              <Button 
+              <Button
                 onClick={() => window.location.reload()}
                 className="bg-gold hover:bg-gold-dark text-white"
               >
@@ -424,15 +423,14 @@ const Artists: React.FC = () => {
               </Button>
             </motion.div>
           )}
-          
+
           {!loading && !error && (
             <>
-              <motion.div 
-                className={`grid gap-6 ${
-                  viewMode === 'grid' 
-                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+              <motion.div
+                className={`grid gap-6 ${viewMode === 'grid'
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                     : 'grid-cols-1'
-                }`}
+                  }`}
                 variants={containerVariants}
               >
                 <AnimatePresence>
@@ -443,7 +441,7 @@ const Artists: React.FC = () => {
               </motion.div>
 
               {filteredArtists.length === 0 && (
-                <motion.div 
+                <motion.div
                   className="text-center py-16"
                   variants={itemVariants}
                 >
@@ -452,7 +450,7 @@ const Artists: React.FC = () => {
                   <p className="text-muted-foreground mb-6">
                     Try adjusting your search or filter criteria
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => {
                       setSearchTerm('');
                       setSelectedGenre('all');
@@ -468,13 +466,13 @@ const Artists: React.FC = () => {
           )}
 
           {!loading && !error && hasMoreArtists && (
-            <motion.div 
+            <motion.div
               className="text-center mt-12"
               variants={itemVariants}
             >
-              <Button 
+              <Button
                 onClick={handleLoadMore}
-                variant="outline" 
+                variant="outline"
                 className="border-gold text-gold hover:bg-gold hover:text-white"
               >
                 Load More Artists

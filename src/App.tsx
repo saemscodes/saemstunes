@@ -171,14 +171,13 @@ const App = () => {
                                 <Route path="/tracks" element={<Tracks />} />
                                 <Route path="/track/:slug" element={<AudioPlayer />} />
                                 <Route path="/artist/:slug" element={<ArtistProfile />} />
-                                <Route path="/course/:slug" element={<LearningHub />} />
+                                <Route path="/course/:courseId" element={<LearningModulePage />} />
                                 <Route path="/lesson/:slug" element={<LearningModulePage />} />
                                 <Route path="/module/:slug" element={<LearningModulePage />} />
                                 <Route path="/music-showcase" element={<Navigate to="/tracks" replace />} />
                                 <Route path="/player" element={<Player />} />
-                                <Route path="/learning-hub" element={<LearningHub />} />
-                                <Route path="/learning-hub/:id" element={<LearningModulePage />} />
-                                <Route path="/learning-module/:id" element={<LearningModulePage />} />
+                                <Route path="/learning-hub/:courseId" element={<LearningModulePage />} />
+                                <Route path="/learning-module/:moduleId" element={<LearningModulePage />} />
                                 <Route path="/artist/:slug" element={<ArtistProfile />} />
                                 <Route path="/follow-us" element={<FollowUs />} />
                                 <Route path="/contact-us" element={<ContactUs />} />
@@ -189,7 +188,7 @@ const App = () => {
                                 <Route path="/subscriptions" element={<Subscriptions />} />
                                 <Route path="/music-tools" element={<MusicTools />} />
                                 <Route path="/artists" element={<Artists />} />
-                                <Route path="/learning-hub/:moduleId" element={<LearningModulePage />} />
+                                <Route path="/learning-hub" element={<LearningHub />} />
                                 <Route path="/coming-soon" element={<ComingSoon />} />
                                 <Route path="/tracks/:slug" element={<AudioPlayer />} />
                                 <Route path="/audio-player/:id" element={<Navigate to="/tracks" replace />} />

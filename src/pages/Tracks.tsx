@@ -77,8 +77,8 @@ const Tracks = () => {
   const [featuredTrack, setFeaturedTrack] = useState<FeaturedTrack | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState("showcase");
   const [searchTerm, setSearchTerm] = useState('');
+  const [artists, setArtists] = useState<any[]>([]);
 
   // Upload form states
   const [title, setTitle] = useState("");
@@ -139,6 +139,30 @@ const Tracks = () => {
       console.error('Error fetching playlists:', error);
     }
   }, [user]);
+
+  // Fetch all artists from the dedicated table
+  const fetchArtists = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('artists')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      if (data) {
+        setArtists(data.map(a => ({
+          id: a.id,
+          title: a.name,
+          subtitle: a.genre?.join(', ') || 'Artist',
+          image: a.profile_image_url || '/default-artist.jpg',
+          slug: a.slug,
+          handle: `@${a.slug || a.id.substring(0, 8)}`
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching artists:', error);
+    }
+  }, []);
 
   // Fetch featured track with proper error handling
   const fetchFeaturedTrack = useCallback(async () => {
@@ -300,7 +324,8 @@ const Tracks = () => {
       await Promise.all([
         fetchTracks(),
         fetchFeaturedTrack(),
-        fetchPlaylists()
+        fetchPlaylists(),
+        fetchArtists()
       ]);
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -613,10 +638,7 @@ const Tracks = () => {
     (track.artist && track.artist.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Extract unique artists
-  const artists = Array.from(
-    new Set(tracks.map(track => track.artist).filter(Boolean))
-  );
+  // Artists are now fetched from the dedicated artists table
 
   // Prepare cover tracks for display
   const coverTracks = tracks
@@ -793,7 +815,7 @@ const Tracks = () => {
                 </TabsList>
               </div>
 
-              <TabsContent value="showcase" className="space-y-8 w-full max-w-full overflow-hidden">
+              <TabsContent value="featured" className="space-y-8 w-full max-w-full overflow-hidden">
                 {featuredTrack ? (
                   <section>
                     <div className="flex items-center gap-2 mb-6">

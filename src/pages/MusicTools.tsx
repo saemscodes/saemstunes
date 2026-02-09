@@ -467,30 +467,32 @@ const MusicTools = () => {
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
-                  className="w-full min-h-[500px] rounded-[2.5rem] bg-[#121417] border border-white/5 shadow-2xl overflow-hidden relative group"
+                  className="w-full min-h-[500px] rounded-[2.5rem] bg-[#121417] border border-white/5 shadow-2xl relative group overflow-hidden"
                 >
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50 group-hover:opacity-70 transition-opacity pointer-events-none" />
+                  <div className="absolute inset-0 overflow-auto scrollbar-hide py-10 px-4 md:p-0">
+                    <div className="min-w-fit md:min-w-0 md:h-full md:w-full flex items-center justify-center">
 
-                  {/* Tool Component */}
-                  <AnimatePresence mode="wait">
-                    {CurrentComponent && (
-                      <motion.div
-                        key={`${activeTool}-${resetKey}`}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.3 }}
-                        className="relative h-full w-full"
-                      >
-                        {currentTool?.props ? (
-                          <CurrentComponent {...currentTool.props} />
-                        ) : (
-                          <CurrentComponent adminEmail="contact@saemstunes.com" />
+                      {/* Tool Component */}
+                      <AnimatePresence mode="wait">
+                        {CurrentComponent && (
+                          <motion.div
+                            key={`${activeTool}-${resetKey}`}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.3 }}
+                            className="relative h-full w-full"
+                          >
+                            {currentTool?.props ? (
+                              <CurrentComponent {...currentTool.props} />
+                            ) : (
+                              <CurrentComponent adminEmail="contact@saemstunes.com" />
+                            )}
+                          </motion.div>
                         )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </AnimatePresence>
+                    </div>
+                  </div>
                 </motion.div>
 
                 {/* Status Bar - Premium footer */}

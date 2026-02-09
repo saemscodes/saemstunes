@@ -6,7 +6,7 @@ if (typeof window !== 'undefined') {
   if (!window.__supabaseOriginal) {
     window.__supabaseOriginal = window.supabase;
   }
-  
+
   // Override window.supabase getter to return the same instance
   Object.defineProperty(window, 'supabase', {
     get() {
@@ -20,6 +20,4 @@ if (typeof window !== 'undefined') {
     },
     configurable: true
   });
-  
-  console.log('🔧 Supabase runtime fix applied');
 }

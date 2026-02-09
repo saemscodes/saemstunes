@@ -90,7 +90,7 @@ const SupportUs = () => {
           <h1 className="text-3xl font-proxima font-bold mb-2">Support Saem's Tunes</h1>
           <p className="text-muted-foreground">Help us continue our mission of making music education accessible and enjoyable for everyone.</p>
         </motion.div>
-        
+
         <motion.div
           initial="hidden"
           animate="visible"
@@ -106,29 +106,29 @@ const SupportUs = () => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-6 items-center">
-                <div className="w-full md:w-1/4">
-                  <div className="aspect-square rounded-full overflow-hidden border-4 border-gold/20 mx-auto md:mx-0 max-w-[180px] transform -translate-y-20">
-                    <img 
-                      src="/lovable-uploads/logo-icon-lg.webp" 
-                      alt="Saem" 
-                      className="w-full h-full object-cover"
+                <div className="w-full md:w-1/3">
+                  <div className="aspect-square rounded-2xl overflow-hidden border-2 border-gold/30 mx-auto md:mx-0 max-w-[200px] shadow-2xl relative z-10 bg-background">
+                    <img
+                      src="/lovable-uploads/logo-icon-lg.webp"
+                      alt="Saem"
+                      className="w-full h-full object-contain p-4"
                     />
                   </div>
                 </div>
-                <div className="w-full md:w-3/4">
+                <div className="w-full md:w-2/3">
                   <p className="italic text-muted-foreground mb-4">
-                    "Music has the incredible power to transform lives, build confidence, and create joy. 
-                    At Saem's Tunes, we believe everyone deserves access to quality music education regardless 
+                    "Music has the incredible power to transform lives, build confidence, and create joy.
+                    At Saem's Tunes, we believe everyone deserves access to quality music education regardless
                     of their background or circumstances."
                   </p>
                   <p className="mb-4">
-                    I started this journey with a simple vision: to make learning music an enriching, accessible, 
-                    and enjoyable experience for everyone. Today, we've touched thousands of lives through our 
+                    I started this journey with a simple vision: to make learning music an enriching, accessible,
+                    and enjoyable experience for everyone. Today, we've touched thousands of lives through our
                     teachings, but there's so much more we want to accomplish.
                   </p>
                   <p>
-                    Your support helps us develop new educational content, offer scholarships to deserving students, 
-                    improve our platform, and expand our reach to underserved communities. Every contribution, 
+                    Your support helps us develop new educational content, offer scholarships to deserving students,
+                    improve our platform, and expand our reach to underserved communities. Every contribution,
                     big or small, brings us closer to our goal of making quality music education accessible to all.
                   </p>
                   <div className="mt-4 text-right">
@@ -140,8 +140,8 @@ const SupportUs = () => {
             </CardContent>
           </Card>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-2 gap-6"
           initial="hidden"
           animate="visible"
@@ -164,7 +164,7 @@ const SupportUs = () => {
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
                   {option.options.map((item) => (
-                    <div 
+                    <div
                       key={item.label}
                       className="border rounded-lg p-3 text-center hover:border-gold hover:bg-gold/5 cursor-pointer transition-all"
                       onClick={() => handleOptionClick(option.title, item.amount)}
@@ -195,7 +195,7 @@ const SupportUs = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button 
+                <Button
                   className="w-full bg-gold hover:bg-gold-dark"
                   onClick={() => window.open(`${option.url}?amount=${customAmounts[option.title] || ''}`, '_blank')}
                 >
@@ -205,7 +205,7 @@ const SupportUs = () => {
             </Card>
           ))}
         </motion.div>
-        
+
         <motion.div
           initial="hidden"
           animate="visible"
@@ -232,7 +232,7 @@ const SupportUs = () => {
                 </Button>
               </CardFooter>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -255,12 +255,12 @@ const SupportUs = () => {
                       "_blank"
                     )
                   }
-                  >
+                >
                   Join as Volunteer
                 </Button>
               </CardFooter>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -274,8 +274,8 @@ const SupportUs = () => {
                 </p>
               </CardContent>
               <CardFooter>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={() => window.open('https://linktr.ee/saemstunes', '_blank')}
                 >
@@ -285,8 +285,8 @@ const SupportUs = () => {
             </Card>
           </div>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           className="bg-muted p-6 rounded-lg mt-8"
           initial="hidden"
           animate="visible"
