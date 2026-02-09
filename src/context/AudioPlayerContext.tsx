@@ -43,6 +43,7 @@ interface AudioPlayerContextType {
   toggleRepeat: () => void;
   setPlaylist: (playlist: AudioTrack[], playlistId?: string) => void;
   setCurrentIndex: (index: number) => void;
+  playbackHistory: (string | number)[];
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
@@ -70,6 +71,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const memoryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shuffleHistoryRef = useRef<number[]>([]);
+  const [playbackHistory, setPlaybackHistory] = useState<(string | number)[]>([]);
 
   useEffect(() => {
     const savedState = localStorage.getItem('audioPlayerState');
@@ -77,12 +79,12 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         const parsedState = JSON.parse(savedState);
         const now = Date.now();
-        
+
         if (parsedState.lastPlayedTimestamp && (now - parsedState.lastPlayedTimestamp) > MEMORY_DURATION) {
           localStorage.removeItem('audioPlayerState');
           return;
         }
-        
+
         setState(prevState => ({
           ...prevState,
           ...parsedState,
@@ -90,6 +92,15 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }));
       } catch (error) {
         localStorage.removeItem('audioPlayerState');
+      }
+    }
+
+    const savedHistory = localStorage.getItem('playbackHistory');
+    if (savedHistory) {
+      try {
+        setPlaybackHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        localStorage.removeItem('playbackHistory');
       }
     }
   }, []);
@@ -176,7 +187,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const handleTrackEnd = () => {
     setMediaPlaying(false);
-    
+
     if (state.repeat === 'one') {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
@@ -192,6 +203,14 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         lastPlayedTime: 0,
       }));
     }
+  };
+
+  const addToHistory = (trackId: string | number) => {
+    setPlaybackHistory(prev => {
+      const newHistory = [trackId, ...prev.filter(id => id !== trackId)].slice(0, 20);
+      localStorage.setItem('playbackHistory', JSON.stringify(newHistory));
+      return newHistory;
+    });
   };
 
   const playTrack = (track: AudioTrack, startTime: number = 0) => {
@@ -214,8 +233,9 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       lastPlayedTime: startTime,
     }));
 
+    addToHistory(track.id);
     initializeAudio(track);
-    
+
     if (audioRef.current) {
       audioRef.current.currentTime = startTime;
       audioRef.current.play().then(() => {
@@ -328,19 +348,19 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const playNext = () => {
     if (state.playlist.length === 0 || state.currentIndex === -1) return;
-    
+
     let nextIndex;
-    
+
     if (state.shuffle) {
       do {
         nextIndex = Math.floor(Math.random() * state.playlist.length);
       } while (nextIndex === state.currentIndex && state.playlist.length > 1);
-      
+
       shuffleHistoryRef.current = [...shuffleHistoryRef.current, state.currentIndex];
     } else {
       nextIndex = (state.currentIndex + 1) % state.playlist.length;
     }
-    
+
     const nextTrack = state.playlist[nextIndex];
     setState(prev => ({
       ...prev,
@@ -351,16 +371,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const playPrevious = () => {
     if (state.playlist.length === 0 || state.currentIndex === -1) return;
-    
+
     let prevIndex;
-    
+
     if (state.shuffle && shuffleHistoryRef.current.length > 0) {
       prevIndex = shuffleHistoryRef.current.pop()!;
     } else {
       prevIndex = state.currentIndex - 1;
       if (prevIndex < 0) prevIndex = state.playlist.length - 1;
     }
-    
+
     const prevTrack = state.playlist[prevIndex];
     setState(prev => ({
       ...prev,
@@ -417,6 +437,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         toggleRepeat,
         setPlaylist,
         setCurrentIndex,
+        playbackHistory,
       }}
     >
       {children}

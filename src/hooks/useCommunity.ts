@@ -83,6 +83,27 @@ export interface CreatePostInput {
 
 const supabaseCustom = supabase as unknown as SupabaseClient;
 
+export const useCommunityAudio = () => {
+    return useQuery({
+        queryKey: ['community-audio'],
+        queryFn: async () => {
+            const { data, error } = await supabaseCustom
+                .from('tracks')
+                .select(`
+          *,
+          author:profiles(id, full_name, avatar_url)
+        `)
+                .eq('approved', true)
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (error) throw error;
+            return data;
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
+};
+
 // =============================================
 // THREAD HOOKS
 // =============================================
@@ -95,7 +116,7 @@ export const useThreads = (category?: string) => {
                 .from('community_threads')
                 .select(`
           *,
-          author:profiles!user_id(id, full_name, avatar_url)
+          author:profiles(id, full_name, avatar_url)
         `)
                 .order('is_pinned', { ascending: false })
                 .order('last_activity_at', { ascending: false })
@@ -121,7 +142,7 @@ export const useThread = (threadId: string) => {
                 .from('community_threads')
                 .select(`
           *,
-          author:profiles!user_id(id, full_name, avatar_url)
+          author:profiles(id, full_name, avatar_url)
         `)
                 .eq('id', threadId)
                 .single();
@@ -196,7 +217,7 @@ export const usePosts = (threadId: string) => {
                 .from('community_posts')
                 .select(`
           *,
-          author:profiles!user_id(id, full_name, avatar_url)
+          author:profiles(id, full_name, avatar_url)
         `)
                 .eq('thread_id', threadId)
                 .order('created_at', { ascending: true });
@@ -384,7 +405,7 @@ export const useMessageThreads = () => {
                 .from('conversations')
                 .select(`
           *,
-          last_message_sender:profiles!last_message_sender_id(full_name)
+          last_message_sender:profiles(full_name)
         `)
                 .contains('participant_ids', [user.id])
                 .order('last_message_at', { ascending: false });
@@ -404,7 +425,7 @@ export const useDirectMessages = (conversationId: string) => {
                 .from('direct_messages')
                 .select(`
           *,
-          sender:profiles!sender_id(id, full_name, avatar_url)
+          sender:profiles(id, full_name, avatar_url)
         `)
                 .eq('conversation_id', conversationId)
                 .order('created_at', { ascending: true });
@@ -498,6 +519,7 @@ export const useCommunity = () => {
         useDirectMessages,
         useSendMessage,
         useStreamingMessages,
+        useCommunityAudio,
     };
 };
 

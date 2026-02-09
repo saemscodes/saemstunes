@@ -21,10 +21,28 @@ export interface Course {
   updated_at: string;
   // Joined
   instructor?: {
-    full_name: string;
+    full_name: string | null;
     avatar_url: string | null;
   };
+  category?: Category;
   modules?: Module[];
+  // Extended fields
+  enrollment_count?: number;
+  average_rating?: number;
+  skills_count?: number;
+  estimated_time?: string;
+  preview_url?: string;
+  preview_type?: string;
+  preview_duration?: number;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color?: string | null;
+  estimated_time?: string | null;
 }
 
 export interface Module {
@@ -101,7 +119,7 @@ export const useCourses = (options?: { categoryId?: string; instructorId?: strin
         .from('courses')
         .select(`
           *,
-          instructor:profiles!instructor_id(full_name, avatar_url)
+          instructor:profiles(full_name, avatar_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -127,7 +145,7 @@ export const useCourse = (courseId: string) => {
         .from('courses')
         .select(`
           *,
-          instructor:profiles!instructor_id(full_name, avatar_url)
+          instructor:profiles(full_name, avatar_url)
         `)
         .eq('id', courseId)
         .single();
@@ -136,6 +154,20 @@ export const useCourse = (courseId: string) => {
       return data as Course;
     },
     enabled: !!courseId,
+  });
+};
+
+export const useCategories = () => {
+  return useQuery({
+    queryKey: ['resource-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabaseCustom
+        .from('resource_categories')
+        .select('*');
+
+      if (error) throw error;
+      return data as Category[];
+    },
   });
 };
 
@@ -149,7 +181,7 @@ export const useCourseDetails = (courseId: string) => {
         .from('courses')
         .select(`
           *,
-          instructor:profiles!instructor_id(full_name, avatar_url)
+          instructor:profiles(full_name, avatar_url)
         `)
         .eq('id', courseId)
         .single();
@@ -326,6 +358,7 @@ export const useLearningContent = () => {
   return {
     useCourses,
     useCourse,
+    useCategories,
     useModules,
     useClasses,
     useLessons,

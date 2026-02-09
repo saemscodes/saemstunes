@@ -3,7 +3,27 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, MessageCircle, Music, Video, Bell, Award, Heart, Headphones, X, Mail, Sparkles, Loader2 } from "lucide-react";
+import {
+  Users,
+  MessageCircle,
+  Music,
+  Video,
+  Bell,
+  Award,
+  Heart,
+  Headphones,
+  X,
+  Mail,
+  Sparkles,
+  Loader2,
+  Search,
+  Calendar,
+  ArrowRight,
+  Send,
+  User,
+  Plus,
+  Play,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +38,9 @@ import DirectMessaging from "@/components/community/DirectMessaging";
 import { useNavigate } from "react-router-dom";
 import SEOHead from "@/components/seo/SEOHead";
 import { Input } from "@/components/ui/input";
+import NewDiscussionModal from "@/components/community/NewDiscussionModal";
+import ShareAudioModal from "@/components/community/ShareAudioModal";
+import ComposeMessageModal from "@/components/community/ComposeMessageModal";
 
 // Mock audio tracks for audio sharing
 const AUDIO_TRACKS = [
@@ -60,9 +83,14 @@ const Community = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const { useThreads } = useCommunity();
+  const { useThreads, useCommunityAudio } = useCommunity();
   const { data: threads, isLoading: threadsLoading } = useThreads();
+  const { data: communityTracks, isLoading: tracksLoading } = useCommunityAudio();
   const [activeTab, setActiveTab] = useState("discussions");
+
+  const [isNewDiscussionOpen, setIsNewDiscussionOpen] = useState(false);
+  const [isShareAudioOpen, setIsShareAudioOpen] = useState(false);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
 
   // SEO schema for community page
   const communitySchema = {
@@ -166,14 +194,14 @@ const Community = () => {
         <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
       </div>
       <div className="flex-1">
-        <h4 className="font-medium">{event.title}</h4>
-        <p className="text-sm text-muted-foreground">{event.date}</p>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+        <h4 className="font-medium text-sm sm:text-base">{event.title}</h4>
+        <p className="text-xs sm:text-sm text-muted-foreground">{event.date}</p>
+        <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground mt-1">
           <Users className="h-3 w-3" />
           <span>{event.attendees} attending</span>
         </div>
       </div>
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
         Join
       </Button>
     </div>
@@ -226,35 +254,44 @@ const Community = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-serif font-bold">Community</h1>
-              <Button className="bg-gold hover:bg-gold-dark text-white">
+              <Button
+                className="bg-gold hover:bg-gold-dark text-white"
+                onClick={() => activeTab === 'messages' ? setIsComposeOpen(true) : setIsNewDiscussionOpen(true)}
+              >
                 <MessageCircle className="mr-2 h-4 w-4" />
                 New
               </Button>
             </div>
 
             <Tabs defaultValue="discussions" className="w-full" onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-5 mb-4">
-                <TabsTrigger value="discussions">
-                  <MessageCircle className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Discussions</span>
-                </TabsTrigger>
-                <TabsTrigger value="audio">
-                  <Headphones className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Audio</span>
-                </TabsTrigger>
-                <TabsTrigger value="events">
-                  <Bell className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Events</span>
-                </TabsTrigger>
-                <TabsTrigger value="messages">
-                  <MessageCircle className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Messages</span>
-                </TabsTrigger>
-                <TabsTrigger value="featured">
-                  <Award className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Featured</span>
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+                <TabsList className="flex w-max min-w-full mb-4">
+                  <TabsTrigger value="discussions">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    <span>Discussions</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="showcase">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    <span>Showcase</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="audio">
+                    <Headphones className="h-4 w-4 mr-2" />
+                    <span>Audio</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="events">
+                    <Bell className="h-4 w-4 mr-2" />
+                    <span>Events</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="messages">
+                    <Mail className="h-4 w-4 mr-2" />
+                    <span>Messages</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="featured">
+                    <Award className="h-4 w-4 mr-2" />
+                    <span>Featured</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="discussions" className="pt-2">
                 <Card>
@@ -296,17 +333,87 @@ const Community = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {AUDIO_TRACKS.map(track => (
-                        <AudioSharingCard key={track.id} track={track} />
-                      ))}
+                      {tracksLoading ? (
+                        <div className="flex items-center justify-center py-10">
+                          <Loader2 className="h-6 w-6 animate-spin text-gold" />
+                        </div>
+                      ) : communityTracks && communityTracks.length > 0 ? (
+                        communityTracks.map(track => {
+                          const mappedTrack = {
+                            id: track.id,
+                            title: track.title,
+                            artist: (track as any).author?.full_name || 'Anonymous',
+                            artistImage: (track as any).author?.avatar_url || '/placeholder.svg',
+                            audioSrc: (track as any).audio_path?.startsWith('http') ? (track as any).audio_path : `https://mpxfsqvjyfqvjqxpxq.supabase.co/storage/v1/object/public/tracks/${(track as any).audio_path}`,
+                            duration: track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '0:00',
+                            likes: 0,
+                            comments: 0
+                          };
+                          return <AudioSharingCard key={track.id} track={mappedTrack} />;
+                        })
+                      ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                          No audio shared yet. Be the first!
+                        </div>
+                      )}
 
                       <Separator className="my-4" />
 
                       <div className="text-center">
-                        <Button className="bg-gold hover:bg-gold/90 text-white">
+                        <Button
+                          className="bg-gold hover:bg-gold/90 text-white"
+                          onClick={() => setIsShareAudioOpen(true)}
+                        >
                           Share Your Audio
                         </Button>
                       </div>
+                    </div >
+                  </CardContent >
+                </Card >
+              </TabsContent >
+
+              <TabsContent value="showcase" className="pt-2">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-gold" />
+                      Student Showcase
+                    </CardTitle>
+                    <CardDescription>
+                      The best performances from our community
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {tracksLoading ? (
+                        <div className="flex items-center justify-center py-10">
+                          <Loader2 className="h-6 w-6 animate-spin text-gold" />
+                        </div>
+                      ) : communityTracks && communityTracks.length > 0 ? (
+                        communityTracks.slice(0, 5).map(track => (
+                          <div key={track.id} className="flex gap-3 items-center p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                            <div className="h-16 w-16 rounded bg-muted overflow-hidden flex-shrink-0">
+                              <img
+                                src={track.cover_path ? `https://mpxfsqvjyfqvjqxpxq.supabase.co/storage/v1/object/public/tracks/${track.cover_path}` : "/placeholder.svg"}
+                                alt={track.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium truncate">{track.title}</h4>
+                              <p className="text-xs text-muted-foreground">by {(track as any).author?.full_name || 'Anonymous'}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1">Performance</Badge>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => navigate(`/tracks`)}>
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-center py-10 text-muted-foreground">No showcases available yet.</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -386,13 +493,16 @@ const Community = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
-          </div>
+            </Tabs >
+          </div >
         ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-serif font-bold">Community</h1>
-              <Button className="bg-gold hover:bg-gold-dark text-white">
+              <Button
+                className="bg-gold hover:bg-gold-dark text-white shadow-lg shadow-gold/20"
+                onClick={() => setIsNewDiscussionOpen(true)}
+              >
                 <MessageCircle className="mr-2 h-4 w-4" />
                 New Discussion
               </Button>
@@ -404,6 +514,7 @@ const Community = () => {
                   <TabsList>
                     <TabsTrigger value="discussions">Discussions</TabsTrigger>
                     <TabsTrigger value="audio">Shared Audio</TabsTrigger>
+                    <TabsTrigger value="showcase">Showcase</TabsTrigger>
                     <TabsTrigger value="messages">Direct Messages</TabsTrigger>
                   </TabsList>
 
@@ -445,7 +556,10 @@ const Community = () => {
                       ))}
                     </div>
 
-                    <Button className="w-full mt-6 bg-gold hover:bg-gold/90 text-white">
+                    <Button
+                      className="w-full mt-6 bg-gold hover:bg-gold/90 text-white"
+                      onClick={() => setIsShareAudioOpen(true)}
+                    >
                       Share Your Recording
                     </Button>
                   </TabsContent>
@@ -454,6 +568,40 @@ const Community = () => {
                     <Card>
                       <CardContent className="p-0">
                         <DirectMessaging />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="showcase" className="pt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Sparkles className="mr-2 h-5 w-5 text-gold" />
+                          Community Showcases
+                        </CardTitle>
+                        <CardDescription>
+                          Top student performances and progress marks
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {communityTracks?.slice(0, 6).map(track => (
+                            <div key={track.id} className="border border-border rounded-lg p-4 flex items-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate('/tracks')}>
+                              <div className="aspect-square w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                <img
+                                  src={track.cover_path ? `https://mpxfsqvjyfqvjqxpxq.supabase.co/storage/v1/object/public/tracks/${track.cover_path}` : "/placeholder.svg"}
+                                  alt={track.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="ml-4 flex-1 min-w-0">
+                                <h4 className="font-medium truncate font-serif">{track.title}</h4>
+                                <p className="text-xs text-muted-foreground">By {(track as any).author?.full_name || 'Anonymous'}</p>
+                                <p className="text-xs mt-1 text-gold/80 italic line-clamp-1">{track.description || "Student Performance"}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -588,6 +736,23 @@ const Community = () => {
           </Button>
         </div>
       </div>
+
+      <NewDiscussionModal
+        isOpen={isNewDiscussionOpen}
+        onClose={() => setIsNewDiscussionOpen(false)}
+      />
+      <ShareAudioModal
+        isOpen={isShareAudioOpen}
+        onClose={() => setIsShareAudioOpen(false)}
+      />
+      <ComposeMessageModal
+        isOpen={isComposeOpen}
+        onClose={() => setIsComposeOpen(false)}
+        onSuccess={(id) => {
+          setActiveTab('messages');
+          // We could potentially set selectedThreadId in DirectMessaging via a prop or context
+        }}
+      />
     </MainLayout>
   );
 };

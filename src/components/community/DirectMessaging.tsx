@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCommunity } from "@/hooks/useCommunity";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import ComposeMessageModal from "./ComposeMessageModal";
 
 const DirectMessaging = () => {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ const DirectMessaging = () => {
 
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Use the hook for real messages
@@ -118,7 +120,10 @@ const DirectMessaging = () => {
           </div>
 
           <div className="p-5 border-t border-white/5">
-            <Button className="w-full h-11 bg-gold hover:bg-amber-600 text-white font-bold rounded-xl">
+            <Button
+              className="w-full h-11 bg-gold hover:bg-amber-600 text-white font-bold rounded-xl"
+              onClick={() => setIsComposeOpen(true)}
+            >
               <PlusCircle className="h-4 w-4 mr-2" />
               Start New Chat
             </Button>
@@ -245,13 +250,22 @@ const DirectMessaging = () => {
               <p className="text-gray-500 text-sm max-w-xs">
                 Select a thread from the sidebar to chat with mentors and students across the platform.
               </p>
-              <Button className="mt-8 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 h-11 px-8 font-bold">
+              <Button
+                className="mt-8 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 h-11 px-8 font-bold"
+                onClick={() => setIsComposeOpen(true)}
+              >
                 Compose New Message
               </Button>
             </div>
           )}
         </div>
       </div>
+
+      <ComposeMessageModal
+        isOpen={isComposeOpen}
+        onClose={() => setIsComposeOpen(false)}
+        onSuccess={(id) => setSelectedThreadId(id)}
+      />
     </div>
   );
 };

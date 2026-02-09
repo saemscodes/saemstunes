@@ -1,11 +1,13 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
-    <!-- ✅ Content Security Policy - Updated with Vercel domains -->
-    <meta http-equiv="Content-Security-Policy" content="
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <!-- ✅ Content Security Policy - Updated with Vercel domains -->
+  <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' https://uxyvhqtwkutstihtxdsv.supabase.co https://cdn.gpteng.co https://newassets.hcaptcha.com https://hcaptcha.com https://vitals.vercel-insights.com https://vercel.live;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://embed.tawk.to;
         font-src 'self' https://fonts.gstatic.com;
@@ -15,62 +17,73 @@
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.hcaptcha.com https://cdn.gpteng.co https://static.cloudflareinsights.com https://embed.tawk.to https://vitals.vercel-insights.com https://vercel.live;
         ">
 
-    <!-- ✅ Primary SEO Meta Tags -->
-    <title>Saem's Tunes - Christian Music Education Platform | Online Lessons, Tools & Community</title>
-    <meta name="description" content="Comprehensive Christian music education platform offering online lessons, interactive tools (piano, guitar, metronome), community features, and ministry resources. From tots to adults - everyone's go-to music learning space!" />
-    <meta name="author" content="Saem's Tunes" />
-    <meta name="keywords" content="Christian music education, online music lessons, worship leader training, piano lessons, guitar tutorials, music theory, vocal training, church music, worship songs, music ministry, Christian musicians community, music tools, metronome, pitch finder, music sheets" />
-    
-    <!-- ✅ Essential SEO Tags -->
-    <link rel="canonical" href="https://www.saemstunes.com/" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <meta name="googlebot" content="index, follow" />
+  <!-- ✅ Primary SEO Meta Tags -->
+  <title>Saem's Tunes - Christian Music Education Platform | Online Lessons, Tools & Community</title>
+  <meta name="description"
+    content="Comprehensive Christian music education platform offering online lessons, interactive tools (piano, guitar, metronome), community features, and ministry resources. From tots to adults - everyone's go-to music learning space!" />
+  <meta name="author" content="Saem's Tunes" />
+  <meta name="keywords"
+    content="Christian music education, online music lessons, worship leader training, piano lessons, guitar tutorials, music theory, vocal training, church music, worship songs, music ministry, Christian musicians community, music tools, metronome, pitch finder, music sheets" />
 
-    <!-- ✅ Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Saem's Tunes - Christian Music Education Platform | Making Music, Representing Christ" />
-    <meta property="og:description" content="Comprehensive online music education platform with lessons, tools, and community for Christian musicians of all ages and skill levels." />
-    <meta property="og:image" content="https://i.imgur.com/ltEen5M.png" />
-    <meta property="og:url" content="https://www.saemstunes.com/" />
-    <meta property="og:site_name" content="Saem's Tunes" />
-    <meta property="og:locale" content="en_US" />
+  <!-- ✅ Essential SEO Tags -->
+  <link rel="canonical" href="https://www.saemstunes.com/" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow" />
 
-    <!-- ✅ Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@saemstunes" />
-    <meta name="twitter:creator" content="@saemstunes" />
-    <meta name="twitter:title" content="Saem's Tunes - Christian Music Education Platform" />
-    <meta name="twitter:description" content="Online music lessons, interactive tools, and community for Christian musicians. Making Music, Representing Christ!" />
-    <meta name="twitter:image" content="https://i.imgur.com/ltEen5M.png" />
+  <!-- ✅ Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title"
+    content="Saem's Tunes - Christian Music Education Platform | Making Music, Representing Christ" />
+  <meta property="og:description"
+    content="Comprehensive online music education platform with lessons, tools, and community for Christian musicians of all ages and skill levels." />
+  <meta property="og:image" content="https://i.imgur.com/ltEen5M.png" />
+  <meta property="og:url" content="https://www.saemstunes.com/" />
+  <meta property="og:site_name" content="Saem's Tunes" />
+  <meta property="og:locale" content="en_US" />
 
-    <!-- ✅ Favicon and App Icons -->
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#C9A66B" />
-    <meta name="msapplication-TileColor" content="#C9A66B" />
+  <!-- ✅ Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@saemstunes" />
+  <meta name="twitter:creator" content="@saemstunes" />
+  <meta name="twitter:title" content="Saem's Tunes - Christian Music Education Platform" />
+  <meta name="twitter:description"
+    content="Online music lessons, interactive tools, and community for Christian musicians. Making Music, Representing Christ!" />
+  <meta name="twitter:image" content="https://i.imgur.com/ltEen5M.png" />
 
-    <!-- ✅ PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+  <!-- ✅ Favicon and App Icons -->
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#C9A66B" />
+  <meta name="msapplication-TileColor" content="#C9A66B" />
 
-    <!-- ✅ Apple PWA Specific -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Saem's Tunes" />
+  <!-- ✅ PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
 
-    <!-- ✅ Preconnect for Performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://uxyvhqtwkutstihtxdsv.supabase.co" />
+  <!-- ✅ Apple PWA Specific -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Saem's Tunes" />
 
-    <!-- ✅ Preload Key Resources -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" />
-    
-    <!-- ✅ Nunito Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet" />
+  <!-- ✅ Preconnect for Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://uxyvhqtwkutstihtxdsv.supabase.co" />
 
-    <!-- Comprehensive Structured Data -->
-    <script type="application/ld+json">
+  <!-- ✅ Preload Key Resources -->
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" />
+
+  <!-- ✅ Nunito Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap"
+    rel="stylesheet" />
+  <!-- ✅ Additional Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Orbitron:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <!-- Comprehensive Structured Data -->
+  <script type="application/ld+json">
         {
         "@context": "https://schema.org",
   "@graph": [
@@ -192,117 +205,158 @@
 </head>
 
 <body>
-    <!-- Hidden SEO Content for Crawlers -->
-    <div style="position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden;">
-        <h1>Saem's Tunes - Comprehensive Christian Music Education Platform</h1>
-        <h2>Making Music, Representing Christ - Online Music Learning for All Ages</h2>
-        
-        <p>Welcome to Saem's Tunes, the ultimate destination for Christian music education, interactive tools, and community building. Our comprehensive platform serves musicians from tots to teens to adults, providing everything needed for musical growth and ministry development.</p>
+  <!-- Hidden SEO Content for Crawlers -->
+  <div style="position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden;">
+    <h1>Saem's Tunes - Comprehensive Christian Music Education Platform</h1>
+    <h2>Making Music, Representing Christ - Online Music Learning for All Ages</h2>
 
-        <h2>Platform Features & Pages</h2>
-        <p>Explore our comprehensive platform through dedicated sections: Music Tools for interactive piano and guitar practice, Learning Hub with structured courses and modules, Community features for connecting with fellow musicians, Bookings system for one-on-one tutor sessions, extensive Resources library, Video Lessons covering all skill levels, Music Tracks showcase, Artist profiles and discovery, personal Library management, various Services offerings, flexible Subscriptions, and complete account Settings management.</p>
+    <p>Welcome to Saem's Tunes, the ultimate destination for Christian music education, interactive tools, and community
+      building. Our comprehensive platform serves musicians from tots to teens to adults, providing everything needed
+      for musical growth and ministry development.</p>
 
-        <h2>Interactive Music Tools</h2>
-        <p>Access professional-grade music tools including an interactive piano, guitar simulator, precision metronome and pitch finder. Our Music Tools section provides everything needed for daily practice, skill development, and musical exploration, all optimized for both beginners and advanced musicians.</p>
+    <h2>Platform Features & Pages</h2>
+    <p>Explore our comprehensive platform through dedicated sections: Music Tools for interactive piano and guitar
+      practice, Learning Hub with structured courses and modules, Community features for connecting with fellow
+      musicians, Bookings system for one-on-one tutor sessions, extensive Resources library, Video Lessons covering all
+      skill levels, Music Tracks showcase, Artist profiles and discovery, personal Library management, various Services
+      offerings, flexible Subscriptions, and complete account Settings management.</p>
 
-        <h2>Learning Hub & Educational Content</h2>
-        <p>Our comprehensive Learning Hub features structured modules covering piano fundamentals, guitar techniques, vocal training, music theory and worship leadership. Each learning module includes interactive exercises, progress tracking, and personalized feedback to ensure effective musical growth.</p>
+    <h2>Interactive Music Tools</h2>
+    <p>Access professional-grade music tools including an interactive piano, guitar simulator, precision metronome and
+      pitch finder. Our Music Tools section provides everything needed for daily practice, skill development, and
+      musical exploration, all optimized for both beginners and advanced musicians.</p>
 
-        <h2>Community & Social Features</h2>
-        <p>Join our vibrant Community of Christian musicians where you can connect, share experiences, collaborate on projects and support one another's musical journeys. Features include direct messaging, group discussions, progress sharing, and collaborative learning opportunities.</p>
+    <h2>Learning Hub & Educational Content</h2>
+    <p>Our comprehensive Learning Hub features structured modules covering piano fundamentals, guitar techniques, vocal
+      training, music theory and worship leadership. Each learning module includes interactive exercises, progress
+      tracking, and personalized feedback to ensure effective musical growth.</p>
 
-        <h2>Video Library & Resources</h2>
-        <p>Extensive collection of Video lessons covering beginner to advanced techniques, worship leading, performance tips and music ministry guidance. Our Resources section includes downloadable music sheets, chord charts, study guides, breathing exercises, and reference materials for continuous learning.</p>
+    <h2>Community & Social Features</h2>
+    <p>Join our vibrant Community of Christian musicians where you can connect, share experiences, collaborate on
+      projects and support one another's musical journeys. Features include direct messaging, group discussions,
+      progress sharing, and collaborative learning opportunities.</p>
 
-        <h2>Music Discovery & Library</h2>
-        <p>Discover new Christian music through our curated Tracks collection, explore various Artists and their musical journeys and build your personal Library of favorite songs, lessons, and resources. Our Player provides seamless playback with playlist creation and sharing capabilities.</p>
+    <h2>Video Library & Resources</h2>
+    <p>Extensive collection of Video lessons covering beginner to advanced techniques, worship leading, performance tips
+      and music ministry guidance. Our Resources section includes downloadable music sheets, chord charts, study guides,
+      breathing exercises, and reference materials for continuous learning.</p>
 
-        <h2>Professional Services & Support</h2>
-        <p>Book personalized sessions through our Bookings system with experienced music tutors and worship leaders. Choose from various Services including private lessons, group workshops, worship team training, and ministry consultation. Flexible Subscriptions provide access to premium content and advanced features.</p>
+    <h2>Music Discovery & Library</h2>
+    <p>Discover new Christian music through our curated Tracks collection, explore various Artists and their musical
+      journeys and build your personal Library of favorite songs, lessons, and resources. Our Player provides seamless
+      playback with playlist creation and sharing capabilities.</p>
 
-        <h2>Features & Services</h2>
-        <ul>
-            <li>Music Tools - Interactive Piano, Guitar, Metronome, Pitch Finder</li>
-            <li>Learning Hub - Structured courses and educational modules</li>
-            <li>Community Platform - Connect with Christian musicians worldwide</li>
-            <li>Video Lessons - Comprehensive tutorial library</li>
-            <li>Resources Center - Music sheets, study materials, guides</li>
-            <li>Artist Discovery - Explore Christian musicians and their work</li>
-            <li>Music Tracks - Curated collection of worship and Christian music</li>
-            <li>Personal Library - Save and organize your favorite content</li>
-            <li>Booking System - Schedule sessions with professional tutors</li>
-            <li>Advanced Music Player - Playlist creation and management</li>
-            <li>User Profiles - Personal progress tracking and achievements</li>
-            <li>Search & Discovery - Find exactly what you're looking for</li>
-            <li>Notifications - Stay updated on community and learning activities</li>
-            <li>Subscription Services - Access to premium content and features</li>
-            <li>Payment Integration - Secure transactions for services and content</li>
-            <li>Settings Management - Complete account customization</li>
-            <li>Support System - Comprehensive help and customer service</li>
-            <li>Social Features - Follow artists, share content, build connections</li>
-        </ul>
+    <h2>Professional Services & Support</h2>
+    <p>Book personalized sessions through our Bookings system with experienced music tutors and worship leaders. Choose
+      from various Services including private lessons, group workshops, worship team training, and ministry
+      consultation. Flexible Subscriptions provide access to premium content and advanced features.</p>
 
-        <h2>Educational Approach</h2>
-        <p>Saem's Tunes combines traditional music education with modern technology and Christian values. Our curriculum covers beginner to advanced levels, ensuring every student finds appropriate content for their skill level and spiritual journey.</p>
+    <h2>Features & Services</h2>
+    <ul>
+      <li>Music Tools - Interactive Piano, Guitar, Metronome, Pitch Finder</li>
+      <li>Learning Hub - Structured courses and educational modules</li>
+      <li>Community Platform - Connect with Christian musicians worldwide</li>
+      <li>Video Lessons - Comprehensive tutorial library</li>
+      <li>Resources Center - Music sheets, study materials, guides</li>
+      <li>Artist Discovery - Explore Christian musicians and their work</li>
+      <li>Music Tracks - Curated collection of worship and Christian music</li>
+      <li>Personal Library - Save and organize your favorite content</li>
+      <li>Booking System - Schedule sessions with professional tutors</li>
+      <li>Advanced Music Player - Playlist creation and management</li>
+      <li>User Profiles - Personal progress tracking and achievements</li>
+      <li>Search & Discovery - Find exactly what you're looking for</li>
+      <li>Notifications - Stay updated on community and learning activities</li>
+      <li>Subscription Services - Access to premium content and features</li>
+      <li>Payment Integration - Secure transactions for services and content</li>
+      <li>Settings Management - Complete account customization</li>
+      <li>Support System - Comprehensive help and customer service</li>
+      <li>Social Features - Follow artists, share content, build connections</li>
+    </ul>
 
-        <h2>Music Ministry & Outreach</h2>
-        <p>Beyond personal musical development, our platform emphasizes using music as a tool for Christian ministry and outreach. Learn how to lead worship, organize music ministries, and use your musical gifts to represent Christ in your community.</p>
+    <h2>Educational Approach</h2>
+    <p>Saem's Tunes combines traditional music education with modern technology and Christian values. Our curriculum
+      covers beginner to advanced levels, ensuring every student finds appropriate content for their skill level and
+      spiritual journey.</p>
 
-        <h2>Technology & Accessibility</h2>
-        <p>Built with React, TypeScript, and Supabase, our platform ensures a smooth, responsive experience across all devices. Whether you're on desktop, tablet, or mobile, access your lessons, tools, and community anywhere, anytime.</p>
+    <h2>Music Ministry & Outreach</h2>
+    <p>Beyond personal musical development, our platform emphasizes using music as a tool for Christian ministry and
+      outreach. Learn how to lead worship, organize music ministries, and use your musical gifts to represent Christ in
+      your community.</p>
 
-        <h2>Join Our Community</h2>
-        <p>Start your musical journey today with Saem's Tunes. Whether you're a complete beginner or an experienced musician looking to deepen your faith through music, our platform provides the tools, education, and community support you need to succeed.</p>
+    <h2>Technology & Accessibility</h2>
+    <p>Built with React, TypeScript, and Supabase, our platform ensures a smooth, responsive experience across all
+      devices. Whether you're on desktop, tablet, or mobile, access your lessons, tools, and community anywhere,
+      anytime.</p>
+
+    <h2>Join Our Community</h2>
+    <p>Start your musical journey today with Saem's Tunes. Whether you're a complete beginner or an experienced musician
+      looking to deepen your faith through music, our platform provides the tools, education, and community support you
+      need to succeed.</p>
 
 
-         <!-- Updated Internal Links for SEO - Matches App Routes -->
-        <nav>
-            <a href="/">Home</a>
-            <a href="/music-tools">Music Tools</a>
-            <a href="/learning-hub">Online Lessons</a>
-            <a href="/community">Community</a>
-            <a href="/book-tutor">Find a Tutor</a>
-            <a href="/resources">Resources</a>
-            <a href="/contact-us">Contact</a>
-            <a href="/learning-hub">Courses</a>
-            <a href="/worship">Worship Leadership</a>
-            <a href="/learning-hub?category=piano">Piano Lessons</a>
-            <a href="/learning-hub?category=guitar">Guitar Lessons</a>
-            <a href="/learning-hub?category=vocals">Vocal Training</a>
-            <a href="/learning-hub?category=theory">Music Theory</a>
-            <a href="/ministry">Music Ministry</a>
-            <a href="/artists">Christian Artists</a>
-            <a href="/tracks">Worship Tracks</a>
-            <a href="/videos">Lesson Videos</a>
-            <a href="/library">Music Library</a>
-            <a href="/discover">Discover Music</a>
-            <a href="/profile">User Profile</a>
-            <a href="/support-us">Support Us</a>
-            <a href="/services">Services</a>
-            <a href="/follow-us">Follow Us</a>
-            <a href="/terms">Terms of Service</a>
-            <a href="/privacy">Privacy Policy</a>
-            <a href="/subscriptions">Subscriptions</a>
-            <a href="/bookings">My Bookings</a>
-        </nav>
-        
-        <!-- Additional Keywords and Content -->
-        <h3>Popular Searches</h3>
-        <p>Christian piano lessons online, music teacher nairobi, music lessons nairobi, kenya music teacher, piano lessons, singing lessons, vocal teacher, voice lessons nairobi, music app, African, african tech, music tech, christian tech, saem's tunes, kenya tech, saemstunes, worship leader training, church music education, online guitar tutorials, vocal coaching for worship, music theory for beginners, Christian music community, worship song tutorials, church musician training, faith-based music education, interactive music tools, online metronome, digital piano practice, guitar chord charts, worship leading tips, Christian songwriting, music ministry resources, church music planning, contemporary worship training, biblical music education</p>
+    <!-- Updated Internal Links for SEO - Matches App Routes -->
+    <nav>
+      <a href="/">Home</a>
+      <a href="/music-tools">Music Tools</a>
+      <a href="/learning-hub">Online Lessons</a>
+      <a href="/community">Community</a>
+      <a href="/book-tutor">Find a Tutor</a>
+      <a href="/resources">Resources</a>
+      <a href="/contact-us">Contact</a>
+      <a href="/learning-hub">Courses</a>
+      <a href="/worship">Worship Leadership</a>
+      <a href="/learning-hub?category=piano">Piano Lessons</a>
+      <a href="/learning-hub?category=guitar">Guitar Lessons</a>
+      <a href="/learning-hub?category=vocals">Vocal Training</a>
+      <a href="/learning-hub?category=theory">Music Theory</a>
+      <a href="/ministry">Music Ministry</a>
+      <a href="/artists">Christian Artists</a>
+      <a href="/tracks">Worship Tracks</a>
+      <a href="/videos">Lesson Videos</a>
+      <a href="/library">Music Library</a>
+      <a href="/discover">Discover Music</a>
+      <a href="/profile">User Profile</a>
+      <a href="/support-us">Support Us</a>
+      <a href="/services">Services</a>
+      <a href="/follow-us">Follow Us</a>
+      <a href="/terms">Terms of Service</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/subscriptions">Subscriptions</a>
+      <a href="/bookings">My Bookings</a>
+    </nav>
 
-        <h3>Target Audiences</h3>
-        <p>Music students seeking Christian education, worship leaders and church musicians, parents looking for faith-based music lessons for children, music teachers incorporating Christian values, church music directors, youth pastors using music in ministry, homeschooling families, adult learners returning to music, seminary students studying worship, music ministry leaders, Christian recording artists, praise and worship teams, church pianists and guitarists, children's ministry leaders, contemporary Christian musicians</p>
+    <!-- Additional Keywords and Content -->
+    <h3>Popular Searches</h3>
+    <p>Christian piano lessons online, music teacher nairobi, music lessons nairobi, kenya music teacher, piano lessons,
+      singing lessons, vocal teacher, voice lessons nairobi, music app, African, african tech, music tech, christian
+      tech, saem's tunes, kenya tech, saemstunes, worship leader training, church music education, online guitar
+      tutorials, vocal coaching for worship, music theory for beginners, Christian music community, worship song
+      tutorials, church musician training, faith-based music education, interactive music tools, online metronome,
+      digital piano practice, guitar chord charts, worship leading tips, Christian songwriting, music ministry
+      resources, church music planning, contemporary worship training, biblical music education</p>
 
-        <h3>Course Topics</h3>
-        <p>Beginner piano fundamentals, advanced guitar techniques, vocal warm-ups and breathing exercises, music theory basics, chord progressions for worship songs, song arrangement and composition, leading congregational singing, building worship teams, sound engineering for churches, music copyright and licensing, contemporary Christian music styles, traditional hymn arrangements, children's music education, adult music learning strategies, practice techniques and motivation, performance anxiety management, spiritual aspects of musicianship</p>
-    </div>
+    <h3>Target Audiences</h3>
+    <p>Music students seeking Christian education, worship leaders and church musicians, parents looking for faith-based
+      music lessons for children, music teachers incorporating Christian values, church music directors, youth pastors
+      using music in ministry, homeschooling families, adult learners returning to music, seminary students studying
+      worship, music ministry leaders, Christian recording artists, praise and worship teams, church pianists and
+      guitarists, children's ministry leaders, contemporary Christian musicians</p>
 
-    <!-- Main App Container -->
-    <div id="root"></div>
+    <h3>Course Topics</h3>
+    <p>Beginner piano fundamentals, advanced guitar techniques, vocal warm-ups and breathing exercises, music theory
+      basics, chord progressions for worship songs, song arrangement and composition, leading congregational singing,
+      building worship teams, sound engineering for churches, music copyright and licensing, contemporary Christian
+      music styles, traditional hymn arrangements, children's music education, adult music learning strategies, practice
+      techniques and motivation, performance anxiety management, spiritual aspects of musicianship</p>
+  </div>
 
-    <!-- GPT Engineer & App Entrypoint -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module" defer></script>
-    <script type="module" src="/src/main.tsx"></script>
-    <style>#lovable-badge { display: none !important; }</style>
+  <!-- Main App Container -->
+  <div id="root"></div>
+
+  <!-- GPT Engineer & App Entrypoint -->
+  <script src="https://cdn.gpteng.co/gptengineer.js" type="module" defer></script>
+  <script type="module" src="/src/main.tsx"></script>
+
 </body>
+
 </html>

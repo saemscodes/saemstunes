@@ -7,7 +7,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Play, Heart, Music, CheckCircle, Clock, Star, TrendingUp, Share, Search, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAudioPlayer } from "@/context/AudioPlayerContext";
+import {
+  Search,
+  Plus,
+  Filter,
+  Music,
+  Play,
+  Share,
+  Heart,
+  Calendar,
+  Clock,
+  LayoutGrid,
+  List,
+  Star,
+  CheckCircle,
+  TrendingUp,
+  Upload,
+} from "lucide-react";
 import AudioPlayer from "@/components/media/AudioPlayer";
 import { canAccessContent, AccessLevel } from "@/lib/contentAccess";
 import MainLayout from "@/components/layout/MainLayout";
@@ -27,26 +45,27 @@ import { convertTrackToAudioTrack } from "@/lib/audioUtils";
 interface Track {
   id: string;
   title: string;
-  description: string;
-  audio_path: string;
-  alternate_audio_path?: string;
-  cover_path?: string;
-  access_level: string; // Changed from AccessLevel to string to match DB response
-  user_id: string;
-  approved: boolean;
+  description: string | null;
+  audio_path: string | null;
+  alternate_audio_path: string | null;
+  cover_path: string | null;
+  access_level: string | null;
+  user_id: string | null;
+  approved: boolean | null;
   created_at: string;
   artist: string | null;
   profiles?: {
     avatar_url: string;
   };
-  duration?: number;
-  youtube_url?: string;
-  preview_url?: string;
-  video_url?: string;
-  primary_color?: string;
-  secondary_color?: string;
-  background_gradient?: string;
-  slug?: string;
+  duration: number | null;
+  youtube_url: string | null;
+  preview_url: string | null;
+  video_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  background_gradient: string | null;
+  slug: string | null;
+  is_favorite?: boolean;
 }
 
 interface Playlist {
@@ -72,11 +91,13 @@ interface FeaturedTrack {
 const Tracks = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { playbackHistory } = useAudioPlayer();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [featuredTrack, setFeaturedTrack] = useState<FeaturedTrack | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [artists, setArtists] = useState<any[]>([]);
 
@@ -292,6 +313,17 @@ const Tracks = () => {
         throw error;
       }
 
+      // Fetch user favorites if logged in
+      let favoriteIds: string[] = [];
+      if (user) {
+        const { data: favoritesData } = await supabase
+          .from('favorites')
+          .select('content_id')
+          .eq('user_id', user.id)
+          .eq('content_type', 'track');
+        favoriteIds = (favoritesData || []).map(f => f.content_id);
+      }
+
       // Filter tracks based on user access - handle missing access_level
       const accessibleTracks = (data || []).filter((track: any) => {
         const accessLevel = track.access_level || 'free';
@@ -299,7 +331,8 @@ const Tracks = () => {
       }).map((track: any) => ({
         ...track,
         access_level: track.access_level || 'free',
-        approved: track.approved ?? true
+        approved: track.approved ?? true,
+        is_favorite: favoriteIds.includes(track.id)
       })) as Track[];
 
       setTracks(accessibleTracks);
@@ -804,16 +837,136 @@ const Tracks = () => {
               </Card>
             )}
 
-            <Tabs defaultValue="featured" className="w-full">
-              <div className="overflow-x-auto pb-2 scrollbar-hide">
-                <TabsList className="inline-flex w-auto min-w-full sm:w-full sm:grid sm:grid-cols-5 mb-8">
-                  <TabsTrigger value="featured" className="flex-1 px-4 py-2">Featured</TabsTrigger>
-                  <TabsTrigger value="covers" className="flex-1 px-4 py-2">Covers</TabsTrigger>
-                  <TabsTrigger value="playlists" className="flex-1 px-4 py-2">Playlists</TabsTrigger>
-                  <TabsTrigger value="artists" className="flex-1 px-4 py-2">Artists</TabsTrigger>
-                  <TabsTrigger value="community" className="flex-1 px-4 py-2">Community</TabsTrigger>
-                </TabsList>
+            <Tabs defaultValue="showcase" className="w-full">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+                <div className="overflow-x-auto pb-2 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 flex-1 w-full">
+                  <TabsList className="inline-flex w-auto min-w-max bg-background/50 backdrop-blur-md border border-white/10 p-1 rounded-xl">
+                    <TabsTrigger value="showcase" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Showcase</TabsTrigger>
+                    <TabsTrigger value="featured" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Featured</TabsTrigger>
+                    <TabsTrigger value="covers" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Covers</TabsTrigger>
+                    <TabsTrigger value="playlists" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Playlists</TabsTrigger>
+                    <TabsTrigger value="artists" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Artists</TabsTrigger>
+                    <TabsTrigger value="community" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Community</TabsTrigger>
+                    <TabsTrigger value="favourites" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Favourites</TabsTrigger>
+                    <TabsTrigger value="recents" className="rounded-lg data-[state=active]:bg-gold data-[state=active]:text-black">Recents</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="bg-white/5 backdrop-blur-md border border-white/10 p-1 rounded-xl flex self-end sm:self-auto">
+                  <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className={cn("rounded-lg h-9 w-10 p-0", viewMode === 'grid' && "bg-gold text-black hover:bg-gold/90")}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className={cn("rounded-lg h-9 w-10 p-0", viewMode === 'list' && "bg-gold text-black hover:bg-gold/90")}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+
+              <TabsContent value="showcase" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-2 mb-6">
+                  <Music className="h-6 w-6 text-gold" />
+                  <h2 className="text-2xl font-bold">Music Showcase</h2>
+                </div>
+
+                <div className={cn(
+                  "grid gap-6",
+                  viewMode === 'grid' ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+                )}>
+                  {filteredTracks.length === 0 ? (
+                    <Card className="bg-white/5 border-white/10 col-span-full">
+                      <CardContent className="flex flex-col items-center justify-center py-12">
+                        <Music className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No tracks found</h3>
+                        <p className="text-muted-foreground text-center">
+                          {searchTerm ? `No tracks matching "${searchTerm}"` : "Try uploading your first track!"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    filteredTracks.map((track) => (
+                      <TrackCard
+                        key={track.id}
+                        track={track}
+                        user={user}
+                        layout={viewMode}
+                      />
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="favourites" className="space-y-8">
+                <div className="flex items-center gap-2 mb-6">
+                  <Heart className="h-6 w-6 text-gold" />
+                  <h2 className="text-2xl font-bold">Your Favourites</h2>
+                </div>
+                {/* Implementation similar to showcase but filtered for favourites */}
+                <div className={cn(
+                  "grid gap-6",
+                  viewMode === 'grid' ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+                )}>
+                  {tracks.filter(t => t.is_favorite).length === 0 ? (
+                    <Card className="bg-white/5 border-white/10 col-span-full">
+                      <CardContent className="flex flex-col items-center justify-center py-12">
+                        <Heart className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No favourites yet</h3>
+                        <p className="text-muted-foreground text-center">
+                          Tap the heart icon on any track to save it here!
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    tracks.filter(t => t.is_favorite).map((track) => (
+                      <TrackCard key={track.id} track={track} user={user} layout={viewMode} />
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="recents" className="space-y-8">
+                <div className="flex items-center gap-2 mb-6">
+                  <Clock className="h-6 w-6 text-gold" />
+                  <h2 className="text-2xl font-bold">Recently Played</h2>
+                </div>
+                <div className={cn(
+                  "grid gap-6",
+                  viewMode === 'grid' ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+                )}>
+                  {tracks.filter(t => playbackHistory.includes(t.id)).length === 0 ? (
+                    <Card className="bg-white/5 border-white/10 col-span-full w-full">
+                      <CardContent className="flex flex-col items-center justify-center py-12">
+                        <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No recently played tracks</h3>
+                        <p className="text-muted-foreground text-center">
+                          Start listening to tracks and they'll appear here!
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    tracks
+                      .filter(t => playbackHistory.includes(t.id))
+                      .sort((a, b) => playbackHistory.indexOf(b.id) - playbackHistory.indexOf(a.id))
+                      .map((track) => (
+                        <TrackCard
+                          key={track.id}
+                          track={track}
+                          user={user}
+                          layout={viewMode}
+                        />
+                      ))
+                  )}
+                </div>
+              </TabsContent>
 
               <TabsContent value="featured" className="space-y-8 w-full max-w-full overflow-hidden">
                 {featuredTrack ? (
@@ -824,16 +977,16 @@ const Tracks = () => {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6 lg:gap-8 items-center">
-                      <div className="flex justify-center relative order-2 md:order-1">
-                        <div className="hover:z-[9999] relative transition-all duration-300 w-full max-w-sm">
+                      <div className="flex justify-center relative order-2 md:order-1 w-full overflow-visible py-4">
+                        <div className="hover:z-[9999] relative transition-all duration-300 w-[260px] sm:w-[320px] md:w-[380px] aspect-square">
                           <TiltedCard
                             imageSrc={featuredTrack.imageSrc}
                             altText="Featured Track Cover"
                             captionText={featuredTrack.title}
-                            containerHeight="260px"
-                            containerWidth="260px"
+                            containerHeight="100%"
+                            containerWidth="100%"
                             rotateAmplitude={12}
-                            scaleOnHover={1.2}
+                            scaleOnHover={1.1}
                             showMobileWarning={false}
                             showTooltip={true}
                             displayOverlayContent={true}
@@ -1002,8 +1155,11 @@ const Tracks = () => {
                   <div className="w-full overflow-hidden px-2">
                     <div className="max-w-full">
                       <AnimatedList
-                        items={artists}
-                        onItemSelect={(item) => console.log(item)}
+                        items={artists.map(a => a.title)}
+                        onItemSelect={(title, index) => {
+                          const artist = artists[index];
+                          if (artist) navigate(`/artists/${artist.slug || artist.id}`);
+                        }}
                         showGradients={true}
                         enableArrowNavigation={true}
                         displayScrollbar={true}
@@ -1050,11 +1206,12 @@ const Tracks = () => {
   );
 };
 
-const TrackCard = ({ track, user }: { track: Track; user: any }) => {
+function TrackCard({ track, user, layout = 'grid' }: { track: Track; user: any; layout?: 'grid' | 'list' }) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
+  const { playTrack } = useAudioPlayer();
 
   const audioUrl = track.audio_path ?
     supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl : '';
@@ -1115,7 +1272,8 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
     setLikeCount(count || 0);
   };
 
-  const toggleLike = async () => {
+  const toggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!user) {
       toast({
         title: "Sign In Required",
@@ -1142,24 +1300,17 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
         .eq('track_id', track.id);
       setLiked(false);
       setLikeCount(prev => prev - 1);
-      toast({
-        title: "Removed from likes",
-        description: "Track removed from your liked songs",
-      });
     } else {
       await supabase
         .from('likes')
         .insert({ user_id: user.id, track_id: track.id });
       setLiked(true);
       setLikeCount(prev => prev + 1);
-      toast({
-        title: "Added to likes",
-        description: "Track added to your liked songs",
-      });
     }
   };
 
-  const toggleSave = async () => {
+  const toggleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!user) {
       toast({
         title: "Sign In Required",
@@ -1186,10 +1337,6 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
         .eq('content_id', track.id)
         .eq('content_type', 'track');
       setSaved(false);
-      toast({
-        title: "Removed from saved",
-        description: "Track removed from your saved songs",
-      });
     } else {
       await supabase
         .from('favorites')
@@ -1199,10 +1346,6 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
           content_type: 'track'
         });
       setSaved(true);
-      toast({
-        title: "Added to saved",
-        description: "Track added to your saved songs",
-      });
     }
   };
 
@@ -1253,99 +1396,90 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
     }
   };
 
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center">
-            {track.cover_path ? (
-              <img
-                src={coverUrl}
-                alt="Artist"
-                width={48}
-                height={48}
-                className="h-12 w-12 rounded-full object-cover"
-              />
-            ) : (
-              <Music className="h-6 w-6 text-gold" />
-            )}
-          </div>
+  const handlePlay = () => {
+    if (audioUrl) {
+      playTrack({
+        id: track.id,
+        src: audioUrl,
+        name: track.title,
+        artist: track.artist || 'Unknown Artist',
+        artwork: coverUrl
+      });
+    }
+  };
 
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-lg">{track.title}</h3>
+  if (layout === 'grid') {
+    return (
+      <Card
+        className="overflow-hidden group hover:shadow-lg transition-all duration-300 border-white/5 bg-white/5 cursor-pointer"
+        onClick={handlePlay}
+      >
+        <div className="aspect-square relative overflow-hidden">
+          <img
+            src={coverUrl}
+            alt={track.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="bg-gold rounded-full p-3 text-black">
+              <Play className="h-6 w-6 fill-current" />
             </div>
-            <p className="text-muted-foreground text-sm">
-              by {track.artist || 'Unknown Artist'}
-            </p>
-            {track.description && (
-              <p className="text-sm mt-2">{track.description}</p>
-            )}
           </div>
-
-          {coverUrl && (
-            <img
-              src={coverUrl}
-              alt="Cover"
-              width={64}
-              height={64}
-              className="h-16 w-16 rounded object-cover"
-            />
-          )}
-        </div>
-
-        {audioUrl && (
-          <div className="mb-4">
-            <AudioPlayer
-              src={audioUrl}
-              title={track.title}
-              artist={track.artist || 'Unknown Artist'}
-              artwork={coverUrl}
-              compact={false}
-            />
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <PlaylistActions trackId={track.id} />
-          <div className="flex items-center gap-4 flex-wrap">
-            {user && isValidDatabaseTrack && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleLike}
-                  className="flex items-center gap-2"
-                >
-                  <Heart className={`h-4 w-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-                  {likeCount}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleSave}
-                  className="flex items-center gap-2"
-                >
-                  <CheckCircle className={`h-4 w-4 ${saved ? 'fill-green-500 text-green-500' : ''}`} />
-                  {saved ? 'Saved' : 'Save'}
-                </Button>
-              </>
-            )}
-
+          <div className="absolute top-2 right-2 flex flex-col gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={handleShare}
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 rounded-full bg-black/60 backdrop-blur-md border-none text-white"
+              onClick={toggleSave}
             >
-              <Share className="h-4 w-4" />
-              Share
+              <CheckCircle className={cn("h-4 w-4", saved && "text-green-500 fill-green-500")} />
             </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 rounded-full bg-black/60 backdrop-blur-md border-none text-white"
+              onClick={toggleLike}
+            >
+              <Heart className={cn("h-4 w-4", liked && "text-red-500 fill-red-500")} />
+            </Button>
+          </div>
+        </div>
+        <CardContent className="p-3">
+          <h4 className="font-bold text-sm line-clamp-1">{track.title}</h4>
+          <p className="text-xs text-muted-foreground line-clamp-1">By {track.artist || 'Unknown'}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
-            <span className="text-xs text-muted-foreground ml-auto">
-              {new Date(track.created_at).toLocaleDateString()}
-            </span>
+  return (
+    <Card
+      className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+      onClick={handlePlay}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-lg overflow-hidden flex-shrink-0">
+            <img src={coverUrl} alt={track.title} className="w-full h-full object-cover" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base truncate">{track.title}</h3>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{track.artist || 'Unknown Artist'}</span>
+              <span>•</span>
+              <span>{new Date(track.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-gold" onClick={toggleLike}>
+              <Heart className={cn("h-4 w-4", liked && "fill-gold text-gold")} />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-gold" onClick={toggleSave}>
+              <CheckCircle className={cn("h-4 w-4", saved && "fill-gold text-gold")} />
+            </Button>
+            <PlaylistActions trackId={track.id} />
           </div>
         </div>
       </CardContent>

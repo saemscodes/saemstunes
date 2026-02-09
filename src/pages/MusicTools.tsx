@@ -367,7 +367,7 @@ const MusicTools = () => {
                   className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-2xl h-14 px-8 font-bold"
                 >
                   <RotateCcw className="h-5 w-5 mr-3" />
-                  Kill Audio
+                  Refresh
                 </Button>
               </motion.div>
             </div>

@@ -16,12 +16,11 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, isVis
       data-index={index}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
-      className={`transform transition-all duration-200 cursor-pointer mb-4 ${
-        isVisible 
-          ? 'scale-100 opacity-100' 
-          : 'scale-75 opacity-0'
-      }`}
-      style={{ 
+      className={`transform transition-all duration-200 cursor-pointer mb-4 ${isVisible
+        ? 'scale-100 opacity-100'
+        : 'scale-75 opacity-0'
+        }`}
+      style={{
         transitionDelay: `${delay}ms`,
       }}
     >
@@ -31,8 +30,8 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, isVis
 };
 
 interface AnimatedListProps {
-  items?: string[];
-  onItemSelect?: (item: string, index: number) => void;
+  items?: any[];
+  onItemSelect?: (item: any, index: number) => void;
   showGradients?: boolean;
   enableArrowNavigation?: boolean;
   className?: string;
@@ -153,10 +152,10 @@ const AnimatedList = ({
   }, [selectedIndex, keyboardNav]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`relative w-full max-w-full overflow-hidden ${className}`}
-      style={{ 
+      style={{
         maxHeight,
         minHeight: '200px',
         backgroundColor: 'hsl(var(--background))'
@@ -164,9 +163,8 @@ const AnimatedList = ({
     >
       <div
         ref={listRef}
-        className={`h-full overflow-y-auto px-4 py-2 animated-list-scrollbar ${
-          !displayScrollbar ? 'scrollbar-hide' : ''
-        }`}
+        className={`h-full overflow-y-auto px-4 py-2 animated-list-scrollbar ${!displayScrollbar ? 'scrollbar-hide' : ''
+          }`}
         onScroll={handleScroll}
       >
         {items.map((item, index) => (
@@ -183,43 +181,63 @@ const AnimatedList = ({
               }
             }}
           >
-            <div 
-              className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                selectedIndex === index 
-                  ? 'bg-accent/10 dark:bg-accent/20 border-primary shadow-md transform scale-105' 
-                  : 'bg-card dark:bg-card border-border hover:border-accent/50 hover:shadow-sm'
-              } ${itemClassName}`}
+            <div
+              className={`p-4 rounded-lg border-2 transition-all duration-200 ${selectedIndex === index
+                ? 'bg-accent/10 dark:bg-accent/20 border-primary shadow-md transform scale-105'
+                : 'bg-card dark:bg-card border-border hover:border-accent/50 hover:shadow-sm'
+                } ${itemClassName}`}
               style={{
-                backgroundColor: selectedIndex === index 
-                  ? 'hsl(43 60% 45% / 0.1)' 
+                backgroundColor: selectedIndex === index
+                  ? 'hsl(43 60% 45% / 0.1)'
                   : 'hsl(var(--card))',
-                borderColor: selectedIndex === index 
-                  ? 'hsl(43 100% 33%)' 
+                borderColor: selectedIndex === index
+                  ? 'hsl(43 100% 33%)'
                   : 'hsl(var(--border))',
                 color: 'hsl(var(--card-foreground))'
               }}
             >
-              <p className="font-medium text-sm md:text-base break-words" 
-                 style={{ color: 'hsl(var(--card-foreground))' }}>
-                {item}
-              </p>
+              {typeof item === 'object' && item !== null ? (
+                <div className="flex items-center gap-4">
+                  {(item as any).image && (
+                    <img
+                      src={(item as any).image}
+                      alt={(item as any).title || 'Item'}
+                      className="w-12 h-12 rounded-full object-cover border border-primary/20"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm md:text-base truncate">
+                      {(item as any).title || (item as any).name || 'Untitled'}
+                    </p>
+                    {(item as any).subtitle && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {(item as any).subtitle}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="font-medium text-sm md:text-base break-words">
+                  {String(item)}
+                </p>
+              )}
             </div>
           </AnimatedItem>
         ))}
       </div>
-      
+
       {showGradients && (
         <>
           <div
             className="absolute top-0 left-0 right-0 h-8 pointer-events-none z-10"
-            style={{ 
+            style={{
               opacity: topGradientOpacity,
               background: 'linear-gradient(to bottom, hsl(var(--background)), transparent)'
             }}
           />
           <div
             className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none z-10"
-            style={{ 
+            style={{
               opacity: bottomGradientOpacity,
               background: 'linear-gradient(to top, hsl(var(--background)), transparent)'
             }}

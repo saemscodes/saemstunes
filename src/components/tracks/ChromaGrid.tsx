@@ -67,7 +67,7 @@ export const ChromaGrid = ({
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -153,7 +153,7 @@ export const ChromaGrid = ({
       views: 3900,
     },
   ];
-  
+
   const data = items?.length ? items : demo;
 
   const handleCardClick = useCallback((url?: string) => {
@@ -178,9 +178,9 @@ export const ChromaGrid = ({
 
   const handlePlayAudio = useCallback(() => {
     if (!previewItem) return;
-    
+
     setPreviewItem(null);
-    
+
     playTrack({
       id: previewItem.audioUrl!,
       src: previewItem.audioUrl!,
@@ -189,7 +189,7 @@ export const ChromaGrid = ({
       artwork: previewItem.image,
     });
   }, [previewItem, playTrack]);
-  
+
   return (
     <div
       ref={rootRef}
@@ -199,20 +199,24 @@ export const ChromaGrid = ({
       {previewItem && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4 md:pb-[4.5rem]">
           <div className="bg-card text-foreground rounded-2xl max-w-2xl w-full overflow-hidden border border-border shadow-xl relative">
-            <button 
-              className="absolute top-4 right-4 bg-secondary text-secondary-foreground rounded-full p-2 hover:bg-secondary/80 transition-colors z-10"
-              onClick={() => setPreviewItem(null)}
+            <button
+              className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white rounded-full p-2 hover:bg-black/80 transition-all z-[60] border border-white/20 active:scale-90"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewItem(null);
+              }}
+              aria-label="Close preview"
             >
               <X className="h-6 w-6" />
             </button>
-            
+
             {/* Responsive aspect ratio container */}
             <div className="relative pb-[56.25%] h-0">
               {previewItem.youtubeUrl ? (
                 (() => {
                   const videoId = getYouTubeVideoId(previewItem.youtubeUrl);
                   const isShorts = previewItem.youtubeUrl.includes('/shorts/');
-                  
+
                   return (
                     <div className={`absolute inset-0 w-full h-full ${isShorts ? "flex items-center justify-center" : ""}`}>
                       {videoId ? (
@@ -236,8 +240,8 @@ export const ChromaGrid = ({
                 })()
               ) : (
                 <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                  <img 
-                    src={previewItem.image} 
+                  <img
+                    src={previewItem.image}
                     alt={previewItem.title}
                     className="w-full h-full object-cover opacity-70"
                   />
@@ -249,7 +253,7 @@ export const ChromaGrid = ({
                 </div>
               )}
             </div>
-            
+
             <div className="p-4 md:p-6">
               <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                 <div className="flex-1">
@@ -266,7 +270,7 @@ export const ChromaGrid = ({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex flex-col gap-2 md:gap-3 mt-2 md:mt-0">
                   <button
                     onClick={handlePlayAudio}
@@ -275,7 +279,7 @@ export const ChromaGrid = ({
                     <Play className="h-4 w-4 md:h-5 md:w-5" />
                     <span className="text-sm md:text-base">Play Audio</span>
                   </button>
-                  
+
                   {previewItem.audioUrl && (
                     <button
                       onClick={() => window.open(previewItem.audioUrl, "_blank")}
@@ -285,7 +289,7 @@ export const ChromaGrid = ({
                       <span className="text-sm md:text-base">Audio Source</span>
                     </button>
                   )}
-                  
+
                   {previewItem.youtubeUrl && (
                     <button
                       onClick={() => window.open(previewItem.youtubeUrl, "_blank")}
@@ -318,18 +322,17 @@ export const ChromaGrid = ({
             } as React.CSSProperties}
           >
             <div className="aspect-square relative overflow-hidden">
-              <img 
-                src={item.image} 
+              <img
+                src={item.image}
                 alt={item.title}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 rounded-lg"
               />
-              
-              <div className={`absolute inset-0 bg-black/70 transition-opacity duration-300 flex items-center justify-center ${
-                isMobile ? 'opacity-0' : hoveredItem === i ? 'opacity-100' : 'opacity-0'
-              }`}>
+
+              <div className={`absolute inset-0 bg-black/70 transition-opacity duration-300 flex items-center justify-center ${isMobile ? 'opacity-0' : hoveredItem === i ? 'opacity-100' : 'opacity-0'
+                }`}>
                 <div className="flex gap-3">
                   {(item.audioUrl || item.youtubeUrl) && (
-                    <button 
+                    <button
                       onClick={(e) => handlePlayButtonClick(e, item)}
                       className="bg-white/20 backdrop-blur-sm rounded-full p-3 hover:bg-white/30 transition-colors"
                     >
@@ -358,21 +361,20 @@ export const ChromaGrid = ({
               )}
             </div>
 
-            <div className={`p-4 transition-all duration-300 ${
-              isMobile 
-                ? 'opacity-100 translate-y-0' 
-                : hoveredItem === i 
-                  ? 'opacity-100 translate-y-0' 
+            <div className={`p-4 transition-all duration-300 ${isMobile
+                ? 'opacity-100 translate-y-0'
+                : hoveredItem === i
+                  ? 'opacity-100 translate-y-0'
                   : 'opacity-60 translate-y-2'
-            }`}>
+              }`}>
               <h3 className="font-bold text-white text-lg mb-1 line-clamp-1">
                 {item.title}
               </h3>
-              
+
               <p className="text-white/80 text-sm mb-2 line-clamp-1">
                 {item.subtitle}
               </p>
-              
+
               {item.handle && (
                 <p className="text-white/60 text-xs mb-3">
                   {item.handle}
@@ -399,7 +401,7 @@ export const ChromaGrid = ({
               {isMobile && (
                 <div className="flex gap-2 mt-3">
                   {(item.audioUrl || item.youtubeUrl) && (
-                    <button 
+                    <button
                       className="flex-1 bg-white/20 backdrop-blur-sm rounded-lg py-2 px-3 text-white text-sm font-medium hover:bg-white/30 transition-colors flex items-center justify-center gap-2"
                       onClick={(e) => handlePlayButtonClick(e, item)}
                     >
@@ -429,7 +431,7 @@ export const ChromaGrid = ({
                       📍 {item.location}
                     </p>
                   )}
-                  
+
                   {(item.likes !== undefined || item.views !== undefined) && (
                     <div className="flex items-center gap-4 text-white/60 text-xs">
                       {item.likes !== undefined && (
@@ -449,8 +451,8 @@ export const ChromaGrid = ({
                 </div>
               )}
             </div>
-            
-            <div 
+
+            <div
               className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
               style={{
                 background: `linear-gradient(45deg, transparent 30%, ${item.borderColor || '#fff'} 50%, transparent 70%)`,

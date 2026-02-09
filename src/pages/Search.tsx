@@ -48,19 +48,19 @@ const SearchPage = () => {
   const performSearch = async (query: string, pageNum: number) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const limit = 12;
       const filters = activeTab !== "all" ? { source_tables: [activeTab] } : {};
-      
+
       const results = await searchAll(query, limit, pageNum * limit, filters);
-      
+
       if (pageNum === 0) {
         setSearchResults(results);
       } else {
         setSearchResults(prev => [...prev, ...results]);
       }
-      
+
       setHasMore(results.length >= limit);
       setPage(pageNum);
     } catch (err) {
@@ -133,7 +133,7 @@ const SearchPage = () => {
     <MainLayout>
       <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-serif font-bold mb-6">Search</h1>
-        
+
         <div className="relative mb-6">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -200,7 +200,7 @@ const SearchPage = () => {
                   </div>
                 </div>
               )}
-              
+
               <div>
                 <h3 className="text-sm font-medium flex items-center gap-1 mb-2">
                   <TrendingUp className="h-3.5 w-3.5" />
@@ -256,15 +256,17 @@ const SearchPage = () => {
         )}
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="artists">Artists</TabsTrigger>
-            <TabsTrigger value="video_content">Videos</TabsTrigger>
-            <TabsTrigger value="resources">Resources</TabsTrigger>
-            <TabsTrigger value="courses">Courses</TabsTrigger>
-            <TabsTrigger value="tracks">Tracks</TabsTrigger>
-            <TabsTrigger value="tutors">Tutors</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-auto min-w-max sm:w-full sm:flex mb-6 bg-background/50 backdrop-blur-md border border-white/10 p-1">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="artists">Artists</TabsTrigger>
+              <TabsTrigger value="video_content">Videos</TabsTrigger>
+              <TabsTrigger value="resources">Resources</TabsTrigger>
+              <TabsTrigger value="courses">Courses</TabsTrigger>
+              <TabsTrigger value="tracks">Tracks</TabsTrigger>
+              <TabsTrigger value="tutors">Tutors</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value={activeTab} className="mt-0">
             {searchQuery ? (
@@ -273,13 +275,13 @@ const SearchPage = () => {
                   {filteredResults.length} results for "{searchQuery}"
                   {activeTab !== "all" && ` in ${activeTab.replace('_', ' ')}`}
                 </p>
-                
+
                 {error && (
                   <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-4">
                     {error}
                   </div>
                 )}
-                
+
                 {isLoading && page === 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -297,7 +299,7 @@ const SearchPage = () => {
                 ) : filteredResults.length > 0 ? (
                   <>
                     <ResultsGrid results={filteredResults} />
-                    
+
                     {hasMore && (
                       <div className="mt-8 text-center">
                         <Button

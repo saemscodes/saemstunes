@@ -22,6 +22,9 @@ import PillNav from "@/components/learning-hub/PillNav";
 import PreviewModal from "@/components/learning-hub/PreviewModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLearningContent } from "@/hooks/useLearningContent";
+import { useUserProgress } from "@/hooks/useUserProgress";
+import { toast } from "sonner";
 
 // Access Policy Constants
 const ACCESS_LEVELS = {
@@ -99,6 +102,13 @@ const LearningHub = () => {
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const folderRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Real Data
+  const { useCourses, useCategories } = useLearningContent();
+  const { data: coursesData, isLoading: coursesLoading } = useCourses();
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
+  const { progressQuery: userProgressQueryResult, useAchievements } = useUserProgress();
+  const { data: userAchievementsData } = useAchievements();
 
   // Animation states
   const [titleAnimated, setTitleAnimated] = useState(false);
@@ -271,144 +281,54 @@ const LearningHub = () => {
   }, [getEnhancedAccessStatus, createPreviewExperience, navigate, user]);
 
   // Enhanced Data Model
-  const learningCategories = [
-    {
-      id: "vocal-techniques",
-      title: "Vocal Mastery Studio",
-      description: "From breath control to stage presence - master the art of voice",
-      icon: <Music className="h-6 w-6" />,
-      color: "bg-gradient-to-br from-blue-500 to-indigo-600",
-      estimatedTime: "3-6 months",
-      courses: [
-        {
-          id: "breathing-techniques",
-          title: "Diaphragmatic Breathing",
-          description: "Proper breathing for powerful vocals",
-          progress: user ? 100 : 0,
-          lessons: 4,
-          duration: 32,
-          level: "beginner",
-          accessLevel: "free",
-          instructor: {
-            id: "sarah-k",
-            name: "Sarah K.",
-            avatar: "/instructors/sarah.jpg",
-            responseTime: "within 6 hours",
-            rating: 4.9
-          },
-          preview: {
-            type: "video",
-            url: "/previews/vocal-breathing.mp4",
-            duration: 90,
-            chapters: [
-              { time: 0, title: "Introduction" },
-              { time: 30, title: "Basic Exercises" }
-            ]
-          },
-          enrollmentCount: 1247,
-          averageRating: 4.8,
-          skillsCount: 5
+  // Transform dynamic data into internal structures
+  const learningCategories = categoriesData?.map(cat => ({
+    id: cat.id,
+    title: cat.name,
+    description: cat.description,
+    icon: <Music className="h-6 w-6" />,
+    color: cat.color || "bg-gradient-to-br from-blue-500 to-indigo-600",
+    estimatedTime: cat.estimated_time || "4-8 weeks",
+    courses: coursesData?.filter(c => c.category_id === cat.id).map(c => {
+      // Calculate progress for each course
+      const lessonIdsInCourse = []; // This would ideally come from useCourseDetails
+      // For now we'll approximate or use a simplified approach since loading all details is expensive
+      const courseProgress = userProgressQueryResult.data?.find(p => p.entity_id === c.id && p.entity_type === 'course')?.progress_percent || 0;
+
+      return {
+        ...c,
+        progress: courseProgress,
+        instructor: {
+          name: c.instructor?.full_name || "Guest Instructor",
+          avatar: c.instructor?.avatar_url,
+          responseTime: "within 24 hours",
+          rating: c.average_rating || 4.8
         },
-        {
-          id: "vocal-range",
-          title: "Range Extension",
-          description: "Safely expand your vocal range",
-          progress: user ? 75 : 0,
-          lessons: 6,
-          duration: 45,
-          level: "intermediate",
-          accessLevel: "pro",
-          instructor: {
-            id: "mike-t",
-            name: "Mike T.",
-            avatar: "/instructors/mike.jpg",
-            responseTime: "within 12 hours",
-            rating: 4.7
-          },
-          preview: {
-            type: "audio",
-            url: "/previews/vocal-range.mp3",
-            duration: 60
-          },
-          enrollmentCount: 892,
-          averageRating: 4.6,
-          skillsCount: 7
+        preview: {
+          type: c.preview_type || "video",
+          url: c.preview_url,
+          duration: c.preview_duration || 60
         }
-      ]
-    },
-    {
-      id: "music-theory",
-      title: "Music Theory Laboratory",
-      description: "Understand notation, harmony, and composition",
-      icon: <BookOpen className="h-6 w-6" />,
-      color: "bg-gradient-to-br from-purple-500 to-pink-600",
-      courses: [
-        {
-          id: "chord-progressions",
-          title: "Chord Progressions",
-          description: "Create emotional movement in your music",
-          progress: user ? 30 : 0,
-          lessons: 5,
-          duration: 38,
-          level: "intermediate",
-          accessLevel: "subscriber",
-          instructor: {
-            id: "david-m",
-            name: "David M.",
-            avatar: "/instructors/david.jpg",
-            responseTime: "within 24 hours",
-            rating: 4.5
-          },
-          preview: {
-            type: "text",
-            content: "Chord progressions form the backbone of musical harmony...",
-            duration: 120
-          },
-          enrollmentCount: 567,
-          averageRating: 4.4,
-          skillsCount: 6
-        }
-      ]
-    }
-  ];
+      };
+    }) || []
+  })) || [];
 
-  // Additional data structures
-  const pinnedCourses = [
-    {
-      id: "performance-skills",
-      title: "Stage Presence",
-      description: "Command the stage with confidence",
-      progress: 40,
-      instructor: { name: "Lisa G." }
-    }
-  ];
+  const pinnedCourses = coursesData?.slice(0, 1).map(c => ({
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    progress: userProgressQueryResult.data?.find(p => p.entity_id === c.id)?.progress_percent || 0,
+    instructor: { name: c.instructor?.full_name || "Instructor" }
+  })) || [];
 
-  const achievements = [
-    {
-      id: "first-lesson",
-      title: "First Lesson",
-      description: "Completed your first lesson",
-      icon: <Play className="h-5 w-5" />,
-      unlocked: true,
-      progress: 100
-    },
-    {
-      id: "module-master",
-      title: "Module Master",
-      description: "Completed a full learning module",
-      icon: <BookOpen className="h-5 w-5" />,
-      unlocked: true,
-      progress: 100
-    },
-    {
-      id: "practice-streak",
-      title: "Practice Streak",
-      description: "Practiced 7 days in a row",
-      icon: <Music className="h-5 w-5" />,
-      unlocked: false,
-      progress: 85
-    }
-  ];
+  const achievements = userAchievementsData?.map(a => ({
+    id: a.id,
+    title: a.achievement?.title || "Achievement",
+    description: a.achievement?.description || "Goal reached",
+    icon: <Trophy className="h-5 w-5" />,
+    unlocked: true,
+    progress: 100
+  })) || [];
 
   const pillNavItems = [
     { id: "my-path", label: "My Path" },
@@ -532,8 +452,8 @@ const LearningHub = () => {
         <aside
           ref={dockRef}
           className={`left-dock bg-cream/90 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-gold/10 transition-all duration-300 ${mobileDockOpen
-              ? 'fixed inset-0 z-50 bg-cream p-8 overflow-y-auto'
-              : 'hidden lg:block'
+            ? 'fixed inset-0 z-50 bg-cream p-8 overflow-y-auto'
+            : 'hidden lg:block'
             }`}
         >
           {mobileDockOpen && (
@@ -776,8 +696,8 @@ const LearningHub = () => {
                           <CardFooter>
                             <Button
                               className={`w-full transition-all ${access.status === "granted"
-                                  ? "bg-gold hover:bg-gold-dark text-white hover:shadow-gold/30"
-                                  : "hover:bg-muted"
+                                ? "bg-gold hover:bg-gold-dark text-white hover:shadow-gold/30"
+                                : "hover:bg-muted"
                                 }`}
                               variant={access.status === "granted" ? "default" : "outline"}
                               onClick={() =>
