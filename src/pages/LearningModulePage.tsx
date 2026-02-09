@@ -27,9 +27,8 @@ const LearningModulePage = () => {
   const { user, subscription } = useAuth();
   const { data: course, isLoading: courseLoading } = useCourseDetails(courseId);
   const { checkAccess } = usePayment();
-  const { useProgress, useUpdateProgress } = useUserProgress();
+  const { useUpdateProgress, isCompleted } = useUserProgress();
   const updateProgress = useUpdateProgress();
-  const { isCompleted } = useProgress();
 
   const { useThreadsForEntity, useCreateThread } = useCommunity();
   const createThread = useCreateThread();

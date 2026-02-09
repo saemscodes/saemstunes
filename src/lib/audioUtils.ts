@@ -1,5 +1,5 @@
 import { Track, AudioTrack } from '@/types/music';
-const SUPABASE_URL = "https://uxyvhqtwkutstihtxdsv.supabase.co";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 interface TrackWithAudio {
   audio_path?: string | null;
@@ -14,7 +14,7 @@ export const getAudioUrl = (track: TrackWithAudio): string | null => {
     const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
     return `${SUPABASE_URL}/storage/v1/object/public/tracks/${encodedPath}`;
   };
-  
+
   if (track.audio_path) return makeUrl(track.audio_path);
   if (track.alternate_audio_path) return makeUrl(track.alternate_audio_path);
   return null;

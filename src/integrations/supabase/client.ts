@@ -4,8 +4,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
 
-const SUPABASE_URL = "https://uxyvhqtwkutstihtxdsv.supabase.co"
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4yVhqdHdrdXRzdGlodHhkc3YiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0NTQzNjQ4OSwiZXhwIjoyMDYxMDEyNDg5fQ.oR-Jl_hJIVgehVr5J9oEB8WqxZCXREXY07cwFoW5COE"
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Singleton guard using globalThis to span across module reloads
 const globalWithSupabase = globalThis as unknown as {

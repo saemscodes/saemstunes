@@ -56,6 +56,10 @@ export interface Lesson {
   class_id: string;
   title: string;
   description: string | null;
+  duration_minutes: number;
+  lesson_type: 'video' | 'text' | 'quiz';
+  is_preview: boolean;
+  order_index: number;
   created_at: string;
   updated_at: string;
 }

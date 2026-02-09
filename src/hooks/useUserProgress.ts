@@ -300,6 +300,11 @@ export const useAchievements = () => {
 };
 
 export const useUserProgress = () => {
+    const progressQuery = useProgress();
+    const isCompleted = (entityId: string) => {
+        return progressQuery.data?.some(p => p.entity_id === entityId && p.status === 'completed') || false;
+    };
+
     return {
         useProgress,
         useUpdateProgress,
@@ -307,6 +312,8 @@ export const useUserProgress = () => {
         useEndSession,
         useProgressStats,
         useAchievements,
+        isCompleted,
+        progressQuery
     };
 };
 
