@@ -43,10 +43,12 @@ export const usePayment = () => {
     mutationFn: async ({
       items,
       totalAmount,
+      phoneNumber,
       currency = 'KES'
     }: {
       items: { type: PurchaseEntity, id: string }[],
       totalAmount: number,
+      phoneNumber?: string,
       currency?: string
     }) => {
       if (!user) throw new Error("Authentication required");
@@ -69,7 +71,8 @@ export const usePayment = () => {
           final_price: totalAmount,
           currency,
           payment_status: 'pending',
-          payment_method: 'mpesa' // Default
+          payment_method: 'mpesa',
+          phone_number: phoneNumber || ''
         })
         .select()
         .single();
@@ -78,7 +81,7 @@ export const usePayment = () => {
       return data;
     },
     onSuccess: (data) => {
-      toast.info("Purchase initiated. Please complete the payment.");
+      toast.info("STK Push initiated. Check your phone to complete the payment.");
     },
     onError: (error) => {
       toast.error(`Purchase failed: ${error.message}`);

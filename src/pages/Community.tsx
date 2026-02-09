@@ -3,7 +3,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, MessageCircle, Music, Video, Bell, Award, Heart, Headphones, X, Mail, Sparkles } from "lucide-react";
+import { Users, MessageCircle, Music, Video, Bell, Award, Heart, Headphones, X, Mail, Sparkles, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BookOpen } from "lucide-react";
+import { useCommunity } from "@/hooks/useCommunity";
+import { formatDistanceToNow } from "date-fns";
 import AudioSharingCard from "@/components/community/AudioSharingCard";
 import DirectMessaging from "@/components/community/DirectMessaging";
 import { useNavigate } from "react-router-dom";
@@ -58,15 +60,9 @@ const Community = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { useThreads } = useCommunity();
+  const { data: threads, isLoading: threadsLoading } = useThreads();
   const [activeTab, setActiveTab] = useState("discussions");
-  const [showCommunityPreview, setShowCommunityPreview] = useState(true);
-  const [email, setEmail] = useState("");
-  const [emailSubmitted, setEmailSubmitted] = useState(false);
-
-  const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    setEmailSubmitted(true);
-  };
 
   // SEO schema for community page
   const communitySchema = {
@@ -83,49 +79,9 @@ const Community = () => {
     "interactionStatistic": {
       "@type": "InteractionCounter",
       "interactionType": "https://schema.org/CommentAction",
-      "userInteractionCount": "89"
+      "userInteractionCount": threads?.length?.toString() || "0"
     }
   };
-
-  // Sample community data
-  const discussions = [
-    {
-      id: '1',
-      title: 'Tips for improving vocal range?',
-      author: "MelodyMaker",
-      authorAvatar: "/placeholder.svg",
-      replies: 24,
-      lastActive: "2 hours ago",
-      isPopular: true
-    },
-    {
-      id: '2',
-      title: 'Sheet music recommendations for intermediate piano',
-      author: "PianoPlayer22",
-      authorAvatar: "/placeholder.svg",
-      replies: 18,
-      lastActive: "5 hours ago",
-      isPopular: false
-    },
-    {
-      id: '3',
-      title: 'How to overcome performance anxiety',
-      author: "StageFright",
-      authorAvatar: "/placeholder.svg",
-      replies: 32,
-      lastActive: "1 day ago",
-      isPopular: true
-    },
-    {
-      id: '4',
-      title: 'Best budget microphones for home recording?',
-      author: "HomeProducer",
-      authorAvatar: "/placeholder.svg",
-      replies: 15,
-      lastActive: "2 days ago",
-      isPopular: false
-    }
-  ];
 
   const events = [
     {
@@ -143,7 +99,7 @@ const Community = () => {
       image: "/placeholder.svg"
     }
   ];
-  
+
   const featuredArtists = [
     {
       id: 1,
@@ -167,33 +123,33 @@ const Community = () => {
       image: "/placeholder.svg"
     }
   ];
-  
+
   const DiscussionCard = ({ discussion }) => (
     <div className="border-b border-border pb-4 last:border-0 last:pb-0">
       <div className="flex justify-between items-start">
         <div className="flex gap-3">
           <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-            <AvatarImage src={discussion.authorAvatar} />
-            <AvatarFallback>{discussion.author.charAt(0)}</AvatarFallback>
+            <AvatarImage src={discussion.author?.avatar_url || ''} />
+            <AvatarFallback>{discussion.author?.full_name?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           <div>
             <h4 className="font-medium hover:text-gold cursor-pointer flex items-center">
               {discussion.title}
-              {discussion.isPopular && (
+              {discussion.is_pinned && (
                 <Badge variant="outline" className="ml-2 text-xs bg-gold/10">
-                  Popular
+                  Pinned
                 </Badge>
               )}
             </h4>
             <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2 flex-wrap">
-              <span>{discussion.author}</span>
+              <span>{discussion.author?.full_name || 'Anonymous'}</span>
               <span>•</span>
               <div className="flex items-center">
                 <MessageCircle className="h-3 w-3 mr-1" />
-                <span>{discussion.replies}</span>
+                <span>{discussion.reply_count || 0}</span>
               </div>
               <span>•</span>
-              <span>{discussion.lastActive}</span>
+              <span>{discussion.last_activity_at ? formatDistanceToNow(new Date(discussion.last_activity_at), { addSuffix: true }) : 'active recently'}</span>
             </div>
           </div>
         </div>
@@ -203,7 +159,7 @@ const Community = () => {
       </div>
     </div>
   );
-  
+
   const EventCard = ({ event }) => (
     <div className="flex gap-3 items-center mb-4">
       <div className="h-14 w-14 sm:h-16 sm:w-16 rounded bg-muted overflow-hidden">
@@ -222,7 +178,7 @@ const Community = () => {
       </Button>
     </div>
   );
-  
+
   const ArtistCard = ({ artist }) => (
     <div className="flex items-center gap-3 mb-3">
       <Avatar className="h-10 w-10">
@@ -241,52 +197,30 @@ const Community = () => {
 
   return (
     <MainLayout>
-      <SEOHead 
+      <SEOHead
         title="Music Community | Saem's Tunes"
         description="Join our vibrant music community. Share recordings, discuss techniques, and connect with fellow musicians and instructors."
         keywords="music community, musician forum, audio sharing, music collaboration"
         url="https://saemstunes.app/community"
         structuredData={communitySchema}
       />
-      
-      {showCommunityPreview && (
-        <div className="relative bg-gradient-to-r from-amber-50 to-gold/5 dark:from-gold/10 dark:to-gold/5 border border-gold/30 dark:border-gold/20 rounded-lg p-4 mb-6">
-          <button 
-            onClick={() => setShowCommunityPreview(false)}
-            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          
-          <div className="flex items-start gap-3">
-            <div className="bg-gold/20 p-2 rounded-full">
-              <Sparkles className="h-5 w-5 text-gold" />
-            </div>
-            
-            <div className="flex-1">
-              <h3 className="font-serif font-semibold text-lg mb-1">Community Hub Coming Soon!</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                We're building a vibrant space for musicians to connect, share, and grow together. 
-                While we're putting the finishing touches on chat and forums, you can still explore 
-                discussions, share audio, and connect with other music lovers.
-              </p>
-              
-              {!emailSubmitted ? (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Email us at <a href="mailto:contact@saemstunes.com" className="text-gold hover:underline">contact@saemstunes.com</a> to be notified when we launch.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-green-50 text-green-700 text-sm p-2 rounded-md">
-                  Thanks for your interest! We'll be in touch when our community features are ready.
-                </div>
-              )}
-            </div>
+
+      <div className="relative bg-gradient-to-r from-amber-50 to-gold/5 dark:from-gold/10 dark:to-gold/5 border border-gold/30 dark:border-gold/20 rounded-lg p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <div className="bg-gold/20 p-2 rounded-full">
+            <Sparkles className="h-5 w-5 text-gold" />
+          </div>
+
+          <div className="flex-1">
+            <h3 className="font-serif font-semibold text-lg mb-1">Live Community Hub</h3>
+            <p className="text-sm text-muted-foreground">
+              Connect with fellow musicians, share your recordings, and join discussions in real-time.
+              Our community is active and growing!
+            </p>
           </div>
         </div>
-      )}
-      
+      </div>
+
       <div className="space-y-6 pb-24 md:pb-12">
         {isMobile ? (
           <div className="space-y-6">
@@ -297,7 +231,7 @@ const Community = () => {
                 New
               </Button>
             </div>
-            
+
             <Tabs defaultValue="discussions" className="w-full" onValueChange={setActiveTab}>
               <TabsList className="grid grid-cols-5 mb-4">
                 <TabsTrigger value="discussions">
@@ -321,7 +255,7 @@ const Community = () => {
                   <span className="hidden sm:inline">Featured</span>
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="discussions" className="pt-2">
                 <Card>
                   <CardHeader className="pb-3">
@@ -335,9 +269,15 @@ const Community = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {discussions.map(discussion => (
-                        <DiscussionCard key={discussion.id} discussion={discussion} />
-                      ))}
+                      {threadsLoading ? (
+                        <div className="flex items-center justify-center py-10">
+                          <Loader2 className="h-6 w-6 animate-spin text-gold" />
+                        </div>
+                      ) : (
+                        threads?.map(thread => (
+                          <DiscussionCard key={thread.id} discussion={thread} />
+                        ))
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -359,9 +299,9 @@ const Community = () => {
                       {AUDIO_TRACKS.map(track => (
                         <AudioSharingCard key={track.id} track={track} />
                       ))}
-                      
+
                       <Separator className="my-4" />
-                      
+
                       <div className="text-center">
                         <Button className="bg-gold hover:bg-gold/90 text-white">
                           Share Your Audio
@@ -371,7 +311,7 @@ const Community = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="messages" className="pt-2">
                 <Card>
                   <CardHeader className="pb-3">
@@ -388,7 +328,7 @@ const Community = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="events" className="pt-2">
                 <Card>
                   <CardHeader className="pb-3">
@@ -405,9 +345,9 @@ const Community = () => {
                       {events.map(event => (
                         <EventCard key={event.id} event={event} />
                       ))}
-                      
+
                       <Separator className="my-4" />
-                      
+
                       <div className="text-center">
                         <Button className="bg-gold hover:bg-gold-dark text-white">
                           Browse All Events
@@ -417,7 +357,7 @@ const Community = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="featured" className="pt-2">
                 <Card>
                   <CardHeader className="pb-3">
@@ -434,9 +374,9 @@ const Community = () => {
                       {featuredArtists.map(artist => (
                         <ArtistCard key={artist.id} artist={artist} />
                       ))}
-                      
+
                       <Separator className="my-4" />
-                      
+
                       <div className="text-center">
                         <Button variant="outline">
                           View All Artists
@@ -457,7 +397,7 @@ const Community = () => {
                 New Discussion
               </Button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-6">
                 <Tabs defaultValue="discussions">
@@ -466,7 +406,7 @@ const Community = () => {
                     <TabsTrigger value="audio">Shared Audio</TabsTrigger>
                     <TabsTrigger value="messages">Direct Messages</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="discussions" className="pt-4">
                     <Card>
                       <CardHeader>
@@ -480,30 +420,36 @@ const Community = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          {discussions.map(discussion => (
-                            <DiscussionCard key={discussion.id} discussion={discussion} />
-                          ))}
+                          {threadsLoading ? (
+                            <div className="flex items-center justify-center py-10">
+                              <Loader2 className="h-6 w-6 animate-spin text-gold" />
+                            </div>
+                          ) : (
+                            threads?.map(thread => (
+                              <DiscussionCard key={thread.id} discussion={thread} />
+                            ))
+                          )}
                         </div>
-                        
+
                         <Button variant="outline" className="w-full mt-4">
                           View All Discussions
                         </Button>
                       </CardContent>
                     </Card>
                   </TabsContent>
-                  
+
                   <TabsContent value="audio" className="pt-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       {AUDIO_TRACKS.map(track => (
                         <AudioSharingCard key={track.id} track={track} />
                       ))}
                     </div>
-                    
+
                     <Button className="w-full mt-6 bg-gold hover:bg-gold/90 text-white">
                       Share Your Recording
                     </Button>
                   </TabsContent>
-                  
+
                   <TabsContent value="messages" className="pt-4">
                     <Card>
                       <CardContent className="p-0">
@@ -512,7 +458,7 @@ const Community = () => {
                     </Card>
                   </TabsContent>
                 </Tabs>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -535,7 +481,7 @@ const Community = () => {
                           <p className="text-sm mt-1">Sharing my progress after 3 months of lessons!</p>
                         </div>
                       </div>
-                      
+
                       <Button variant="outline" className="w-full">
                         View More Showcases
                       </Button>
@@ -543,7 +489,7 @@ const Community = () => {
                   </CardContent>
                 </Card>
               </div>
-              
+
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -560,14 +506,14 @@ const Community = () => {
                       {events.map(event => (
                         <EventCard key={event.id} event={event} />
                       ))}
-                      
+
                       <Button variant="outline" size="sm" className="w-full">
                         View All Events
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -583,7 +529,7 @@ const Community = () => {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle>Learning Resources</CardTitle>
@@ -608,7 +554,7 @@ const Community = () => {
                       </Button>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start text-left" 
+                        className="w-full justify-start text-left"
                         onClick={() => window.location.href = "/learning-hub"}
                       >
                         <Heart className="h-4 w-4 mr-2" />
@@ -621,7 +567,7 @@ const Community = () => {
             </div>
           </div>
         )}
-        
+
         <div className="flex justify-center space-x-4 pt-8 border-t">
           <Button
             variant="link"

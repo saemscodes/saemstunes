@@ -68,7 +68,8 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import MusicShowcase from "./pages/MusicShowcase";
 import Profile from "./pages/Profile";
-import DebugPage from './pages/DebugPage'
+import DebugPage from './pages/DebugPage';
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -212,6 +213,11 @@ const App = () => {
                                 <Route path="/profile" element={
                                   <ProtectedRoute>
                                     <Profile />
+                                  </ProtectedRoute>
+                                } />
+                                <Route path="/dashboard" element={
+                                  <ProtectedRoute>
+                                    <Dashboard />
                                   </ProtectedRoute>
                                 } />
                                 <Route path="/bookings" element={
