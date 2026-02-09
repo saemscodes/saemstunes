@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Music, Mic, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface Course {
   id: string;
@@ -17,6 +18,7 @@ interface Course {
 }
 
 const RecommendationSection = () => {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +110,8 @@ const RecommendationSection = () => {
             <Card key={course.id} className="overflow-hidden flex flex-col h-full">
               <div className="aspect-video relative">
                 {course.thumbnail_url ? (
-                  <img 
-                    src={course.thumbnail_url} 
+                  <img
+                    src={course.thumbnail_url}
                     alt={course.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -135,13 +137,13 @@ const RecommendationSection = () => {
                 <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                   {course.description || "No description available"}
                 </p>
-                
+
                 <div className="mt-auto pt-2">
                   <div className="flex justify-between items-center text-xs text-muted-foreground mb-3">
                     <span>{course.level || 'All levels'}</span>
                     <span>{formatDuration(course.duration)}</span>
                   </div>
-                  
+
                   <div className="flex justify-between items-center mb-3">
                     {course.enrollment_count && course.enrollment_count > 0 ? (
                       <span className="text-xs text-muted-foreground">
@@ -150,7 +152,7 @@ const RecommendationSection = () => {
                     ) : (
                       <span className="text-xs text-muted-foreground">New course</span>
                     )}
-                    
+
                     {course.average_rating && course.average_rating > 0 ? (
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">{course.average_rating.toFixed(1)}</span>
@@ -170,8 +172,11 @@ const RecommendationSection = () => {
                       <span className="text-xs text-muted-foreground">No ratings yet</span>
                     )}
                   </div>
-                  
-                  <Button className="w-full bg-gold hover:bg-gold-dark">
+
+                  <Button
+                    className="w-full bg-gold hover:bg-gold-dark"
+                    onClick={() => navigate(`/learning-hub/${course.id}`)}
+                  >
                     View Course
                   </Button>
                 </div>

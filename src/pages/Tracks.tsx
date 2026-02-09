@@ -79,7 +79,7 @@ const Tracks = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [activeTab, setActiveTab] = useState("showcase");
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Upload form states
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -88,7 +88,7 @@ const Tracks = () => {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [accessLevel, setAccessLevel] = useState<AccessLevel>("free");
   const [uploading, setUploading] = useState(false);
-  
+
   const navigate = useNavigate();
   const channelRef = useRef<any>(null);
   const isFetchingRef = useRef(false);
@@ -104,22 +104,22 @@ const Tracks = () => {
   // Get audio URL utility
   const getAudioUrl = useCallback((track: Track): string => {
     if (track.alternate_audio_path) {
-      return track.alternate_audio_path.startsWith('http') 
-        ? track.alternate_audio_path 
+      return track.alternate_audio_path.startsWith('http')
+        ? track.alternate_audio_path
         : supabase.storage.from('tracks').getPublicUrl(track.alternate_audio_path).data.publicUrl;
     }
-    
+
     if (track.audio_path.startsWith('http')) {
       return track.audio_path;
     }
-    
+
     return supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl;
   }, []);
 
   // Fetch playlists
   const fetchPlaylists = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('playlists')
@@ -131,7 +131,7 @@ const Tracks = () => {
         console.error('Error fetching playlists:', error);
         return;
       }
-      
+
       if (data) {
         setPlaylists(data);
       }
@@ -177,8 +177,8 @@ const Tracks = () => {
       // Check if user can access this track - access_level might be missing, default to 'free'
       const trackAccessLevel = (trackData as any).access_level || 'free';
       const canAccess = canAccessContent(
-        trackAccessLevel as AccessLevel, 
-        user, 
+        trackAccessLevel as AccessLevel,
+        user,
         user?.subscriptionTier
       );
 
@@ -191,11 +191,11 @@ const Tracks = () => {
       const [playCountResult, likeCountResult] = await Promise.all([
         supabase
           .from('track_plays')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('track_id', trackData.id),
         supabase
           .from('likes')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('track_id', trackData.id)
       ]);
 
@@ -233,9 +233,9 @@ const Tracks = () => {
   // Fetch all tracks with proper filtering
   const fetchTracks = useCallback(async () => {
     if (isFetchingRef.current) return;
-    
+
     isFetchingRef.current = true;
-    
+
     try {
       const { data, error } = await supabase
         .from('tracks')
@@ -267,7 +267,7 @@ const Tracks = () => {
         console.error('Supabase Error Details:', error);
         throw error;
       }
-      
+
       // Filter tracks based on user access - handle missing access_level
       const accessibleTracks = (data || []).filter((track: any) => {
         const accessLevel = track.access_level || 'free';
@@ -277,7 +277,7 @@ const Tracks = () => {
         access_level: track.access_level || 'free',
         approved: track.approved ?? true
       })) as Track[];
-      
+
       setTracks(accessibleTracks);
     } catch (error) {
       console.error('Error fetching tracks:', error);
@@ -295,7 +295,7 @@ const Tracks = () => {
   // Initialize data fetching
   const initializeData = useCallback(async () => {
     setLoading(true);
-    
+
     try {
       await Promise.all([
         fetchTracks(),
@@ -312,9 +312,9 @@ const Tracks = () => {
   // Setup real-time subscriptions
   const setupSubscriptions = useCallback(() => {
     if (subscriptionRef.current || channelRef.current) return;
-    
+
     subscriptionRef.current = true;
-    
+
     // Create a single channel for all subscriptions
     const channel = supabase
       .channel('tracks-page-changes')
@@ -329,7 +329,7 @@ const Tracks = () => {
         async (payload) => {
           // Debounce updates - only process every 2 seconds
           await new Promise(resolve => setTimeout(resolve, 2000));
-          
+
           if (payload.eventType === 'INSERT') {
             const newTrack = payload.new as Track;
             // Check if user can access the new track
@@ -338,14 +338,14 @@ const Tracks = () => {
               user,
               user?.subscriptionTier
             );
-            
+
             if (canAccess) {
               setTracks(prev => {
                 const exists = prev.some(t => t.id === newTrack.id);
                 if (exists) return prev;
                 return [newTrack, ...prev];
               });
-              
+
               // Update featured track if needed
               if (!featuredTrack) {
                 fetchFeaturedTrack();
@@ -354,7 +354,7 @@ const Tracks = () => {
           } else if (payload.eventType === 'UPDATE') {
             const updatedTrack = payload.new as Track;
             const oldTrack = payload.old as Track;
-            
+
             // Check if access level changed
             if (updatedTrack.access_level !== oldTrack.access_level) {
               const canAccess = canAccessContent(
@@ -362,20 +362,20 @@ const Tracks = () => {
                 user,
                 user?.subscriptionTier
               );
-              
+
               if (canAccess) {
-                setTracks(prev => prev.map(t => 
+                setTracks(prev => prev.map(t =>
                   t.id === updatedTrack.id ? updatedTrack : t
                 ));
               } else {
                 setTracks(prev => prev.filter(t => t.id !== updatedTrack.id));
               }
             } else {
-              setTracks(prev => prev.map(t => 
+              setTracks(prev => prev.map(t =>
                 t.id === updatedTrack.id ? updatedTrack : t
               ));
             }
-            
+
             // Update featured track if it's the featured one
             if (featuredTrack?.id === updatedTrack.id) {
               fetchFeaturedTrack();
@@ -383,7 +383,7 @@ const Tracks = () => {
           } else if (payload.eventType === 'DELETE') {
             const deletedTrack = payload.old as Track;
             setTracks(prev => prev.filter(t => t.id !== deletedTrack.id));
-            
+
             // Update featured track if it was deleted
             if (featuredTrack?.id === deletedTrack.id) {
               fetchFeaturedTrack();
@@ -409,14 +409,14 @@ const Tracks = () => {
           console.log('Subscribed to tracks changes');
         }
       });
-    
+
     channelRef.current = channel;
   }, [user, featuredTrack, fetchFeaturedTrack, fetchPlaylists]);
 
   // Effect for initial data loading
   useEffect(() => {
     initializeData();
-    
+
     // Cleanup function
     return () => {
       if (channelRef.current) {
@@ -434,7 +434,7 @@ const Tracks = () => {
       const timeoutId = setTimeout(() => {
         setupSubscriptions();
       }, 1000);
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [loading, setupSubscriptions]);
@@ -442,7 +442,7 @@ const Tracks = () => {
   // Track play function
   const trackPlay = useCallback(async (trackId: string) => {
     if (!trackId || !user) return;
-    
+
     try {
       await supabase.from('track_plays').insert({
         track_id: trackId,
@@ -456,13 +456,13 @@ const Tracks = () => {
   // Handle play now for featured track
   const handlePlayNow = useCallback(() => {
     if (!featuredTrack) return;
-    
+
     if (featuredTrack.id) {
       trackPlay(featuredTrack.id);
     }
-    
-    navigate(featuredTrack.slug 
-      ? `/tracks/${featuredTrack.slug}` 
+
+    navigate(featuredTrack.slug
+      ? `/tracks/${featuredTrack.slug}`
       : `/tracks/${featuredTrack.id}`
     );
   }, [featuredTrack, navigate, trackPlay]);
@@ -472,9 +472,9 @@ const Tracks = () => {
     if (track.id) {
       trackPlay(track.id);
     }
-    
-    navigate(track.slug 
-      ? `/tracks/${track.slug}` 
+
+    navigate(track.slug
+      ? `/tracks/${track.slug}`
       : `/tracks/${track.id}`
     );
   }, [navigate, trackPlay]);
@@ -492,7 +492,7 @@ const Tracks = () => {
 
     if (!audioFile || !title.trim()) {
       toast({
-        title: "Missing Information", 
+        title: "Missing Information",
         description: "Audio file and title are required",
         variant: "destructive",
       });
@@ -513,7 +513,7 @@ const Tracks = () => {
 
     if (coverFile && !allowedImageTypes.includes(coverFile.type)) {
       toast({
-        title: "Invalid File Type", 
+        title: "Invalid File Type",
         description: "Please upload a valid image file (JPEG, PNG)",
         variant: "destructive",
       });
@@ -532,7 +532,7 @@ const Tracks = () => {
     if (coverFile && coverFile.size > 5 * 1024 * 1024) {
       toast({
         title: "File Too Large",
-        description: "Cover image must be less than 5MB", 
+        description: "Cover image must be less than 5MB",
         variant: "destructive",
       });
       return;
@@ -587,13 +587,13 @@ const Tracks = () => {
       setYoutubeUrl('');
       setAccessLevel('free');
       setShowUpload(false);
-      
+
       // Refresh data
       setTimeout(() => {
         fetchTracks();
         fetchFeaturedTrack();
       }, 1000);
-      
+
     } catch (error) {
       console.error('Upload error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload track. Please try again.';
@@ -623,14 +623,14 @@ const Tracks = () => {
     .filter(track => track.cover_path && track.approved && track.youtube_url)
     .map(track => ({
       id: track.id,
-      image: getImageUrl(track.cover_path), 
+      image: getImageUrl(track.cover_path),
       title: track.title,
       subtitle: track.description?.substring(0, 30) + (track.description && track.description.length > 30 ? '...' : ''),
       handle: track.artist || '@unknown',
       borderColor: track.primary_color || '#5A270F',
       gradient: track.background_gradient || 'linear-gradient(145deg, #5A270F, #000)',
       audioUrl: getAudioUrl(track),
-      duration: track.duration ? 
+      duration: track.duration ?
         `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '0:00',
       previewUrl: track.preview_url || '',
       videoUrl: track.video_url || '',
@@ -659,7 +659,7 @@ const Tracks = () => {
         <title>Tracks - Saem's Tunes</title>
         <meta name="description" content="Discover and share amazing music tracks on Saem's Tunes" />
       </Helmet>
-      
+
       <MainLayout>
         <div className="min-h-screen bg-background pb-20 lg:pb-0 overflow-x-hidden">
           <div className="w-full max-w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 mx-auto">
@@ -668,7 +668,7 @@ const Tracks = () => {
                 <h1 className="text-3xl font-bold text-foreground">Tracks</h1>
                 <p className="text-muted-foreground">Discover and share amazing music</p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                 <div className="relative max-w-md w-full">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -679,9 +679,9 @@ const Tracks = () => {
                     className="pl-10 w-full"
                   />
                 </div>
-                
+
                 {user && (
-                  <Button 
+                  <Button
                     onClick={() => setShowUpload(!showUpload)}
                     className="bg-gold hover:bg-gold/90"
                   >
@@ -707,21 +707,21 @@ const Tracks = () => {
                     onChange={(e) => setTitle(e.target.value)}
                     maxLength={100}
                   />
-                  
+
                   <Textarea
                     placeholder="Description (optional)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     maxLength={500}
                   />
-                  
+
                   <Input
                     placeholder="YouTube URL (optional)"
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     type="url"
                   />
-                  
+
                   <Select value={accessLevel} onValueChange={(value: AccessLevel) => setAccessLevel(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Access level" />
@@ -734,7 +734,7 @@ const Tracks = () => {
                       <SelectItem value="professional">Professional Only</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Audio File * (Max 10MB)</label>
                     <Input
@@ -743,7 +743,7 @@ const Tracks = () => {
                       onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Cover Image (Max 5MB)</label>
                     <Input
@@ -752,10 +752,10 @@ const Tracks = () => {
                       onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
                     />
                   </div>
-                  
+
                   <div className="flex gap-2">
-                    <Button 
-                      onClick={handleUpload} 
+                    <Button
+                      onClick={handleUpload}
                       disabled={uploading || !title.trim() || !audioFile}
                       className="bg-gold hover:bg-gold/90"
                     >
@@ -771,8 +771,8 @@ const Tracks = () => {
                         </>
                       )}
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => setShowUpload(false)}
                     >
                       Cancel
@@ -782,14 +782,16 @@ const Tracks = () => {
               </Card>
             )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full overflow-hidden">
-              <TabsList className="grid w-full grid-cols-5 mb-4">
-                <TabsTrigger value="showcase" className="text-xs sm:text-sm">Showcase</TabsTrigger>
-                <TabsTrigger value="covers" className="text-xs sm:text-sm">Covers</TabsTrigger>
-                <TabsTrigger value="playlists" className="text-xs sm:text-sm">Playlists</TabsTrigger>
-                <TabsTrigger value="artists" className="text-xs sm:text-sm">Artists</TabsTrigger>
-                <TabsTrigger value="community" className="text-xs sm:text-sm">Community</TabsTrigger>
-              </TabsList>
+            <Tabs defaultValue="featured" className="w-full">
+              <div className="overflow-x-auto pb-2 scrollbar-hide">
+                <TabsList className="inline-flex w-auto min-w-full sm:w-full sm:grid sm:grid-cols-5 mb-8">
+                  <TabsTrigger value="featured" className="flex-1 px-4 py-2">Featured</TabsTrigger>
+                  <TabsTrigger value="covers" className="flex-1 px-4 py-2">Covers</TabsTrigger>
+                  <TabsTrigger value="playlists" className="flex-1 px-4 py-2">Playlists</TabsTrigger>
+                  <TabsTrigger value="artists" className="flex-1 px-4 py-2">Artists</TabsTrigger>
+                  <TabsTrigger value="community" className="flex-1 px-4 py-2">Community</TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="showcase" className="space-y-8 w-full max-w-full overflow-hidden">
                 {featuredTrack ? (
@@ -798,7 +800,7 @@ const Tracks = () => {
                       <Star className="h-6 w-6 text-gold" />
                       <h2 className="text-2xl font-bold">Featured Track of the Week</h2>
                     </div>
-                    
+
                     <div className="grid md:grid-cols-2 gap-6 lg:gap-8 items-center">
                       <div className="flex justify-center relative order-2 md:order-1">
                         <div className="hover:z-[9999] relative transition-all duration-300 w-full max-w-sm">
@@ -806,8 +808,8 @@ const Tracks = () => {
                             imageSrc={featuredTrack.imageSrc}
                             altText="Featured Track Cover"
                             captionText={featuredTrack.title}
-                            containerHeight="300px"
-                            containerWidth="300px"
+                            containerHeight="260px"
+                            containerWidth="260px"
                             rotateAmplitude={12}
                             scaleOnHover={1.2}
                             showMobileWarning={false}
@@ -818,40 +820,40 @@ const Tracks = () => {
                           />
                         </div>
                       </div>
-                      
+
                       <div className="space-y-4 order-1 md:order-2 text-center md:text-left">
                         <h3 className="text-xl font-semibold">{featuredTrack.title}</h3>
                         <p className="text-muted-foreground">
                           {featuredTrack.description}
                         </p>
-                        
+
                         <div className="flex gap-8 justify-center md:justify-start">
                           <div className="text-center">
                             <div className="flex items-center gap-2 justify-center">
                               <Play className="h-4 w-4" />
-                              <CountUp 
-                                to={featuredTrack.plays} 
-                                separator="," 
-                                className="text-2xl font-bold text-gold" 
+                              <CountUp
+                                to={featuredTrack.plays}
+                                separator=","
+                                className="text-2xl font-bold text-gold"
                               />
                             </div>
                             <p className="text-sm text-muted-foreground">Plays</p>
                           </div>
-                          
+
                           <div className="text-center">
                             <div className="flex items-center gap-2 justify-center">
                               <Heart className="h-4 w-4" />
-                              <CountUp 
-                                to={featuredTrack.likes} 
-                                separator="," 
-                                className="text-2xl font-bold text-gold" 
+                              <CountUp
+                                to={featuredTrack.likes}
+                                separator=","
+                                className="text-2xl font-bold text-gold"
                               />
                             </div>
                             <p className="text-sm text-muted-foreground">Likes</p>
                           </div>
                         </div>
-                        
-                        <Button 
+
+                        <Button
                           className="bg-gold hover:bg-gold/90 w-full md:w-auto"
                           onClick={handlePlayNow}
                         >
@@ -876,7 +878,7 @@ const Tracks = () => {
                     <TrendingUp className="h-6 w-6 text-gold" />
                     <h2 className="text-2xl font-bold">Suggested For You</h2>
                   </div>
-                  
+
                   <Card className="w-full overflow-hidden">
                     <CardHeader className="pb-2">
                       <CardTitle>Recommended Tracks</CardTitle>
@@ -884,8 +886,8 @@ const Tracks = () => {
                     <CardContent className="p-0 sm:p-6 sm:pt-0">
                       <ScrollArea className="h-[400px] w-full">
                         <div className="w-full overflow-hidden px-4 sm:px-0">
-                          <EnhancedAnimatedList 
-                            tracks={filteredTracks.slice(0, 10).map(convertTrackToAudioTrack)} 
+                          <EnhancedAnimatedList
+                            tracks={filteredTracks.slice(0, 10).map(convertTrackToAudioTrack)}
                             onTrackSelect={(track) => {
                               const foundTrack = filteredTracks.find(t => t.id === track.id);
                               if (foundTrack) handleTrackSelect(foundTrack);
@@ -903,10 +905,10 @@ const Tracks = () => {
                   <Music className="h-6 w-6 text-gold" />
                   <h2 className="text-2xl font-bold">Featured Covers</h2>
                 </div>
-                
+
                 {coverTracks.length > 0 ? (
                   <div className="w-full overflow-hidden">
-                    <ChromaGrid 
+                    <ChromaGrid
                       items={coverTracks}
                       radius={300}
                       damping={0.45}
@@ -924,7 +926,7 @@ const Tracks = () => {
                   <Music className="h-6 w-6 text-gold" />
                   <h2 className="text-2xl font-bold">Your Playlists</h2>
                 </div>
-                
+
                 <div className="grid gap-4">
                   {playlists.map((playlist) => (
                     <Card key={playlist.id} className="w-full max-w-full overflow-hidden">
@@ -949,7 +951,7 @@ const Tracks = () => {
                       </CardContent>
                     </Card>
                   ))}
-                  
+
                   {playlists.length === 0 && (
                     <Card>
                       <CardContent className="flex flex-col items-center justify-center py-12">
@@ -973,7 +975,7 @@ const Tracks = () => {
                   <Music className="h-6 w-6 text-gold" />
                   <h2 className="text-2xl font-bold">Featured Artists</h2>
                 </div>
-                
+
                 {artists.length > 0 ? (
                   <div className="w-full overflow-hidden px-2">
                     <div className="max-w-full">
@@ -998,7 +1000,7 @@ const Tracks = () => {
                     <h2 className="text-2xl font-bold">Community Tracks</h2>
                   </div>
                 </div>
-                
+
                 <div className="grid gap-6">
                   <Card className="w-full max-w-full overflow-hidden">
                     <CardHeader>
@@ -1006,8 +1008,8 @@ const Tracks = () => {
                     </CardHeader>
                     <CardContent>
                       <ScrollArea className="h-[500px] w-full">
-                        <EnhancedAnimatedList 
-                          tracks={filteredTracks.map(convertTrackToAudioTrack)} 
+                        <EnhancedAnimatedList
+                          tracks={filteredTracks.map(convertTrackToAudioTrack)}
                           onTrackSelect={(track) => {
                             const foundTrack = filteredTracks.find(t => t.id === track.id);
                             if (foundTrack) handleTrackSelect(foundTrack);
@@ -1031,20 +1033,20 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
   const [likeCount, setLikeCount] = useState(0);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
-  
-  const audioUrl = track.audio_path ? 
+
+  const audioUrl = track.audio_path ?
     supabase.storage.from('tracks').getPublicUrl(track.audio_path).data.publicUrl : '';
-  
+
   const getImageUrl = useCallback((path: string | null | undefined): string => {
     if (!path) return '/default-cover.jpg';
     if (path.startsWith('http')) return path;
     return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
   }, []);
-  
+
   const coverUrl = getImageUrl(track.cover_path);
-  
+
   const isValidDatabaseTrack = track.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(track.id);
-  
+
   useEffect(() => {
     if (user && isValidDatabaseTrack) {
       checkIfLiked();
@@ -1055,20 +1057,20 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
 
   const checkIfLiked = async () => {
     if (!user || !isValidDatabaseTrack) return;
-    
+
     const { data } = await supabase
       .from('likes')
       .select('*')
       .eq('user_id', user.id)
       .eq('track_id', track.id)
       .single();
-    
+
     setLiked(!!data);
   };
 
   const checkIfSaved = async () => {
     if (!user || !isValidDatabaseTrack) return;
-    
+
     const { data } = await supabase
       .from('favorites')
       .select('*')
@@ -1076,18 +1078,18 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
       .eq('content_id', track.id)
       .eq('content_type', 'track')
       .single();
-    
+
     setSaved(!!data);
   };
 
   const getLikeCount = async () => {
     if (!isValidDatabaseTrack) return;
-    
+
     const { count } = await supabase
       .from('likes')
       .select('*', { count: 'exact', head: true })
       .eq('track_id', track.id);
-    
+
     setLikeCount(count || 0);
   };
 
@@ -1100,7 +1102,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
       });
       return;
     }
-    
+
     if (!isValidDatabaseTrack) {
       toast({
         title: "Feature Not Available",
@@ -1109,7 +1111,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
       });
       return;
     }
-    
+
     if (liked) {
       await supabase
         .from('likes')
@@ -1144,7 +1146,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
       });
       return;
     }
-    
+
     if (!isValidDatabaseTrack) {
       toast({
         title: "Feature Not Available",
@@ -1153,7 +1155,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
       });
       return;
     }
-    
+
     if (saved) {
       await supabase
         .from('favorites')
@@ -1169,8 +1171,8 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
     } else {
       await supabase
         .from('favorites')
-        .insert({ 
-          user_id: user.id, 
+        .insert({
+          user_id: user.id,
           content_id: track.id,
           content_type: 'track'
         });
@@ -1185,7 +1187,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
   const handleShare = async () => {
     const getBaseUrl = () => {
       const hostname = window.location.hostname;
-      
+
       if (hostname === 'saemstunes.vercel.app') {
         return 'https://saemstunes.vercel.app';
       } else if (hostname === 'saemstunes.lovable.app') {
@@ -1235,9 +1237,9 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
         <div className="flex items-start gap-4 mb-4">
           <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center">
             {track.cover_path ? (
-              <img 
-                src={coverUrl} 
-                alt="Artist" 
+              <img
+                src={coverUrl}
+                alt="Artist"
                 width={48}
                 height={48}
                 className="h-12 w-12 rounded-full object-cover"
@@ -1246,7 +1248,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
               <Music className="h-6 w-6 text-gold" />
             )}
           </div>
-          
+
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-lg">{track.title}</h3>
@@ -1258,11 +1260,11 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
               <p className="text-sm mt-2">{track.description}</p>
             )}
           </div>
-          
+
           {coverUrl && (
-            <img 
-              src={coverUrl} 
-              alt="Cover" 
+            <img
+              src={coverUrl}
+              alt="Cover"
               width={64}
               height={64}
               className="h-16 w-16 rounded object-cover"
@@ -1272,7 +1274,7 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
 
         {audioUrl && (
           <div className="mb-4">
-            <AudioPlayer 
+            <AudioPlayer
               src={audioUrl}
               title={track.title}
               artist={track.artist || 'Unknown Artist'}
@@ -1308,17 +1310,17 @@ const TrackCard = ({ track, user }: { track: Track; user: any }) => {
                 </Button>
               </>
             )}
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
+
+            <Button
+              variant="ghost"
+              size="sm"
               className="flex items-center gap-2"
               onClick={handleShare}
             >
               <Share className="h-4 w-4" />
               Share
             </Button>
-            
+
             <span className="text-xs text-muted-foreground ml-auto">
               {new Date(track.created_at).toLocaleDateString()}
             </span>

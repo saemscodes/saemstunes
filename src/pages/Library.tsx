@@ -16,6 +16,7 @@ import { Resource } from "@/types/resource";
 import { useToast } from "@/hooks/use-toast";
 import { useUserQuizProgress } from "@/hooks/useQuizzes";
 import { supabase } from "@/integrations/supabase/client";
+import RecommendationSection from "@/components/discover/RecommendationSection";
 
 const Library = () => {
   const { user } = useAuth();
@@ -32,7 +33,7 @@ const Library = () => {
         const { count, error: countError } = await supabase
           .from('quizzes')
           .select('*', { count: 'exact' });
-        
+
         if (countError) throw countError;
         if (count) setTotalQuestions(count);
 
@@ -43,7 +44,7 @@ const Library = () => {
             .select('*')
             .eq('name', user.subscriptionTier || 'free')
             .single();
-          
+
           if (tierError) throw tierError;
           setUserTierInfo(tierData);
         }
@@ -72,11 +73,11 @@ const Library = () => {
     if (!userTierInfo) {
       return "Access our growing database of music questions to test your knowledge.";
     }
-    
+
     const tierName = userTierInfo.name.toLowerCase();
     const features = userTierInfo.features || {};
-    
-    switch(tierName) {
+
+    switch (tierName) {
       case 'free':
         return "Start with basic questions to build your music foundation.";
       case 'basic':
@@ -91,8 +92,8 @@ const Library = () => {
   };
 
   const savedVideos = mockVideos.slice(0, 4);
-  const saemOfferings = mockVideos.slice(4, 8).map(video => ({...video, isExclusive: true}));
-  
+  const saemOfferings = mockVideos.slice(4, 8).map(video => ({ ...video, isExclusive: true }));
+
   const courses = [
     {
       id: "course1",
@@ -139,7 +140,7 @@ const Library = () => {
       progress: 0
     }
   ];
-  
+
   const offlineResources: Resource[] = [
     {
       id: "res1",
@@ -196,7 +197,7 @@ const Library = () => {
       updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
     }
   ];
-  
+
   const EmptyState = ({ title, description, icon: Icon }) => (
     <div className="text-center py-16">
       <div className="bg-muted/30 rounded-full p-6 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
@@ -206,7 +207,7 @@ const Library = () => {
       <p className="text-muted-foreground max-w-md mx-auto mb-6">
         {description}
       </p>
-      <Button 
+      <Button
         onClick={() => navigate("/discover")}
         className="bg-gold hover:bg-gold-dark text-white"
       >
@@ -250,8 +251,8 @@ const Library = () => {
               <span>{course.progress}%</span>
             </div>
             <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gold" 
+              <div
+                className="h-full bg-gold"
                 style={{ width: `${course.progress}%` }}
               ></div>
             </div>
@@ -259,7 +260,7 @@ const Library = () => {
         )}
       </CardContent>
       <div className="p-4 pt-0">
-        <Button 
+        <Button
           className={cn("w-full", course.enrolled ? "bg-gold hover:bg-gold-dark" : "bg-muted-foreground")}
           onClick={() => {
             if (!course.enrolled) {
@@ -280,21 +281,21 @@ const Library = () => {
       title: "Quiz Completed",
       description: `You scored ${score} out of ${total}! Keep learning and improving your music knowledge.`,
     });
-    
+
     refetchProgress();
-    
+
     if (!user && score >= total * 0.7) {
       setTimeout(() => {
         toast({
           title: "Great score! Sign in to save your progress",
           description: "Create an account to track your quiz scores and unlock more content",
           action: (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               className="whitespace-nowrap"
               onClick={() => navigate("/auth")}
-              >
+            >
               Sign In
             </Button>
 
@@ -325,7 +326,7 @@ const Library = () => {
             </Button>
           )}
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <DynamicMusicQuiz onComplete={handleQuizComplete} />
@@ -343,8 +344,8 @@ const Library = () => {
                   {getTierDescription()}
                 </p>
                 {!user && (
-                  <Button 
-                    className="w-full mt-4" 
+                  <Button
+                    className="w-full mt-4"
                     variant="outline"
                     onClick={() => navigate("/subscriptions")}
                   >
@@ -375,7 +376,7 @@ const Library = () => {
                     <Badge variant="outline">{courses.filter(c => c.enrolled).length}</Badge>
                   </div>
                 </div>
-                <Button 
+                <Button
                   className="w-full mt-4"
                   variant="outline"
                   onClick={() => navigate("/progress")}
@@ -386,14 +387,14 @@ const Library = () => {
             </Card>
           </div>
         </div>
-        
+
         <div className="relative rounded-lg overflow-hidden h-48 md:h-64 bg-gradient-to-r from-gold/70 to-brown/70 mb-8 cursor-pointer"
           onClick={() => handleExclusiveContent("master-class-guitar")}>
           <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent z-10"></div>
-          <img 
-            src="https://i.imgur.com/DYWd4Ds.jpeg" 
-            alt="Featured Saem's content" 
-            className="absolute inset-0 w-full h-full object-cover" 
+          <img
+            src="https://i.imgur.com/DYWd4Ds.jpeg"
+            alt="Featured Saem's content"
+            className="absolute inset-0 w-full h-full object-cover"
           />
           <div className="relative z-20 p-6 flex flex-col h-full justify-end">
             <div className="inline-block bg-gold text-white px-2 py-1 rounded-md text-xs mb-2 w-fit">
@@ -407,7 +408,9 @@ const Library = () => {
             </p>
           </div>
         </div>
-        
+
+        <RecommendationSection />
+
         <div className="mb-8">
           <h2 className="text-xl font-proxima font-semibold mb-4 flex items-center">
             <GraduationCap className="h-5 w-5 text-gold mr-2" />
@@ -419,7 +422,7 @@ const Library = () => {
             ))}
           </div>
         </div>
-        
+
         <div className="mb-8">
           <h2 className="text-xl font-proxima font-semibold mb-4 flex items-center">
             <BookOpen className="h-5 w-5 text-gold mr-2" />
@@ -427,8 +430,8 @@ const Library = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {saemOfferings.map(video => (
-              <div 
-                key={video.id} 
+              <div
+                key={video.id}
                 className="cursor-pointer"
                 onClick={() => handleExclusiveContent(video.id)}
               >
@@ -437,7 +440,7 @@ const Library = () => {
             ))}
           </div>
         </div>
-        
+
         <div className="mb-8">
           <h2 className="text-xl font-proxima font-semibold mb-4 flex items-center">
             <BookOpen className="h-5 w-5 text-gold mr-2" />
@@ -445,9 +448,9 @@ const Library = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {offlineResources.map(resource => (
-              <ResourceCard 
-                key={resource.id} 
-                resource={resource} 
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
                 isBookmarked={true}
                 onBookmark={() => {
                   toast({
@@ -458,7 +461,7 @@ const Library = () => {
               />
             ))}
             <Card className="flex flex-col items-center justify-center p-8 border-dashed cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate("/resources")}>
+              onClick={() => navigate("/resources")}>
               <div className="bg-gold/10 p-4 rounded-full mb-4">
                 <BookOpen className="h-6 w-6 text-gold" />
               </div>
@@ -469,7 +472,7 @@ const Library = () => {
             </Card>
           </div>
         </div>
-        
+
         <Tabs defaultValue="saved" className="w-full">
           <TabsList className="grid grid-cols-4">
             <TabsTrigger value="saved">
@@ -489,13 +492,13 @@ const Library = () => {
               <span className="hidden sm:inline">Playlists</span>
             </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="saved" className="pt-4">
             {savedVideos.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {savedVideos.map(video => (
-                  <VideoCardWrapper 
-                    key={video.id} 
+                  <VideoCardWrapper
+                    key={video.id}
                     video={video}
                     isPremium={video.isLocked}
                     onClick={() => navigate(`/videos/${video.id}`)}
@@ -503,14 +506,14 @@ const Library = () => {
                 ))}
               </div>
             ) : (
-              <EmptyState 
-                title="No Saved Content" 
+              <EmptyState
+                title="No Saved Content"
                 description="Start saving videos, lessons, and resources to access them quickly in your library."
                 icon={Bookmark}
               />
             )}
           </TabsContent>
-          
+
           <TabsContent value="courses" className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {courses.filter(course => course.enrolled).map(course => (
@@ -518,18 +521,18 @@ const Library = () => {
               ))}
             </div>
           </TabsContent>
-          
+
           <TabsContent value="history" className="pt-4">
-            <EmptyState 
-              title="No Viewing History" 
+            <EmptyState
+              title="No Viewing History"
               description="Your recently watched Saem's content will appear here."
               icon={Clock}
             />
           </TabsContent>
-          
+
           <TabsContent value="playlists" className="pt-4">
-            <EmptyState 
-              title="No Playlists" 
+            <EmptyState
+              title="No Playlists"
               description="Create playlists to organize your favorite Saem's content."
               icon={LibraryIcon}
             />
@@ -537,8 +540,8 @@ const Library = () => {
         </Tabs>
 
         <div className="flex justify-center space-x-4 pt-8 border-t">
-          <Button 
-            variant="link" 
+          <Button
+            variant="link"
             size="sm"
             onClick={() => navigate("/privacy")}
             className="text-muted-foreground hover:text-gold"
@@ -546,8 +549,8 @@ const Library = () => {
             Privacy Policy
           </Button>
           <span className="text-muted-foreground">•</span>
-          <Button 
-            variant="link" 
+          <Button
+            variant="link"
             size="sm"
             onClick={() => navigate("/terms")}
             className="text-muted-foreground hover:text-gold"
