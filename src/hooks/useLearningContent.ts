@@ -34,6 +34,7 @@ export interface Course {
   preview_url?: string;
   preview_type?: string;
   preview_duration?: number;
+  progress?: number;
 }
 
 export interface Category {
@@ -75,9 +76,17 @@ export interface Lesson {
   title: string;
   description: string | null;
   duration_minutes: number;
-  lesson_type: 'video' | 'text' | 'quiz';
+  lesson_type: 'video' | 'audio' | 'text' | 'interactive' | 'practice' | 'quiz' | 'reading';
+  content_url: string | null;
   is_preview: boolean;
   order_index: number;
+  has_pdf: boolean;
+  has_audio: boolean;
+  has_video: boolean;
+  has_quiz: boolean;
+  has_exercise: boolean;
+  comments_enabled: boolean;
+  thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -351,6 +360,37 @@ export const useIncrementDownload = () => {
 };
 
 // =============================================
+// MUSIC CATEGORIES
+// =============================================
+
+export interface MusicCategory {
+  id: string;
+  name: string;
+  category_type: 'element' | 'extended' | 'specialty';
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  order_index: number;
+  is_active: boolean;
+}
+
+export const useMusicCategories = () => {
+  return useQuery({
+    queryKey: ['music-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabaseCustom
+        .from('music_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return (data || []) as MusicCategory[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+};
+
+// =============================================
 // COMBINED HOOK
 // =============================================
 
@@ -359,6 +399,7 @@ export const useLearningContent = () => {
     useCourses,
     useCourse,
     useCategories,
+    useMusicCategories,
     useModules,
     useClasses,
     useLessons,

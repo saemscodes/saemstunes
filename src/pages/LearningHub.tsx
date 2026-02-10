@@ -4,849 +4,387 @@ import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   BookOpen, Play, Trophy, CheckCircle, ChevronRight, Music,
-  Pin, History, Settings, Video, Users, Star, Download, Share2, Menu
+  Star, Users, Sparkles, Filter, Search, ArrowRight, Clock, Zap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { gsap } from "gsap";
-import { useSpring, animated } from "@react-spring/web";
-import SplitText from "@/gsap/SplitText";
-import CircularText from "@/components/learning-hub/CircularText";
-import FlowingMenu from "@/components/learning-hub/FlowingMenu";
-import Folder from "@/components/learning-hub/Folder";
-import DarkVeil from "@/components/learning-hub/DarkVeil";
-import PillNav from "@/components/learning-hub/PillNav";
-import PreviewModal from "@/components/learning-hub/PreviewModal";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLearningContent } from "@/hooks/useLearningContent";
 import { useUserProgress } from "@/hooks/useUserProgress";
 import { toast } from "sonner";
+import CircularText from "@/components/learning-hub/CircularText";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 // Access Policy Constants
 const ACCESS_LEVELS = {
   free: { level: 0, label: 'Free', color: 'bg-green-500' },
-  subscriber: { level: 1, label: 'Subscriber', color: 'bg-blue-500' },
-  pro: { level: 2, label: 'Pro', color: 'bg-purple-500' },
-  master: { level: 3, label: 'Master', color: 'bg-gold' },
+  basic: { level: 1, label: 'Basic', color: 'bg-blue-500' },
+  premium: { level: 2, label: 'Premium', color: 'bg-purple-500' },
+  professional: { level: 3, label: 'Professional', color: 'bg-gold' },
   admin: { level: 4, label: 'Admin', color: 'bg-red-500' }
-};
-
-const PREVIEW_STRATEGIES = {
-  video: { duration: 90, quality: '720p', watermark: true },
-  audio: { duration: 60, bitrate: '64kbps', fadeOut: true },
-  text: { paragraphs: 2, showOutline: true },
-  interactive: { demoMode: true, limitedFeatures: true }
-};
-
-// Utility Functions
-const calculateSavings = (currentLevel: string, targetLevel: string) => {
-  const savings = {
-    'free->subscriber': { monthly: 15, yearly: 180 },
-    'free->pro': { monthly: 25, yearly: 300 },
-    'subscriber->pro': { monthly: 10, yearly: 120 }
-  };
-  const key = `${currentLevel}->${targetLevel}` as keyof typeof savings;
-  return savings[key] || { monthly: 20, yearly: 240 };
-};
-
-const getUpgradeBonuses = (targetLevel: string) => {
-  const bonuses: Record<string, string[]> = {
-    subscriber: ['Unlimited course access', 'Mobile app', 'Progress tracking'],
-    pro: ['1:1 instructor sessions', 'Performance feedback', 'Certificate of completion', 'Advanced exercises'],
-    master: ['Personal learning coach', 'Industry networking', 'Performance opportunities', 'Masterclass access']
-  };
-  return bonuses[targetLevel] || [];
-};
-
-const generateTestimonials = (category = "music") => [
-  {
-    name: 'Sarah M.',
-    location: 'Nairobi, Kenya',
-    message: `This ${category} course transformed my understanding completely!`,
-    avatar: '/testimonials/sarah-m.jpg',
-    verified: true
-  },
-  {
-    name: 'David K.',
-    location: 'Lagos, Nigeria',
-    message: 'I went from beginner to performing in just 3 months.',
-    avatar: '/testimonials/david-k.jpg',
-    verified: true
-  }
-];
-
-const getPersonalizedGreeting = (user: any) => {
-  return user?.name ? `Hi ${user.name.split(' ')[0]}! Ready to learn?` : "Welcome to Saem's Tunes!";
-};
-
-const getMotivationalMessage = (progress: number | Record<string, number>) => {
-  if (typeof progress === 'number') {
-    if (progress <= 5) return "Small steps every day - you've got this!";
-    if (progress < 50) return `You're ${progress}% through - keep going!`;
-    return `Amazing progress - ${progress}% complete!`;
-  }
-  return "Your musical journey starts today. Let's begin!";
 };
 
 const LearningHub = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("my-path");
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-  const [mobileDockOpen, setMobileDockOpen] = useState(false);
-  const dockRef = useRef<HTMLDivElement>(null);
-  const folderRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const { user, profile } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Real Data
-  const { useCourses, useCategories } = useLearningContent();
+  // Data Hooks
+  const { useCourses, useMusicCategories } = useLearningContent();
   const { data: coursesData, isLoading: coursesLoading } = useCourses();
-  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
+  const { data: categoriesData, isLoading: categoriesLoading } = useMusicCategories();
   const { progressQuery: userProgressQueryResult, useAchievements } = useUserProgress();
   const { data: userAchievementsData } = useAchievements();
 
-  // Animation states
-  const [titleAnimated, setTitleAnimated] = useState(false);
-  const prefersReducedMotion = typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const titleAnimation = useSpring({
-    from: { opacity: 0, transform: "translateY(20px)" },
-    to: { opacity: 1, transform: "translateY(0)" },
-    config: { duration: 800 },
-    immediate: !titleAnimated || prefersReducedMotion
+  // Filter logic
+  const filteredCourses = coursesData?.filter(course => {
+    const matchesCategory = !selectedCategory || course.category_id === selectedCategory;
+    const matchesSearch = !searchQuery ||
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
 
-  useEffect(() => {
-    const hasAnimated = sessionStorage.getItem("titleAnimated");
-    if (!hasAnimated) {
-      setTitleAnimated(true);
-      sessionStorage.setItem("titleAnimated", "true");
-    }
+  const getCourseProgress = (courseId: string) => {
+    return userProgressQueryResult.data?.find(
+      p => p.entity_id === courseId && p.entity_type === 'course'
+    )?.progress_percent || 0;
+  };
 
-    // Folder stagger animation
-    gsap.from(folderRefs.current.filter(Boolean), {
-      y: 20,
-      opacity: 0,
-      stagger: 0.1,
-      duration: 0.6,
-      ease: "power2.out",
-      delay: 0.3
-    });
-  }, []);
-
-  // Enhanced Access Control System
-  const getEnhancedAccessStatus = useCallback((course: any) => {
-    const requiredLevel = course?.accessLevel || 'free';
-    const userLevel = user?.accessLevel || 'free';
-    const hasAccess = ACCESS_LEVELS[userLevel].level >= ACCESS_LEVELS[requiredLevel].level;
-
-    if (!user) {
-      return {
-        status: 'locked',
-        action: 'signup',
-        messaging: {
-          primary: 'Unlock Your Musical Journey',
-          secondary: `Join thousands of musicians learning ${course?.category || 'music'}`,
-          cta: 'Start Free Trial',
-          urgencyText: `${course?.enrollmentCount || Math.floor(Math.random() * 500) + 100} learners enrolled this month`
-        },
-        preview: {
-          available: true,
-          strategy: PREVIEW_STRATEGIES[course?.preview?.type || 'video'],
-          teasers: [
-            `Learn ${course?.skillsCount || '5+'} essential techniques`,
-            `Master ${course?.title || 'this course'} in ${course?.estimatedTime || '2-4 weeks'}`,
-            `Get personalized feedback from ${course?.instructor?.name || 'the instructor'}`
-          ]
-        },
-        conversion: {
-          redirect: `/auth?next=${encodeURIComponent(`/learning-hub/${course?.id}`)}`,
-          incentive: 'first_month_free',
-          social_proof: true
-        }
-      };
-    }
-
-    if (!hasAccess) {
-      return {
-        status: 'upgrade_required',
-        action: 'upgrade',
-        messaging: {
-          primary: `Upgrade to ${ACCESS_LEVELS[requiredLevel].label} Access`,
-          secondary: `Unlock ${course?.title || 'advanced content'} + many more courses`,
-          cta: `Upgrade to ${ACCESS_LEVELS[requiredLevel].label}`,
-          savings: calculateSavings(userLevel, requiredLevel)
-        },
-        preview: {
-          available: true,
-          strategy: PREVIEW_STRATEGIES[course?.preview?.type || 'video'],
-          exclusive_glimpse: true
-        },
-        conversion: {
-          redirect: `/pricing?upgrade=${requiredLevel}&from=${userLevel}`,
-          trial: '7_day_free_trial',
-          bonuses: getUpgradeBonuses(requiredLevel)
-        }
-      };
-    }
-
-    return {
-      status: 'granted',
-      action: course.progress > 0 ? 'continue' : 'start',
-      messaging: {
-        primary: course.progress > 0 ? 'Continue Your Journey' : 'Start Learning',
-        secondary: course.progress > 0 ?
-          `You're ${course.progress}% through this course` :
-          'Begin your musical transformation today'
-      }
-    };
-  }, [user]);
-
-  const createPreviewExperience = useCallback((course: any) => {
-    const accessStatus = getEnhancedAccessStatus(course);
-    const mediaUrl = course?.preview?.url || null;
-    const mediaType = course?.preview?.type || 'video';
-    const duration = accessStatus?.preview?.strategy?.duration || course?.preview?.duration || 60;
-
-    return {
-      id: course.id,
-      title: course.title,
-      instructor: course.instructor,
-      preview: {
-        mediaUrl,
-        mediaType,
-        duration,
-        poster: course.previewImage || null,
-        chapters: course.preview?.chapters || [],
-        transcript: course.preview?.transcript ?
-          course.preview.transcript.slice(0, 200) + '...' : null
-      },
-      valueProps: [
-        `Master ${course.skillsCount || '7+'} core techniques`,
-        `Join ${course.communitySize || '2,500+'} active learners`,
-        `Get ${course.instructor?.responseTime || '24-hour'} instructor support`
-      ],
-      socialProof: {
-        studentCount: course.enrollmentCount || Math.floor(Math.random() * 1000) + 500,
-        rating: course.averageRating || 4.8,
-        testimonials: course.featured_testimonials || generateTestimonials(course.title)
-      },
-      conversion: accessStatus.conversion || {},
-      urgency: {
-        type: 'enrollment_deadline',
-        message: 'Limited spots available this month',
-        countdown: null
-      },
-      accessStatus
-    };
-  }, [getEnhancedAccessStatus]);
-
-  // Content Interaction Handler
-  const handleContentInteraction = useCallback((
-    course: any,
-    interactionType: 'preview' | 'enroll'
-  ) => {
-    const accessStatus = getEnhancedAccessStatus(course);
-
-    // Track event
-    console.log('Tracking: content_interaction', {
-      courseId: course.id,
-      accessStatus: accessStatus.status,
-      interactionType,
-      userLevel: user?.accessLevel || 'anonymous'
-    });
-
-    switch (accessStatus.status) {
-      case 'locked':
-      case 'upgrade_required':
-        setPreviewData(createPreviewExperience(course));
-        setShowPreview(true);
-        break;
-
-      case 'granted':
-        if (interactionType === 'preview') {
-          setPreviewData(createPreviewExperience(course));
-          setShowPreview(true);
-        } else {
-          navigate(`/learning-hub/${course.id}`);
-        }
-        break;
-    }
-  }, [getEnhancedAccessStatus, createPreviewExperience, navigate, user]);
-
-  // Enhanced Data Model
-  // Transform dynamic data into internal structures
-  const learningCategories = categoriesData?.map(cat => ({
-    id: cat.id,
-    title: cat.name,
-    description: cat.description,
-    icon: <Music className="h-6 w-6" />,
-    color: cat.color || "bg-gradient-to-br from-blue-500 to-indigo-600",
-    estimatedTime: cat.estimated_time || "4-8 weeks",
-    courses: coursesData?.filter(c => c.category_id === cat.id).map(c => {
-      // Calculate progress for each course
-      const lessonIdsInCourse = []; // This would ideally come from useCourseDetails
-      // For now we'll approximate or use a simplified approach since loading all details is expensive
-      const courseProgress = userProgressQueryResult.data?.find(p => p.entity_id === c.id && p.entity_type === 'course')?.progress_percent || 0;
-
-      return {
-        ...c,
-        progress: courseProgress,
-        instructor: {
-          name: c.instructor?.full_name || "Guest Instructor",
-          avatar: c.instructor?.avatar_url,
-          responseTime: "within 24 hours",
-          rating: c.average_rating || 4.8
-        },
-        preview: {
-          type: c.preview_type || "video",
-          url: c.preview_url,
-          duration: c.preview_duration || 60
-        }
-      };
-    }) || []
-  })) || [];
-
-  const pinnedCourses = coursesData?.slice(0, 1).map(c => ({
-    id: c.id,
-    title: c.title,
-    description: c.description,
-    progress: userProgressQueryResult.data?.find(p => p.entity_id === c.id)?.progress_percent || 0,
-    instructor: { name: c.instructor?.full_name || "Instructor" }
-  })) || [];
-
-  const achievements = userAchievementsData?.map(a => ({
-    id: a.id,
-    title: a.achievement?.title || "Achievement",
-    description: a.achievement?.description || "Goal reached",
-    icon: <Trophy className="h-5 w-5" />,
-    unlocked: true,
-    progress: 100
-  })) || [];
-
-  const pillNavItems = [
-    { id: "my-path", label: "My Path" },
-    { id: "all-courses", label: "All Courses" },
-    { id: "free-content", label: "Free Content" },
-    { id: "live-classes", label: "Live Classes" },
-    { id: "new-releases", label: "New Releases" }
-  ];
-
-  // Folder toggle animation
-  const handleFolderToggle = useCallback((folderId: string) => {
-    setExpandedFolder(prev => prev === folderId ? null : folderId);
-    const folderContent = document.getElementById(`folder-content-${folderId}`);
-
-    if (folderContent) {
-      gsap.to(folderContent, {
-        height: "auto",
-        opacity: 1,
-        duration: 0.5,
-        ease: "power2.inOut",
-        onStart: () => {
-          if (folderContent.style.height === "0px") {
-            folderContent.style.overflow = "hidden";
-          }
-        },
-        onComplete: () => {
-          folderContent.style.overflow = "visible";
-        }
-      });
-    }
-  }, []);
-
-  // Flowing menu items
-  const flowingMenuItems = useCallback((course: any) => {
-    const access = getEnhancedAccessStatus(course);
-
-    return [
-      {
-        label: "Preview",
-        icon: <Video className="h-4 w-4" />,
-        action: () => handleContentInteraction(course, 'preview'),
-        disabled: false
-      },
-      {
-        label: "Book 1:1",
-        icon: <Users className="h-4 w-4" />,
-        action: () => navigate(`/booking/${course.instructor.id}`),
-        disabled: !user
-      },
-      {
-        label: access.status === "granted"
-          ? (course.progress > 0 ? "Continue" : "Enroll")
-          : (access.status === "locked" ? "Signup to Access" : "Upgrade Required"),
-        icon: access.status === "granted"
-          ? (course.progress > 0 ? <Play className="h-4 w-4" /> : <Star className="h-4 w-4" />)
-          : <CheckCircle className="h-4 w-4" />,
-        action: () => access.status === "granted"
-          ? handleContentInteraction(course, 'enroll')
-          : handleContentInteraction(course, 'preview'),
-        disabled: access.status !== "granted"
-      },
-      {
-        label: "Share",
-        icon: <Share2 className="h-4 w-4" />,
-        action: () => {
-          if (typeof navigator !== 'undefined' && navigator.share) {
-            navigator.share({
-              title: course.title,
-              text: `Check out this music course on Saem's Tunes: ${course.description}`,
-              url: window.location.href
-            }).catch(console.error);
-          } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-            navigator.clipboard.writeText(window.location.href);
-          }
-        },
-        disabled: false
-      }
-    ];
-  }, [getEnhancedAccessStatus, handleContentInteraction, navigate, user]);
+  const getGreeting = () => {
+    const name = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Musician";
+    const hour = new Date().getHours();
+    if (hour < 12) return `Good Morning, ${name}`;
+    if (hour < 18) return `Good Afternoon, ${name}`;
+    return `Good Evening, ${name}`;
+  };
 
   return (
     <MainLayout>
-      <DarkVeil
-        isVisible={showPreview}
-        onClick={() => setShowPreview(false)}
-        hueShift={120}
-        noiseIntensity={0.02}
-        speed={0.3}
-      />
+      <div className="min-h-screen bg-[#0A0B0C] text-white pb-32">
+        {/* Immersive Hero Section */}
+        <section className="relative pt-12 pb-20 px-4 md:px-8 overflow-hidden">
+          {/* Background Decorative Elements */}
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gold/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary/5 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2" />
 
-      {showPreview && previewData && (
-        <PreviewModal
-          content={previewData}
-          onClose={() => setShowPreview(false)}
-          onSignup={() => navigate(`/auth?next=/learning-hub/${previewData.id}`)}
-          onUpgrade={() => navigate("/pricing")}
-        />
-      )}
-
-      <div className="hub-shell grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-8 min-h-screen p-4 md:p-8 lg:p-10 max-w-[1600px] mx-auto">
-        <header className="col-span-full pt-4 px-2 mb-4">
-          <animated.div style={titleAnimation} className="mb-4">
-            <SplitText
-              text="Let's Learn!"
-              className="text-4xl font-serif font-bold text-gold"
-              duration={0.8}
-              stagger={0.03}
-              from={{ opacity: 0, y: 20 }}
-              to={{ opacity: 1, y: 0 }}
-            />
-          </animated.div>
-
-          <PillNav
-            items={pillNavItems}
-            activeId={activeTab}
-            onSelect={setActiveTab}
-            className="mb-6"
-          />
-        </header>
-
-        <aside
-          ref={dockRef}
-          className={`left-dock bg-cream/90 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-gold/10 transition-all duration-300 ${mobileDockOpen
-            ? 'fixed inset-0 z-50 bg-cream p-8 overflow-y-auto'
-            : 'hidden lg:block'
-            }`}
-        >
-          {mobileDockOpen && (
-            <div className="flex justify-between items-center mb-6 lg:hidden">
-              <h2 className="text-xl font-bold text-gold">Your Learning Dock</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileDockOpen(false)}
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
-
-          <div className="dock-content space-y-6">
-            <motion.section
+          <div className="max-w-7xl mx-auto relative z-10">
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="space-y-4"
             >
-              <h3 className="flex items-center font-medium mb-3 text-gold-dark">
-                <Play className="h-4 w-4 mr-2 text-gold" />
-                Continue Learning
-              </h3>
-              <div className="space-y-3">
-                {learningCategories.flatMap(cat => cat.courses as any)
-                  .filter((course: any) => course.progress > 0 && course.progress < 100)
-                  .slice(0, 2)
-                  .map((course: any) => (
-                    <Card key={course.id} className="relative group transition-transform hover:-translate-y-0.5">
-                      <CardContent className="p-3">
-                        <div className="flex items-center">
-                          <CircularText
-                            value={course.progress}
-                            size={40}
-                            strokeWidth={3}
-                            className="mr-3 flex-shrink-0"
-                            textColor={course.progress === 100 ? "#C69B36" : "#3B82F6"}
-                            trailColor="#F8F6F0"
-                          />
-                          <div className="min-w-0">
-                            <h4 className="font-medium text-sm truncate">{course.title}</h4>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {course.instructor.name}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleContentInteraction(course, 'enroll')}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </Card>
-                  ))}
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gold/10 border border-gold/20 w-fit">
+                <Sparkles className="h-3.5 w-3.5 text-gold" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-gold-dark">Learning Hub v2.0</span>
               </div>
-            </motion.section>
 
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <h3 className="flex items-center font-medium mb-3 text-gold-dark">
-                <Pin className="h-4 w-4 mr-2 text-gold" />
-                Pinned Courses
-              </h3>
-              <div className="space-y-3">
-                {pinnedCourses.map(course => (
-                  <Card key={course.id} className="relative group transition-transform hover:-translate-y-0.5">
-                    <CardContent className="p-3">
-                      <div className="flex items-center">
-                        <div className="bg-muted border-2 border-dashed rounded-xl w-16 h-16 mr-3 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <h4 className="font-medium text-sm truncate">{course.title}</h4>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {course.instructor.name}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => navigate(`/learning-hub/${course.id}`)}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </motion.section>
+              <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-tight">
+                {getGreeting()} <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold via-white to-gray-500">
+                  Master Your Sound.
+                </span>
+              </h1>
 
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <h3 className="flex items-center font-medium mb-3 text-gold-dark">
-                <History className="h-4 w-4 mr-2 text-gold" />
-                Recent Activity
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                  <p className="font-medium text-gold-dark">Completed Breathing Techniques</p>
-                  <p className="text-xs text-muted-foreground mt-1">Yesterday</p>
-                </div>
-                <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                  <p className="font-medium text-gold-dark">Earned Module Master badge</p>
-                  <p className="text-xs text-muted-foreground mt-1">3 days ago</p>
-                </div>
-                <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                  <p className="font-medium text-gold-dark">Pinned Stage Presence course</p>
-                  <p className="text-xs text-muted-foreground mt-1">1 week ago</p>
-                </div>
-              </div>
-            </motion.section>
+              <p className="text-gray-400 max-w-2xl text-lg md:text-xl font-medium leading-relaxed">
+                Unlock the 4-Level mastery curriculum. From foundations to professional performance,
+                everything you need is right here.
+              </p>
 
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <h3 className="flex items-center font-medium mb-3 text-gold-dark">
-                <Settings className="h-4 w-4 mr-2 text-gold" />
-                Quick Actions
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="default" size="sm" className="w-full bg-gold text-white hover:bg-gold/90">
-                  Book Class
-                </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  Browse All
-                </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  Settings
-                </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  Help Center
-                </Button>
-              </div>
-            </motion.section>
-          </div>
-        </aside>
-
-        <main className="center-studio px-2 pb-12">
-          <div className="folder-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {learningCategories.map((category, index) => (
-              <div
-                key={category.id}
-                ref={el => folderRefs.current[index] = el}
-              >
-                <Folder
-                  title={category.title}
-                  description={category.description}
-                  icon={category.icon}
-                  color={category.color}
-                  itemCount={category.courses.length}
-                  isExpanded={expandedFolder === category.id}
-                  onToggle={() => handleFolderToggle(category.id)}
+              <div className="flex flex-wrap gap-4 pt-4">
+                <Button
+                  onClick={() => navigate('/learning-hub/my-path')}
+                  className="bg-gold hover:bg-gold-dark text-black font-black px-8 h-14 rounded-2xl transition-all hover:scale-105 active:scale-95"
                 >
-                  <div
-                    id={`folder-content-${category.id}`}
-                    className="course-grid grid grid-cols-1 gap-4 mt-4"
+                  Continue My Path
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+                <div className="relative group flex-1 max-w-md">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 group-focus-within:text-gold transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Search courses, techniques..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-14 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold transition-all"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Category Filter Pills */}
+        <section className="sticky top-0 z-40 bg-[#0A0B0C]/80 backdrop-blur-xl border-y border-white/5 py-6 px-4 md:px-8 mb-12">
+          <div className="max-w-7xl mx-auto flex items-center gap-4 overflow-x-auto no-scrollbar">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedCategory(null)}
+              className={cn(
+                "rounded-full px-6 transition-all font-bold shrink-0",
+                !selectedCategory ? "bg-gold text-black hover:bg-gold/90" : "text-gray-400 hover:text-white hover:bg-white/5"
+              )}
+            >
+              All Topics
+            </Button>
+            {categoriesLoading ? (
+              Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-10 w-24 rounded-full bg-white/5" />)
+            ) : (
+              categoriesData?.map(category => (
+                <Button
+                  key={category.id}
+                  variant="ghost"
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    "rounded-full px-6 transition-all font-bold shrink-0 border border-transparent",
+                    selectedCategory === category.id
+                      ? "bg-white/10 border-gold/30 text-gold shadow-[0_0_20px_rgba(198,155,54,0.15)]"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    {category.name}
+                  </div>
+                </Button>
+              ))
+            )}
+          </div>
+        </section>
+
+        <div className="max-w-7xl mx-auto px-4 md:px-8 grid grid-cols-1 lg:grid-cols-4 gap-12">
+          {/* Main Course Grid */}
+          <div className="lg:col-span-3 space-y-12">
+            <section>
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-black tracking-tighter">Your <span className="text-gold">Curriculum</span></h2>
+                  <p className="text-gray-500 text-sm font-medium">Browse our expert-led musical paths</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gold" />
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Filter By Tier</span>
+                </div>
+              </div>
+
+              {coursesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Array(4).fill(0).map((_, i) => (
+                    <div key={i} className="h-80 rounded-3xl bg-white/5 animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredCourses?.length === 0 ? (
+                <div className="text-center py-20 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10">
+                  <BookOpen className="h-16 w-16 text-gray-700 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-400">No courses found matching your criteria</h3>
+                  <Button
+                    variant="link"
+                    onClick={() => { setSearchQuery(""); setSelectedCategory(null); }}
+                    className="text-gold mt-2"
                   >
-                    {category.courses.map(course => {
-                      const access = getEnhancedAccessStatus(course);
+                    Clear all filters
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {filteredCourses?.map((course, index) => {
+                    const progress = getCourseProgress(course.id);
+                    const userTier = profile?.subscription_tier || 'free';
+                    const requiredTier = course.access_tier || 'free';
+                    const hasAccess = ACCESS_LEVELS[userTier as keyof typeof ACCESS_LEVELS]?.level >=
+                      ACCESS_LEVELS[requiredTier as keyof typeof ACCESS_LEVELS]?.level ||
+                      profile?.role === 'admin';
 
-                      return (
+                    return (
+                      <motion.div
+                        key={course.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
                         <Card
-                          key={course.id}
-                          className="course-card relative overflow-hidden group transition-all hover:shadow-lg"
+                          className="group relative overflow-hidden rounded-[2.5rem] bg-[#121417] border border-white/5 hover:border-gold/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.5)] cursor-pointer"
+                          onClick={() => navigate(`/learning-hub/${course.id}`)}
                         >
-                          <FlowingMenu
-                            items={flowingMenuItems(course)}
-                            trigger="hover"
-                            className="absolute top-3 right-3 z-10"
-                            mobileBehavior="long-press"
-                          />
+                          {/* Card Media Wrapper */}
+                          <div className="aspect-[16/10] overflow-hidden relative">
+                            {course.thumbnail_url ? (
+                              <img
+                                src={course.thumbnail_url}
+                                alt={course.title}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center">
+                                <Music className="h-16 w-16 text-white/10" />
+                              </div>
+                            )}
 
-                          <CardHeader className="pb-3">
-                            <div className="aspect-video bg-muted rounded-md relative overflow-hidden">
-                              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-full" />
-                              {access.status !== "granted" && (
-                                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    className="bg-gold text-white hover:bg-gold/90"
-                                    onClick={() => handleContentInteraction(course, 'preview')}
-                                  >
-                                    {access.status === "locked"
-                                      ? "Unlock Preview"
-                                      : "Upgrade to Access"}
-                                  </Button>
-                                </div>
-                              )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#121417] via-[#121417]/20 to-transparent" />
+
+                            {/* Tier Badge */}
+                            <div className="absolute top-6 right-6">
+                              <Badge
+                                className={cn(
+                                  "rounded-full px-4 py-1 font-black text-[10px] tracking-widest uppercase border-0",
+                                  requiredTier === 'free' ? "bg-emerald-500 text-white" :
+                                    requiredTier === 'basic' ? "bg-blue-500 text-white" :
+                                      requiredTier === 'premium' ? "bg-purple-500 text-white" : "bg-gold text-black"
+                                )}
+                              >
+                                {requiredTier}
+                              </Badge>
                             </div>
-                            <CardTitle className="flex items-center justify-between">
-                              <span className="truncate max-w-[70%]">{course.title}</span>
-                              {course.accessLevel !== "free" && (
-                                <span className="text-xs bg-gold/20 text-gold-dark px-2 py-1 rounded-full flex-shrink-0">
-                                  {course.accessLevel === "pro" ? "PRO" : "PREMIUM"}
-                                </span>
-                              )}
-                            </CardTitle>
-                            <CardDescription className="truncate">{course.description}</CardDescription>
-                          </CardHeader>
 
-                          <CardContent>
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center space-x-2">
-                                <CircularText
-                                  value={course.progress}
-                                  size={32}
-                                  strokeWidth={3}
-                                  showPercentage
-                                  textColor={course.progress === 100 ? "#C69B36" : "#3B82F6"}
-                                  trailColor="#F8F6F0"
-                                />
-                                <div className="min-w-0">
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {course.lessons} lessons • {course.duration} min
-                                  </p>
-                                  <p className="text-xs font-medium truncate">
-                                    {course.instructor.name}
-                                  </p>
+                            {!hasAccess && (
+                              <div className="absolute inset-0 backdrop-blur-md bg-black/40 flex items-center justify-center p-6 text-center">
+                                <div className="space-y-4">
+                                  <div className="w-16 h-16 rounded-full bg-gold/20 flex items-center justify-center mx-auto border border-gold/30">
+                                    <Zap className="h-8 w-8 text-gold" />
+                                  </div>
+                                  <h4 className="text-xl font-black">Upgrade to Unlock</h4>
+                                  <Button className="bg-gold text-black font-black rounded-xl">View Plans</Button>
                                 </div>
                               </div>
-                              <span className="text-xs px-2 py-1 bg-muted rounded-full whitespace-nowrap">
-                                {course.level}
+                            )}
+                          </div>
+
+                          <CardHeader className="relative -mt-16 pt-0 px-8">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Badge variant="outline" className="text-[10px] font-bold text-gold border-gold/20 uppercase">
+                                {course.category?.name || "Music Theory"}
+                              </Badge>
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> {course.estimated_time || "4h 20m"}
                               </span>
                             </div>
+                            <CardTitle className="text-2xl font-black tracking-tighter group-hover:text-gold transition-colors">
+                              {course.title}
+                            </CardTitle>
+                            <CardDescription className="text-gray-400 line-clamp-2 text-sm leading-relaxed mt-2">
+                              {course.description}
+                            </CardDescription>
+                          </CardHeader>
+
+                          <CardContent className="px-8 pb-8">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-gold">
+                                  ST
+                                </div>
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-widest text-white">Saem's Tunes</p>
+                                  <p className="text-[10px] text-gray-500 font-bold">MASTER INSTRUCTOR</p>
+                                </div>
+                              </div>
+
+                              <div className="relative">
+                                <CircularText
+                                  value={progress}
+                                  size={44}
+                                  strokeWidth={4}
+                                  showPercentage={false}
+                                  textColor="#C69B36"
+                                  trailColor="rgba(255,255,255,0.05)"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  {progress === 100 ? (
+                                    <CheckCircle className="h-4 w-4 text-gold" />
+                                  ) : (
+                                    <Play className="h-4 w-4 text-white group-hover:text-gold transition-colors" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </CardContent>
-
-                          <CardFooter>
-                            <Button
-                              className={`w-full transition-all ${access.status === "granted"
-                                ? "bg-gold hover:bg-gold-dark text-white hover:shadow-gold/30"
-                                : "hover:bg-muted"
-                                }`}
-                              variant={access.status === "granted" ? "default" : "outline"}
-                              onClick={() =>
-                                access.status === "granted"
-                                  ? handleContentInteraction(course, 'enroll')
-                                  : handleContentInteraction(course, 'preview')
-                              }
-                            >
-                              {access.status === "granted"
-                                ? course.progress > 0 ? "Continue" : "Start Learning"
-                                : access.status === "locked" ? "Preview Course" : "Upgrade Required"}
-                            </Button>
-                          </CardFooter>
                         </Card>
-                      );
-                    })}
-                  </div>
-                </Folder>
-              </div>
-            ))}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
-        </main>
 
-        <aside className="right-panel bg-cream/90 backdrop-blur-sm rounded-xl p-4 hidden lg:block">
-          <section className="mb-8">
-            <h3 className="font-medium mb-4 flex items-center text-gold-dark">
-              <Trophy className="h-5 w-5 mr-2 text-gold" />
-              Your Achievements
-            </h3>
-            <div className="space-y-4">
-              {achievements.map((achievement) => (
-                <div key={achievement.id} className="flex items-center">
-                  <div className="mr-3 relative flex-shrink-0">
-                    <CircularText
-                      value={achievement.unlocked ? 100 : achievement.progress}
-                      size={48}
-                      strokeWidth={4}
-                      className={achievement.unlocked ? "text-gold" : "text-muted"}
-                      textColor={achievement.unlocked ? "#C69B36" : "#9CA3AF"}
-                      trailColor="#F8F6F0"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {React.cloneElement(achievement.icon, {
-                        className: `h-5 w-5 ${achievement.unlocked ? "text-gold" : "text-muted-foreground"
-                          }`
-                      })}
-                    </div>
+          {/* Right Sidebar: Progress & Achievements */}
+          <aside className="space-y-12">
+            {/* Quick Stats Panel */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-[#121417] rounded-[2.5rem] p-8 border border-white/5 space-y-8"
+            >
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-gold" />
+                Live Progress
+              </h3>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-sm font-black text-white">Overall Mastery</span>
+                    <span className="text-2xl font-black text-gold">24%</span>
                   </div>
-                  <div>
-                    <h4 className="font-medium">{achievement.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {achievement.description}
-                    </p>
-                    {!achievement.unlocked && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {achievement.progress}% complete
-                      </p>
-                    )}
+                  <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: "24%" }}
+                      className="h-full bg-gradient-to-r from-gold to-gold-dark"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
 
-          <section>
-            <h3 className="font-medium mb-4 flex items-center text-gold-dark">
-              <Users className="h-5 w-5 mr-2 text-gold" />
-              Community Activity
-            </h3>
-            <div className="space-y-3">
-              <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                <p className="text-sm">
-                  <span className="font-medium text-gold-dark">Alex M.</span> just completed Vocal Warm-Ups
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">2 minutes ago</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">XP Points</p>
+                    <p className="text-xl font-black text-white">1,240</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Rank</p>
+                    <p className="text-xl font-black text-gold">Novice</p>
+                  </div>
+                </div>
               </div>
-              <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                <p className="text-sm">
-                  <span className="font-medium text-gold-dark">Taylor R.</span> earned Perfect Score achievement
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">15 minutes ago</p>
-              </div>
-              <div className="p-3 bg-muted/20 rounded-lg transition-colors hover:bg-muted/40">
-                <p className="text-sm">
-                  <span className="font-medium text-gold-dark">Jordan K.</span> shared a performance
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">1 hour ago</p>
-              </div>
-            </div>
-            <Button variant="default" className="w-full mt-4 bg-gold text-white hover:bg-gold/90">
-              Join Community
-            </Button>
-          </section>
-        </aside>
-      </div>
 
-      <div className="fixed bottom-4 left-4 lg:hidden z-40">
-        <Button
-          variant="default"
-          size="icon"
-          className="shadow-lg shadow-gold/30"
-          onClick={() => setMobileDockOpen(!mobileDockOpen)}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-      </div>
+              <Separator className="bg-white/5" />
 
-      <div className="lg:hidden px-4 pb-6">
-        <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid grid-cols-2">
-            <TabsTrigger value="courses">Courses</TabsTrigger>
-            <TabsTrigger value="achievements">Achievements</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="achievements" className="pt-4">
-            <h3 className="font-medium mb-4 flex items-center text-gold-dark">
-              <Trophy className="h-5 w-5 mr-2 text-gold" />
-              Your Achievements
-            </h3>
-            <div className="space-y-4">
-              {achievements.map((achievement) => (
-                <Card key={achievement.id} className="flex items-center p-3">
-                  <div className="mr-3 relative flex-shrink-0">
-                    <CircularText
-                      value={achievement.unlocked ? 100 : achievement.progress}
-                      size={48}
-                      strokeWidth={4}
-                      className={achievement.unlocked ? "text-gold" : "text-muted"}
-                      textColor={achievement.unlocked ? "#C69B36" : "#9CA3AF"}
-                      trailColor="#F8F6F0"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {React.cloneElement(achievement.icon, {
-                        className: `h-5 w-5 ${achievement.unlocked ? "text-gold" : "text-muted-foreground"
-                          }`
-                      })}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Latest Achievements</h4>
+                <div className="space-y-3">
+                  {userAchievementsData?.slice(0, 3).map((a, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5 group hover:border-gold/30 transition-all">
+                      <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                        <Star className="h-5 w-5 text-gold" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black truncate text-white">{a.achievement?.title}</p>
+                        <p className="text-[10px] text-gray-500 font-bold truncate">UNLOCKED RECENTLY</p>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{achievement.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {achievement.description}
-                    </p>
-                  </div>
-                </Card>
-              ))}
+                  ))}
+                </div>
+                <Button variant="ghost" className="w-full text-gold text-xs font-black uppercase tracking-widest hover:bg-gold/10">View All</Button>
+              </div>
+            </motion.div>
+
+            {/* Support / Community Card */}
+            <div className="rounded-[2.5rem] p-8 bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/20 overflow-hidden relative">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-gold/20 blur-[60px] rounded-full" />
+              <Users className="h-10 w-10 text-gold mb-4" />
+              <h3 className="text-xl font-black tracking-tighter mb-2">Music Community</h3>
+              <p className="text-sm text-gray-400 font-medium mb-6 leading-relaxed">
+                Interact with other students, share your recordings, and get professional critiques.
+              </p>
+              <Button className="w-full bg-gold text-black font-black rounded-2xl">Join Discussion</Button>
             </div>
-          </TabsContent>
-        </Tabs>
+          </aside>
+        </div>
       </div>
     </MainLayout>
   );

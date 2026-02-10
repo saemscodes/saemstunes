@@ -1422,13 +1422,15 @@ const InteractiveGuitar: React.FC = () => {
                           `${(1 - fretPositions[fretIndex]) * 100}%`;
 
                       return (
-                        <button
+                        <motion.button
                           key={fretIndex}
+                          whileHover={{ backgroundColor: 'rgba(217, 119, 6, 0.3)', scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
                           className={`absolute h-full border-r border-amber-600/20 flex items-center justify-center transition-all duration-200 z-20 rounded-sm ${isActive
                             ? 'bg-yellow-400/50 shadow-lg scale-105 border-yellow-500/50'
                             : isHighlighted
                               ? 'bg-blue-400/30 shadow-md border-blue-400/30'
-                              : 'hover:bg-amber-600/20 hover:shadow-md'
+                              : 'bg-transparent shadow-sm'
                             }`}
                           style={{
                             left: leftPosition,
@@ -1456,7 +1458,7 @@ const InteractiveGuitar: React.FC = () => {
                               transition={{ duration: 0.2 }}
                             />
                           )}
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>

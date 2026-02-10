@@ -27,6 +27,7 @@ import {
   Loader2,
   Sparkles,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -62,7 +63,7 @@ const MUSIC_TOOLS = [
     description: 'Learn scales, chords, and melodies',
     component: InteractivePiano,
     category: 'instruments',
-    minWidth: 500,
+    minWidth: 320, // minWidth for mobile portrait
     accessFeature: 'tool:piano' as AccessFeature,
     recommendedOrientation: 'any'
   },
@@ -73,7 +74,7 @@ const MUSIC_TOOLS = [
     description: 'Practice chords and strumming patterns',
     component: InteractiveGuitar,
     category: 'instruments',
-    minWidth: 600,
+    minWidth: 400, // minWidth for mobile landscape
     accessFeature: 'tool:guitar' as AccessFeature,
     recommendedOrientation: 'landscape'
   },
@@ -95,7 +96,7 @@ const MUSIC_TOOLS = [
     description: 'Tune your instruments accurately',
     component: PitchFinder,
     category: 'utilities',
-    minWidth: 350,
+    minWidth: 280,
     accessFeature: 'tool:tuner' as AccessFeature,
     recommendedOrientation: 'portrait'
   },
@@ -451,13 +452,21 @@ const MusicTools = () => {
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 mb-2"
                   >
-                    <div className="flex items-center gap-3 text-amber-400">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                        <Volume2 className="h-5 w-5" />
+                    <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+                      <div className="max-w-xs w-full p-8 rounded-[2.5rem] bg-[#121417] border border-white/10 text-center shadow-2xl">
+                        <Zap className="h-12 w-12 text-gold mx-auto mb-6 animate-pulse" />
+                        <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tighter">Expand View</h3>
+                        <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                          This professional tool requires a slightly larger display for the best experience. Try rotating your device or using a tablet.
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="mt-8 border-gold/20 text-gold hover:bg-gold/10 rounded-xl font-bold text-[10px] uppercase tracking-widest"
+                          onClick={() => window.location.reload()}
+                        >
+                          Refresh View
+                        </Button>
                       </div>
-                      <p className="text-sm font-medium">
-                        Optimized for large screens. Current width ({windowSize.width}px) is below recommended ({currentTool?.minWidth}px).
-                      </p>
                     </div>
                   </motion.div>
                 )}
@@ -467,7 +476,7 @@ const MusicTools = () => {
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
-                  className="w-full min-h-[500px] rounded-[2.5rem] bg-[#121417] border border-white/5 shadow-2xl relative group overflow-hidden"
+                  className="w-full min-h-[300px] md:min-h-[500px] rounded-[2rem] md:rounded-[2.5rem] bg-[#121417] border border-white/5 shadow-2xl relative group overflow-hidden"
                 >
                   <div className="absolute inset-0 overflow-auto scrollbar-hide py-10 px-4 md:p-0">
                     <div className="min-w-fit md:min-w-0 md:h-full md:w-full flex items-center justify-center">

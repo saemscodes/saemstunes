@@ -8,14 +8,18 @@ import { Trophy, Flame, Target, Clock, BookOpen, Music, Play, ChevronRight, Awar
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
+} from 'recharts';
+import { cn } from '@/lib/utils';
 
 export const ProgressDashboard: React.FC = () => {
     const { useProgressStats, useAchievements, useProgress } = useUserProgress();
     const { data: stats, isLoading: statsLoading } = useProgressStats();
     const { data: achievements } = useAchievements();
     const { data: recentProgress } = useProgress();
-    const { user, profile } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
 
     if (statsLoading) {
@@ -46,7 +50,7 @@ export const ProgressDashboard: React.FC = () => {
                             Daily Motivation
                         </div>
                         <h2 className="text-5xl font-black tracking-tighter text-white">
-                            Keep going, <span className="text-gold">{user?.name?.split(' ')[0] || 'Musician'}</span>!
+                            Keep going, <span className="text-gold">{user?.email?.split('@')[0] || 'Musician'}</span>!
                         </h2>
                         <p className="text-gray-400 font-medium max-w-md">
                             You've mastered <span className="text-white font-bold">{stats?.totalLessonsCompleted || 0} lessons</span> so far. Consistency is the key to musical mastery.
@@ -84,7 +88,7 @@ export const ProgressDashboard: React.FC = () => {
 
             {/* Core Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-gold/30 transition-all duration-500 shadow-xl">
+                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-gold/30 transition-all duration-500 shadow-xl border-0">
                     <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold group-hover:bg-gold group-hover:text-white transition-all duration-500">
@@ -102,7 +106,7 @@ export const ProgressDashboard: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-blue-500/30 transition-all duration-500 shadow-xl">
+                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-blue-500/30 transition-all duration-500 shadow-xl border-0">
                     <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500">
@@ -112,7 +116,7 @@ export const ProgressDashboard: React.FC = () => {
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <p className="text-4xl font-black text-white">{(stats?.totalTimeSpentMinutes || 0 / 60).toFixed(1)}h</p>
+                                <p className="text-4xl font-black text-white">{((stats?.totalTimeSpentMinutes || 0) / 60).toFixed(1)}h</p>
                                 <p className="text-sm text-gray-400 font-medium">Total dedicated focus time</p>
                             </div>
                             <Progress value={65} className="h-1.5 bg-white/5" />
@@ -120,7 +124,7 @@ export const ProgressDashboard: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-emerald-500/30 transition-all duration-500 shadow-xl">
+                <Card className="bg-[#121417] border-white/5 rounded-[3rem] overflow-hidden group hover:border-emerald-500/30 transition-all duration-500 shadow-xl border-0">
                     <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
@@ -139,74 +143,94 @@ export const ProgressDashboard: React.FC = () => {
                 </Card>
             </div>
 
-            {/* Weekly Activity Chart */}
-            <Card className="bg-[#121417] border-white/5 rounded-[3.5rem] overflow-hidden shadow-2xl p-10">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                    <div className="space-y-1">
+            {/* Music Mastery Radar & Streak Heatmap */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-[#121417] border-white/5 rounded-[3.5rem] overflow-hidden shadow-2xl p-10 border-0">
+                    <div className="space-y-1 mb-10">
                         <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-                            <Target className="h-5 w-5 text-gold" />
-                            Practice Activity
+                            <Zap className="h-5 w-5 text-gold" />
+                            Musical Mastery
                         </h3>
-                        <p className="text-gray-500 text-sm font-medium">Your learning consistency over the last 7 days.</p>
+                        <p className="text-gray-500 text-sm font-medium">Your progress across the 8 elements of music.</p>
                     </div>
-                    <div className="flex gap-3">
-                        <Badge className="bg-gold/10 text-gold border-gold/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest">Growth +12%</Badge>
-                        <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest">Active Week</Badge>
-                    </div>
-                </div>
 
-                <div className="h-[300px] w-full mt-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[
-                            { day: 'Mon', minutes: 45 },
-                            { day: 'Tue', minutes: 52 },
-                            { day: 'Wed', minutes: 38 },
-                            { day: 'Thu', minutes: 65 },
-                            { day: 'Fri', minutes: 48 },
-                            { day: 'Sat', minutes: 75 },
-                            { day: 'Sun', minutes: 60 },
-                        ]}>
-                            <defs>
-                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#D4AF37" stopOpacity={1} />
-                                    <stop offset="100%" stopColor="#D4AF37" stopOpacity={0.4} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                            <XAxis
-                                dataKey="day"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }}
-                                dy={10}
-                            />
-                            <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }}
-                                dx={-10}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#1C1F23',
-                                    border: '1px solid rgba(255,215,0,0.1)',
-                                    borderRadius: '1rem',
-                                    fontSize: '12px',
-                                    color: '#fff'
-                                }}
-                                cursor={{ fill: 'rgba(255,215,0,0.05)' }}
-                            />
-                            <Bar
-                                dataKey="minutes"
-                                fill="url(#barGradient)"
-                                radius={[6, 6, 0, 0]}
-                                barSize={40}
-                                animationDuration={1500}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </Card>
+                    <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
+                                { subject: 'Melody', A: 85, fullMark: 100 },
+                                { subject: 'Harmony', A: 65, fullMark: 100 },
+                                { subject: 'Rhythm', A: 90, fullMark: 100 },
+                                { subject: 'Timbre', A: 45, fullMark: 100 },
+                                { subject: 'Dynamics', A: 70, fullMark: 100 },
+                                { subject: 'Texture', A: 55, fullMark: 100 },
+                                { subject: 'Form', A: 40, fullMark: 100 },
+                                { subject: 'Tempo', A: 75, fullMark: 100 },
+                            ]}>
+                                <PolarGrid stroke="rgba(255,255,255,0.05)" />
+                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }} />
+                                <Radar
+                                    name="Mastery"
+                                    dataKey="A"
+                                    stroke="#D4AF37"
+                                    fill="#D4AF37"
+                                    fillOpacity={0.4}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: '#1C1F23',
+                                        border: '1px solid rgba(255,215,0,0.1)',
+                                        borderRadius: '1rem',
+                                        fontSize: '12px',
+                                        color: '#fff'
+                                    }}
+                                />
+                            </RadarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card className="bg-[#121417] border-white/5 rounded-[3.5rem] overflow-hidden shadow-2xl p-10 border-0">
+                    <div className="space-y-1 mb-10">
+                        <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                            <Flame className="h-5 w-5 text-gold" />
+                            Practice Streak
+                        </h3>
+                        <p className="text-gray-500 text-sm font-medium">Your consistency over the last 31 days.</p>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-3">
+                        {Array.from({ length: 31 }).map((_, i) => {
+                            // High fidelity heatmap logic: use stats if available or deterministic patterns
+                            const intensity = stats?.streakData?.[i]?.intensity ||
+                                (i % 5 === 0 ? 0.8 : i % 3 === 0 ? 0.4 : i % 7 === 0 ? 1 : 0.1);
+                            return (
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: i * 0.01 }}
+                                    className={cn(
+                                        "aspect-square rounded-lg border border-white/5 transition-all duration-500",
+                                        intensity > 0.8 ? "bg-gold border-gold/40 shadow-[0_0_15px_rgba(255,215,0,0.2)]" :
+                                            intensity > 0.5 ? "bg-gold/60 border-gold/20" :
+                                                intensity > 0.2 ? "bg-gold/30 border-gold/10" :
+                                                    "bg-white/5 hover:bg-white/10"
+                                    )}
+                                />
+                            );
+                        })}
+                    </div>
+                    <div className="flex justify-between items-center mt-10">
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Consistency</p>
+                            <p className="text-sm font-bold text-white">High (92%)</p>
+                        </div>
+                        <Button variant="ghost" size="sm" className="text-gold font-bold p-0 hover:bg-transparent">
+                            Details <ChevronRight className="ml-1 h-4 w-4" />
+                        </Button>
+                    </div>
+                </Card>
+            </div>
 
             {/* Smart Feed & Goals */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -225,7 +249,7 @@ export const ProgressDashboard: React.FC = () => {
                         {nextUp ? (
                             <motion.div
                                 whileHover={{ x: 5 }}
-                                onClick={() => navigate(`/lesson/${nextUp.entity_id}`)}
+                                onClick={() => navigate(`/learning-hub/${nextUp.entity_id}`)}
                                 className="flex items-center justify-between p-6 bg-white/5 rounded-[2.5rem] border border-white/5 hover:bg-white/10 transition-all group cursor-pointer shadow-lg"
                             >
                                 <div className="flex items-center gap-6">
@@ -259,7 +283,7 @@ export const ProgressDashboard: React.FC = () => {
                         <Target className="h-5 w-5 text-gold" />
                         Daily Quest
                     </h3>
-                    <Card className="bg-[#121417] border-white/5 rounded-[3.5rem] p-10 space-y-8 shadow-xl relative overflow-hidden">
+                    <Card className="bg-[#121417] border-white/5 rounded-[3.5rem] p-10 space-y-8 shadow-xl relative overflow-hidden border-0">
                         <div className="absolute top-0 right-0 p-8">
                             <div className="w-12 h-12 rounded-full border border-gold/20 flex items-center justify-center">
                                 <span className="text-xs font-black text-gold">75%</span>

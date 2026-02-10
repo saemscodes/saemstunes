@@ -11,8 +11,10 @@ interface SmartBacklinkProps {
 export const SmartBacklink: React.FC<SmartBacklinkProps> = ({ entityType, entityId, entityName }) => {
     const getUrl = () => {
         switch (entityType) {
-            case 'course': return `/course/${entityId}`;
-            case 'module': return `/learning-hub`; // Would need more context for full link
+            case 'course': return `/learning-hub/${entityId}`;
+            case 'module': return `/learning-module/${entityId}`;
+            case 'class': return `/learning-module/${entityId}`; // Simplified for now
+            case 'lesson': return `/learning-module/${entityId}`; // Simplified for now
             default: return `/learning-hub`;
         }
     };

@@ -9,20 +9,20 @@ interface SEOHeadProps {
   image?: string;
   url?: string;
   type?: 'website' | 'article' | 'video' | 'music' | 'course' | 'tool' | 'community';
-  
+
   // Advanced SEO Controls
   noIndex?: boolean;
   noFollow?: boolean;
   canonical?: string;
   locale?: string;
   alternateLocales?: { lang: string; url: string }[];
-  
+
   // Content-Specific Properties
   pageType?: 'homepage' | 'tool' | 'lesson' | 'community' | 'artist' | 'course' | 'resource' | 'video' | 'booking' | 'profile';
   courseLevel?: 'beginner' | 'intermediate' | 'advanced' | 'all-levels';
   instrument?: 'piano' | 'guitar' | 'vocals' | 'theory' | 'worship' | 'all';
   targetAudience?: 'children' | 'teens' | 'adults' | 'worship-leaders' | 'music-teachers' | 'all';
-  
+
   // Structured Data Options
   structuredData?: object;
   courseData?: {
@@ -45,22 +45,22 @@ interface SEOHeadProps {
     author: string;
     wordCount?: number;
   };
-  
+
   // Social & Engagement
   twitterCardType?: 'summary' | 'summary_large_image' | 'app' | 'player';
   facebookAppId?: string;
-  
+
   // Performance & Technical
   preloadResources?: string[];
   criticalCSS?: string;
-  
+
   // Location & Business
   businessLocation?: {
     country: string;
     region: string;
     city?: string;
   };
-  
+
   // Video/Audio Specific
   videoData?: {
     duration: string;
@@ -68,7 +68,7 @@ interface SEOHeadProps {
     contentUrl: string;
     embedUrl?: string;
   };
-  
+
   // Advanced Features
   breadcrumbData?: { name: string; url: string }[];
   faqData?: { question: string; answer: string }[];
@@ -87,54 +87,54 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   image = "https://i.imgur.com/ltEen5M.png",
   url = "https://www.saemstunes.com",
   type = "website",
-  
+
   // Advanced Options
   noIndex = false,
   noFollow = false,
   canonical,
   locale = "en_US",
   alternateLocales = [],
-  
+
   // Content Classification
   pageType = "homepage",
   courseLevel = "all-levels",
   instrument = "all",
   targetAudience = "all",
-  
+
   // Structured Data
   structuredData,
   courseData,
   toolData,
   articleData,
-  
+
   // Social Optimization
   twitterCardType = "summary_large_image",
   facebookAppId,
-  
+
   // Technical Optimization
   preloadResources = [],
   criticalCSS,
-  
+
   // Business Context
   businessLocation = {
     country: "Kenya",
     region: "Nairobi",
     city: "Nairobi"
   },
-  
+
   // Media Specific
   videoData,
-  
+
   // Enhanced Features
   breadcrumbData,
   faqData,
   ratingData
 }) => {
-  
+
   // Dynamic Title Generation Based on Page Type
   const generateOptimizedTitle = (): string => {
     if (title.includes("Saem's Tunes")) return title;
-    
+
     const pageTitleMap = {
       homepage: "Saem's Tunes - Christian Music Education Platform | Online Lessons, Tools & Community",
       tool: `${title} | Free Online Music Tools | Saem's Tunes`,
@@ -147,14 +147,14 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       booking: `${title} | Book Music Tutors | Saem's Tunes`,
       profile: `${title} | User Profile | Saem's Tunes`
     };
-    
+
     return pageTitleMap[pageType] || `${title} | Saem's Tunes`;
   };
 
   // Dynamic Description Enhancement
   const generateOptimizedDescription = (): string => {
     if (description.length > 150) return description;
-    
+
     const descriptionEnhancers = {
       tool: " Perfect for worship practice, music education, and skill development.",
       lesson: " Learn with Christian values, expert instruction, and community support.",
@@ -162,7 +162,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       course: " Comprehensive curriculum designed for all skill levels with biblical foundation.",
       video: " High-quality video instruction for Christian musicians and worship leaders."
     };
-    
+
     const enhancer = descriptionEnhancers[pageType as keyof typeof descriptionEnhancers];
     return enhancer ? description + enhancer : description;
   };
@@ -170,7 +170,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   // Advanced Keyword Generation
   const generateContextualKeywords = (): string => {
     const baseKeywords = keywords;
-    
+
     const contextualKeywords = {
       tool: ", free music tools, online metronome, digital piano, guitar simulator, pitch finder, music practice tools",
       lesson: ", online music classes, christian music curriculum, worship training, piano tutorials, guitar lessons",
@@ -178,9 +178,9 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       course: ", music education course, christian music certification, worship leader course, music theory classes",
       video: ", music video tutorials, worship song lessons, performance tips, music education videos"
     };
-    
+
     const additionalKeywords = contextualKeywords[pageType as keyof typeof contextualKeywords] || "";
-    
+
     // Add instrument-specific keywords
     const instrumentKeywords = {
       piano: ", piano worship songs, christian piano tutorials, church pianist training",
@@ -188,9 +188,9 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       vocals: ", worship vocals, christian singing lessons, choir training, vocal worship techniques",
       theory: ", music theory for worship, biblical music education, christian music composition"
     };
-    
+
     const instrumentKeyword = instrumentKeywords[instrument as keyof typeof instrumentKeywords] || "";
-    
+
     // Add audience-specific keywords
     const audienceKeywords = {
       children: ", kids music lessons, children's church music, youth worship training",
@@ -199,9 +199,9 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       "worship-leaders": ", worship leader training, church music director, praise team leader",
       "music-teachers": ", christian music pedagogy, faith-based music instruction, church music education"
     };
-    
+
     const audienceKeyword = audienceKeywords[targetAudience as keyof typeof audienceKeywords] || "";
-    
+
     return baseKeywords + additionalKeywords + instrumentKeyword + audienceKeyword;
   };
 
@@ -283,7 +283,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
           ],
           "knowsAbout": [
             "Christian Music Education",
-            "Worship Leadership Training", 
+            "Worship Leadership Training",
             "Online Music Lessons",
             "Interactive Music Tools",
             "Music Ministry",
@@ -541,10 +541,26 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
       <meta httpEquiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
 
-      {/* Preload Critical Resources */}
-      {preloadResources.map(resource => (
-        <link key={resource} rel="preload" href={resource} as="script" />
-      ))}
+      {/* Preload Critical Resources with intelligent 'as' detection */}
+      {preloadResources.map(resource => {
+        const ext = resource.split('.').pop()?.toLowerCase();
+        let asType: 'script' | 'style' | 'image' | 'font' | 'fetch' = 'script';
+
+        if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'avif'].includes(ext || '')) asType = 'image';
+        else if (ext === 'css') asType = 'style';
+        else if (['woff', 'woff2', 'ttf', 'otf'].includes(ext || '')) asType = 'font';
+        else if (['json'].includes(ext || '')) asType = 'fetch';
+
+        return (
+          <link
+            key={resource}
+            rel="preload"
+            href={resource}
+            as={asType}
+            crossOrigin={asType === 'font' ? 'anonymous' : undefined}
+          />
+        );
+      })}
 
       {/* DNS Prefetch for Performance */}
       <link rel="dns-prefetch" href="//fonts.googleapis.com" />
@@ -589,7 +605,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
 
       {/* Security & Verification */}
       <meta name="verify-v1" content="Saem's Tunes Christian Music Education Platform" />
-      
+
       {/* Copyright */}
       <meta name="copyright" content={`© ${new Date().getFullYear()} Saem's Tunes. All rights reserved.`} />
     </Helmet>
